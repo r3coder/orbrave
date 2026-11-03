@@ -35,11 +35,10 @@ export default defineConfig({
   build: {
     rollupOptions: {
       input: {
-        main: resolve(import.meta.dirname, 'index.html'),
+        main: resolve(import.meta.dirname, 'index.html'), // orb editor
+        play: resolve(import.meta.dirname, 'play.html'), // infinite player
         nightShift: resolve(import.meta.dirname, 'night-shift.html'),
-        orbs: resolve(import.meta.dirname, 'orbs.html'),
         render: resolve(import.meta.dirname, 'render.html'),
-        orbs: resolve(import.meta.dirname, 'orbs.html'),
       },
     },
   },

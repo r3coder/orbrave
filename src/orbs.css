@@ -63,6 +63,7 @@ button.on { background: var(--acc); color: var(--bg); }
 .powered a:hover { color: var(--acc); }
 /* desktop: sit just right of the 92px preset sidebar instead of over it */
 @media (min-width: 761px) { .powered { left: 100px; } }
+.logo .nav-btn { margin-left: 12px; font-weight: 400; letter-spacing: 0.05em; }
 .nav-btn {
   font-size: 12px; color: var(--fg); text-decoration: none; white-space: nowrap;
   padding: 6px 12px; border: 1px solid var(--line); background: rgba(15, 26, 20, 0.7);
@@ -71,8 +72,10 @@ button.on { background: var(--acc); color: var(--bg); }
 .nav-btn:hover { border-color: var(--acc); color: var(--acc); }
 .tools { display: flex; gap: 6px; flex-wrap: wrap; }
 .tools button { font-size: 12px; }
-.vol { display: flex; align-items: center; gap: 6px; padding: 0 8px; font-size: 12px; border: 1px solid var(--line); background: rgba(15, 26, 20, 0.7); }
-.vol input { width: 110px; accent-color: var(--acc); cursor: pointer; }
+.langs { display: flex; border: 1px solid var(--line); background: rgba(15, 26, 20, 0.7); }
+.langs button { border: 0; background: transparent; color: var(--dim); padding: 5px 9px; font-size: 12px; }
+.langs button:hover { color: var(--fg); }
+.langs button.on { color: var(--bg); background: var(--acc); }
 
 /* ---------- layout: presets | player | orb field (+ roll) | stash ---------- */
 .stage {
@@ -156,6 +159,19 @@ button.on { background: var(--acc); color: var(--bg); }
   box-shadow: 0 0 40px rgba(57, 255, 156, 0.35), inset 0 0 40px rgba(57, 255, 156, 0.2);
 }
 .core.gulp .ring { animation: gulp 0.5s ease-out; }
+/* volume dial around the play button, same as the player page: drag along it or scroll over the player */
+.volring {
+  position: absolute; inset: -34px; width: calc(100% + 68px); height: calc(100% + 68px);
+  z-index: 1; overflow: visible; outline: none; pointer-events: none; touch-action: none;
+}
+.volring .hit { fill: none; stroke: transparent; stroke-width: 26; stroke-linecap: round; pointer-events: stroke; cursor: grab; }
+.volring.drag .hit { cursor: grabbing; }
+.volring .track { fill: none; stroke: rgba(255, 255, 255, 0.08); stroke-width: 6; stroke-linecap: round; }
+.volring .arc { fill: none; stroke-width: 6; stroke-linecap: round; }
+.volring .knob { fill: #fff; }
+.volring #volTicks line { stroke: rgba(230, 255, 242, 0.18); stroke-width: 1.5; }
+.volring #volTicks line.lit { stroke: rgba(57, 255, 156, 0.75); }
+.volring:focus-visible .track { stroke: rgba(57, 255, 156, 0.3); }
 @keyframes gulp {
   0% { transform: scale(1.15); box-shadow: 0 0 60px var(--gulp, var(--acc)); }
   100% { transform: scale(1); box-shadow: none; }
@@ -383,6 +399,7 @@ body.roll-full .roll { flex-basis: 66vh; }
 .ptile .share:hover { color: var(--acc); }
 .ptile .del:hover { color: #ff6b8b; }
 .ptile.gone { opacity: 0.3; }
+body.server-down .ptile .share.cloud { display: none; } /* no ☁ on tiles while the server is down */
 .ptile.stem .mini { outline: 1px dashed var(--acc2); outline-offset: 3px; }
 /* the sidebar's two halves: my presets on top, presets shared on the server below */
 .pb-half { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
@@ -447,6 +464,7 @@ body.roll-full .roll { flex-basis: 66vh; }
   .left { border-right: 0; border-bottom: 1px dashed var(--line); padding-top: 96px; gap: 10px; }
   .core { --size: 110px; }
   .ring { inset: -22px; }
+  .volring { inset: -22px; width: calc(100% + 44px); height: calc(100% + 44px); }
   .tools button { padding: 4px 8px; }
   .orb { --s: 46px; }
   .orb.big { --s: 60px; }

@@ -574,7 +574,7 @@ function applyLang() {
 for (const [code, name] of Object.entries(LANGS)) {
   const b = document.createElement('button');
   b.dataset.lang = code;
-  b.textContent = code.toUpperCase();
+  b.textContent = { ko: "KR", en: "EN", ja: "JP" }[code] ?? code.toUpperCase();
   b.title = name;
   b.onclick = () => {
     setLang(code);

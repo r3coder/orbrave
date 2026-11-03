@@ -2,6 +2,7 @@
 // a dock with two toggles and moves the song timeline into its own bottom panel. Every
 // element orbs.js holds keeps its identity, so its listeners and rect checks still work.
 import './orbsMobile.css';
+import { ot } from './orbsI18n.js';
 
 const $ = (id) => document.getElementById(id);
 const stage = $('stage');
@@ -17,7 +18,7 @@ new ResizeObserver(() => {
 const songPanel = document.createElement('section');
 songPanel.className = 'm-song';
 songPanel.id = 'mSong';
-songPanel.innerHTML = '<div class="m-song-empty">🎼 전체 곡 만들기를 누르면 여기 곡 구성이 떠요</div>';
+songPanel.innerHTML = `<div class="m-song-empty" data-i18n="mSongEmpty">${ot('mSongEmpty')}</div>`;
 stage.insertBefore(songPanel, stash);
 
 // everything song-related goes in the panel: the timeline now, a stem builder later
@@ -42,8 +43,8 @@ function placeSongParts() {
 const dock = document.createElement('nav');
 dock.className = 'm-dock';
 dock.innerHTML = `
-  <button type="button" data-open="roll-open">🎹 미디 <i>▴</i></button>
-  <button type="button" data-open="song-open">🎼 곡 <i>▴</i></button>`;
+  <button type="button" data-open="roll-open"><span data-i18n="mMidi">${ot('mMidi')}</span> <i>▴</i></button>
+  <button type="button" data-open="song-open"><span data-i18n="mSong">${ot('mSong')}</span> <i>▴</i></button>`;
 stage.insertBefore(dock, stash);
 dock.addEventListener('click', (e) => {
   const b = e.target.closest('button[data-open]');

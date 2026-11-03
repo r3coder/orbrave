@@ -23,11 +23,17 @@ async function request(path, init = {}) {
 }
 
 // Every shared preset the server offers (newest first), already checked against this catalogue.
-// Resolves to [] when the server is missing or unreachable, so callers can fall back quietly.
-export async function listPresets({ limit = 200 } = {}) {
+// Throws when the server is missing or unreachable (the orb page shows that the server is down).
+export async function fetchPresets({ limit = 200 } = {}) {
+  const body = await request(`/presets?limit=${limit}`);
+  if (!Array.isArray(body?.presets)) throw new Error('not a preset server');
+  return body.presets.map(fromWire).filter(Boolean);
+}
+
+// The same, but resolves to [] when the server is missing or unreachable, so callers can fall back quietly.
+export async function listPresets(opts) {
   try {
-    const body = await request(`/presets?limit=${limit}`);
-    return (Array.isArray(body?.presets) ? body.presets : []).map(fromWire).filter(Boolean);
+    return await fetchPresets(opts);
   } catch (e) {
     console.info('preset server unavailable:', e.message);
     return [];

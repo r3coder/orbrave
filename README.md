@@ -4,7 +4,8 @@
 
 A website where an algorithm composes [Strudel](https://strudel.cc) (TidalCycles for JS) code in real time, so the music never ends.
 
-- `index.html`: infinite generative player
+- `index.html`: orb editor (main page)
+- `play.html`: infinite generative player
 - `night-shift.html`: the hand-written track "Night Shift" (live-coding editor)
 
 ## How it works

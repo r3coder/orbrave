@@ -1,6 +1,9 @@
 // The orb catalogue: the shared music frame (key, chords, generators) and every orb.
 // About 30 orbs are hand-made; the rest are built from a fixed seed so their ids, names
 // and sounds stay the same between visits (saved presets refer to them by id).
+import { getLang } from './i18n.js';
+import { orbNameIn, orbKindIn } from './orbNames.js';
+
 // ---------- music frame ----------
 // Every orb plugs into one frame: 124 BPM, A minor, Am9 – Fmaj7 – Cmaj7 – G6 (one chord per cycle).
 export const BASE_BPM = 124;
@@ -933,6 +936,20 @@ for (const l of LAYERS) {
   l.drum = DRUM_CATS.includes(l.cat);
   l.pitched = PITCHED_CATS.includes(l.cat);
 }
+// Names are made in Korean and stay the orb's real name (nameKo, kindKo); `name` and `kind`
+// read back in the language the page is set to (src/orbNames.js has the translations).
+export function localizeNames(l) {
+  if (Object.hasOwn(l, 'nameKo')) return l;
+  const nameKo = l.name, kindKo = l.kind;
+  Object.defineProperties(l, {
+    nameKo: { value: nameKo },
+    kindKo: { value: kindKo },
+    name: { get: () => orbNameIn(nameKo, getLang()), enumerable: true, configurable: true },
+    kind: { get: () => orbKindIn(kindKo, getLang()), enumerable: true, configurable: true },
+  });
+  return l;
+}
+LAYERS.forEach(localizeNames);
 export const role = (l) => l.role ?? l.cat;
 export const ROLE_TEXT = {
   kick: '킥 드럼', snare: '스네어/클랩', hat: '하이햇', perc: '퍼커션', bass: '베이스', pad: '코드 반주',

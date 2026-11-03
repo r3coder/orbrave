@@ -8,7 +8,8 @@ import {
   LAYERS, BASE_BPM, KEYS, BAR_CHORDS, snap, rng, hash, byId, role, ROLE_TEXT, setMode, keyLabel,
 } from './orbCatalog.js';
 import { BARS, STEPS, ROWS, packRaw, unpackRaw, sheetCode, quantize, songToWire, songFromWire, toWire } from './orbPreset.js';
-import { uploadPreset, listPresets } from './presetApi.js';
+import { uploadPreset, fetchPresets } from './presetApi.js';
+import { ot, secName, allLangs, mountLangButtons } from './orbsI18n.js';
 import { LIMITS, validatePreset } from '../server/presetSchema.mjs';
 
 // Gate a pattern to one window of a looping song: the song starts at cycle `s0`, is `len`
@@ -72,15 +73,79 @@ function setupMaster() {
   master.connect(limiter).connect(volume).connect(ac.destination);
   limiter.connect(analyser);
 }
-const volInput = document.getElementById('volume');
-volInput.value = Math.round(volValue * 100);
-volInput.addEventListener('input', () => {
-  volValue = volInput.value / 100;
+// Volume dial around the play button, the same control as the player page: a 270° arc from
+// bottom-left to bottom-right. Drag along it, scroll over the player, or use the arrow keys.
+const volRing = document.getElementById('volRing');
+const VC = 120, VR = 104, VA0 = 135, VSWEEP = 270, VTICKS = 28;
+const vpt = (deg, r = VR) => [VC + r * Math.cos((deg * Math.PI) / 180), VC + r * Math.sin((deg * Math.PI) / 180)];
+const varc = (a0, a1) => {
+  const [x0, y0] = vpt(a0), [x1, y1] = vpt(a1);
+  return `M${x0} ${y0} A${VR} ${VR} 0 ${a1 - a0 > 180 ? 1 : 0} 1 ${x1} ${y1}`;
+};
+document.getElementById('volTrack').setAttribute('d', varc(VA0, VA0 + VSWEEP));
+document.getElementById('volHit').setAttribute('d', varc(VA0, VA0 + VSWEEP));
+const volTicks = Array.from({ length: VTICKS }, (_, i) => {
+  const a = VA0 + (i / (VTICKS - 1)) * VSWEEP;
+  const [x1, y1] = vpt(a, 112), [x2, y2] = vpt(a, 118);
+  const l = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+  Object.entries({ x1, y1, x2, y2 }).forEach(([k, v]) => l.setAttribute(k, v));
+  document.getElementById('volTicks').append(l);
+  return l;
+});
+function setVolume(v) {
+  volValue = Math.max(0, Math.min(1, v));
+  const end = VA0 + volValue * VSWEEP;
+  document.getElementById('volArc').setAttribute('d', varc(VA0, Math.max(end, VA0 + 0.01)));
+  const [kx, ky] = vpt(end);
+  const knob = document.getElementById('volKnob');
+  knob.setAttribute('cx', kx);
+  knob.setAttribute('cy', ky);
+  volTicks.forEach((l, i) => l.classList.toggle('lit', i / (VTICKS - 1) <= volValue));
+  volRing.setAttribute('aria-valuenow', Math.round(volValue * 100));
   volume?.gain.setTargetAtTime(volGain(), getAudioContext().currentTime, 0.03);
   try {
     localStorage.setItem('orbVolume', volValue);
   } catch {}
+}
+function volFromPointer(e) {
+  const r = volRing.getBoundingClientRect();
+  const x = ((e.clientX - r.left) / r.width) * 240 - VC;
+  const y = ((e.clientY - r.top) / r.height) * 240 - VC;
+  let rel = ((Math.atan2(y, x) * 180) / Math.PI - VA0 + 720) % 360;
+  if (rel > VSWEEP) rel = rel > VSWEEP + 45 ? 0 : VSWEEP;
+  return rel / VSWEEP;
+}
+let volDrag = false;
+volRing.addEventListener('pointerdown', (e) => {
+  e.stopPropagation();
+  volDrag = true;
+  volRing.classList.add('drag');
+  volRing.setPointerCapture(e.pointerId);
+  setVolume(volFromPointer(e));
 });
+volRing.addEventListener('pointermove', (e) => {
+  if (!volDrag) return;
+  const v = volFromPointer(e);
+  if (Math.abs(v - volValue) < 0.5) setVolume(v); // no jump across the gap at the bottom
+});
+const volUp = () => {
+  volDrag = false;
+  volRing.classList.remove('drag');
+};
+volRing.addEventListener('pointerup', volUp);
+volRing.addEventListener('pointercancel', volUp);
+document.getElementById('core').addEventListener('wheel', (e) => {
+  e.preventDefault();
+  setVolume(volValue - Math.sign(e.deltaY) * 0.04);
+}, { passive: false });
+volRing.addEventListener('keydown', (e) => {
+  const d = { ArrowUp: 0.05, ArrowRight: 0.05, ArrowDown: -0.05, ArrowLeft: -0.05 }[e.key];
+  if (d) {
+    e.preventDefault();
+    setVolume(volValue + d);
+  }
+});
+setVolume(volValue);
 
 async function ensureStarted() {
   if (started) return;
@@ -320,12 +385,12 @@ function returnOrb(id, home) {
 // ---------- status, list, solo ----------
 
 function renderStatus() {
-  const key = song ? '' : ` · ${keyText()} (${keyMode() === 'major' ? '장조' : '단조'})`;
+  const key = song ? '' : ` · ${keyText()} (${ot(keyMode())})`;
   ui.status.innerHTML = active.size
-    ? `${bpm()} BPM${key}${layers().some(seeded) ? ` · 변주 <b>#${variation}</b>` : ''}`
+    ? `${bpm()} BPM${key}${layers().some(seeded) ? ` · ${ot('variation')} <b>#${variation}</b>` : ''}`
     : playing
-      ? '…조용하네요. 오브를 잡아서 <b>재생 버튼</b>으로 던져 보세요'
-      : '재생을 누르고, 오브를 끌어오거나 던져서 넣어 보세요';
+      ? ot('quiet')
+      : ot('idle');
   renderChips();
   renderRoles();
   renderSeeds();
@@ -333,15 +398,14 @@ function renderStatus() {
 
 // Above the player: one placeholder per kind of part, lit when the song has one. Nothing has
 // to be filled; it just shows what the song could still use. The hovered orb's slot blinks.
-const ROLE_SLOTS = [
-  ['tempo', '템포'], ['kick', '킥'], ['snare', '스네어'], ['hat', '하이햇'], ['perc', '퍼커션'], ['bass', '베이스'],
-  ['pad', '코드'], ['arp', '아르페지오'], ['lead', '리드'], ['fx', '효과'], ['texture', '질감'], ['mood', '분위기'], ['mode', '조성'],
-];
+const ROLE_IDS = ['tempo', 'kick', 'snare', 'hat', 'perc', 'bass', 'pad', 'arp', 'lead', 'fx', 'texture', 'mood', 'mode'];
+const roleSlots = () => ROLE_IDS.map((r) => [r, ot(`slot.${r}`)]);
+const roleText = (r) => (ot(`role.${r}`) === `role.${r}` ? r : ot(`role.${r}`));
 function renderRoles() {
   const h = hoverOrb();
   const incoming = new Set((h?.combo ? h.combo.map((c) => byId[c]) : h ? [h] : []).map(role));
   ui.roles.innerHTML = '';
-  for (const [r, label] of ROLE_SLOTS) {
+  for (const [r, label] of roleSlots()) {
     const ls = layers().filter((l) => role(l) === r);
     const slot = document.createElement('div');
     slot.className = 'role' + (ls.length ? ' on' : '') + (incoming.has(r) ? ' next' : '');
@@ -353,7 +417,7 @@ function renderRoles() {
     } else if (h) slot.style.setProperty('--g', tint(h));
     const name = document.createElement('span');
     name.textContent = r === 'tempo' && ls.length ? `${bpm()}` : ls.length > 1 ? `${label}×${ls.length}` : label;
-    slot.title = ls.length ? ls.map((l) => l.name).join(', ') : `${label} — 비어 있음`;
+    slot.title = ls.length ? ls.map((l) => l.name).join(', ') : `${label} — ${ot('empty')}`;
     slot.append(dot, name);
     ui.roles.append(slot);
   }
@@ -364,7 +428,7 @@ function renderRoles() {
 // field or the stash, or into the roll to edit its notes); right-click to take it out.
 function renderChips() {
   ui.chips.innerHTML = '';
-  for (const [r, label] of ROLE_SLOTS) {
+  for (const [r, label] of roleSlots()) {
     layers().filter((l) => role(l) === r).forEach((l, i) => {
       const strip = document.createElement('div');
       // tempo orbs: slowing down shows red, speeding up shows black
@@ -380,7 +444,7 @@ function renderChips() {
       const name = document.createElement('span');
       name.textContent = l.name;
       strip.append(ball, tag, name);
-      strip.title = `${l.name} — 드래그: 빼기 · 미디 창으로 수정 / 우클릭: 빼기`;
+      strip.title = `${l.name} — ${ot('stripTip')}`;
       strip.addEventListener('mouseenter', () => setSolo(l.id));
       strip.addEventListener('mouseleave', () => setSolo(null));
       strip.addEventListener('contextmenu', (e) => {
@@ -401,10 +465,10 @@ function describe(l, prefix = '') {
     return;
   }
   const what = l.bpm
-    ? `템포 ×${(l.bpm / BASE_BPM).toFixed(2)} ${l.bpm < BASE_BPM ? '느리게' : '빠르게'} (겹치면 더)`
-    : l.cat === 'mood' ? '곡 전체에 씌우는 분위기'
-      : l.cat === 'mode' ? `곡 전체를 ${keyLabel(l)} ${l.mode === 'major' ? '장조' : '단조'}로`
-        : l.combo ? `${l.combo.length}개 한 번에` : ROLE_TEXT[role(l)] ?? role(l);
+    ? ot('tempoWhat', { x: (l.bpm / BASE_BPM).toFixed(2), dir: ot(l.bpm < BASE_BPM ? 'slower' : 'faster') })
+    : l.cat === 'mood' ? ot('moodWhat')
+      : l.cat === 'mode' ? ot('modeWhat', { key: keyLabel(l), mode: ot(l.mode) })
+        : l.combo ? ot('comboWhat', { n: l.combo.length }) : roleText(role(l));
   ui.soloHint.innerHTML = `${prefix ? prefix + ' ' : ''}<b>${l.name}</b> — ${what}`;
 }
 
@@ -413,7 +477,7 @@ function setSolo(id) {
   if (solo === id) return;
   solo = id;
   const l = id && byId[id];
-  describe(l, l?.code ? '🔊 이것만 크게' : '');
+  describe(l, l?.code ? ot('soloLoud') : '');
   if (!l || l.code) syncSoon();
 }
 
@@ -534,10 +598,10 @@ function hoverOn(id) {
     if (hover === id) return;
     hover = id;
     if (!started) {
-      ui.soloHint.textContent = '재생을 한 번 누르면 오브에 마우스만 올려도 미리 들을 수 있어요';
+      ui.soloHint.textContent = ot('hoverHint');
       return;
     }
-    describe(byId[id], '🎧 미리듣기');
+    describe(byId[id], ot('previewing'));
     renderRoles();
     if (!playing) {
       previewOnly = true;
@@ -569,7 +633,8 @@ ui.field.addEventListener('pointerleave', () => (boostTarget = 1));
 // optional background art for the field: an image at public/orbs-field.webp, tiled vertically
 const fieldArt = new Image();
 fieldArt.onload = () => ui.field.style.setProperty('--field-bg', `url(${fieldArt.src})`);
-fieldArt.src = '/orbs-field.webp';
+// relative to the site base: on GitHub Pages the site lives under /<repo>/, so '/orbs-field.webp' would 404
+fieldArt.src = `${import.meta.env.BASE_URL}orbs-field.webp`;
 
 function updateRain(dt, now) {
   const size = fieldSize();
@@ -893,8 +958,8 @@ function pickInstrument(id, home = null) {
   const l = byId[id];
   if (!l.voice) {
     ui.rollHint.textContent = !l.code && !l.combo
-      ? `「${l.name}」은(는) 곡 전체를 바꾸는 오브라 미디에 넣을 필요가 없어요 — 플레이어에 넣어 주세요`
-      : `「${l.name}」은(는) 악기가 아니라서 그릴 수 없어요`;
+      ? ot('rollWholeSong', { name: l.name })
+      : ot('rollNotInstrument', { name: l.name });
     bump(ui.roll, 'reject');
     return false;
   }
@@ -965,15 +1030,15 @@ function renderRollHead() {
     paint(b, held);
     if (hasNotes(draft.raw)) b.classList.add('pen');
     b.innerHTML = '<i class="swirl"></i>';
-    b.title = '잡아서 재생 버튼이나 보관함으로 던지거나, 필드에 놓아 돌려보내기';
+    b.title = ot('rollGrabTip');
     b.addEventListener('pointerdown', grabFromRoll);
     ui.rollSlot.append(b);
   }
   ui.rollName.innerHTML = l
-    ? `<b style="color:${tint(l)}">${held.name}</b><span>${l.voice.root ? '대충 그려도 박자와 코드에 맞춰 연주돼요' : '선 = 리듬 (평평하면 8분, 기울면 16분), 높이 = 음색'} · 왼쪽 오브를 잡아 던지세요</span>`
+    ? `<b style="color:${tint(l)}">${held.name}</b><span>${ot(l.voice.root ? 'rollPitched' : 'rollDrum')} · ${ot('rollThrow')}</span>`
     : draft && hasNotes(draft.raw)
-      ? '<b>그린 선은 남아 있어요</b><span>오브를 던져 넣으면 그 악기로 연주돼요</span>'
-      : '<b>오브를 이 창에 던져 악기를 고르세요</b><span>그다음 마우스로 선을 그리면 미리 들려줘요 · 우클릭으로 지우기</span>';
+      ? ot('rollKept')
+      : ot('rollEmpty');
   ui.rollHint.textContent = '';
   ui.rollAdd.disabled = ui.rollStash.disabled = !rollOrb || !!rollOrb.grabbed;
 }
@@ -1024,14 +1089,14 @@ function patternToRaw(l) {
 function previewLayer() {
   if (!rollOrb || !hasNotes(draft.raw)) return null;
   const s = byId[draft.src];
-  return { id: 'preview', name: '✎ 미리듣기', drum: s.drum, code: () => sheetCode(draft.raw, s.voice) };
+  return { id: 'preview', name: ot('previewOrb'), drum: s.drum, code: () => sheetCode(draft.raw, s.voice) };
 }
 
 function makeDrawn(src, raw, id = `drawn${++drawnCount}`) {
   const s = byId[src];
   const l = {
     id, cat: id, role: s.cat, src, raw: [...raw], voice: s.voice,
-    name: '✎ ' + s.name, kind: 'drawn · ' + s.kind, color: s.color, glow: s.glow, dark: s.dark,
+    get name() { return '✎ ' + s.name; }, get kind() { return 'drawn · ' + s.kind; }, color: s.color, glow: s.glow, dark: s.dark,
     drum: s.drum, pitched: !!s.voice.root,
   };
   l.code = () => sheetCode(l.raw, l.voice);
@@ -1272,7 +1337,7 @@ function renderSeeds() {
     const b = document.createElement('button');
     b.className = 'seed' + (x.fav ? ' fav' : '') + (x.v === variation ? ' now' : '');
     b.textContent = `${x.fav ? '★' : ''}#${x.v}`;
-    b.title = x.fav ? '이 변주로 돌아가기' : '이 변주로 돌아가기 · 우클릭: 목록에서 지우기';
+    b.title = ot(x.fav ? 'backToSeed' : 'backToSeedDel');
     b.addEventListener('click', () => setVariation(x.v));
     b.addEventListener('contextmenu', (e) => {
       e.preventDefault();
@@ -1333,7 +1398,7 @@ function presetTile(p, mine) {
   tile.className = 'ptile' + (p.song ? ' stem' : '');
   tile.dataset.preset = p.id;
   const who = p.author ? ` — ${p.author}` : '';
-  tile.title = `${p.name}${who}${p.description ? `\n${p.description}` : ''}\n끌어다 재생 버튼에 놓거나 클릭하면 불러와요`;
+  tile.title = `${p.name}${who}${p.description ? `\n${p.description}` : ''}\n${ot('tileTip')}`;
   const ball = document.createElement('div');
   ball.className = 'mini';
   const cols = presetColors(p);
@@ -1344,16 +1409,16 @@ function presetTile(p, mine) {
   name.textContent = p.name;
   const meta = document.createElement('small');
   meta.textContent = mine ? `${p.layers.length} orbs${p.song ? ' · stem' : ''}` : `${p.song ? 'stem' : 'orb'}${p.author ? ` · ${p.author}` : ''}`;
-  const share = tileButton('share', '🔗', p.song ? '공유 코드 복사 (스템 포함)' : '공유 코드 복사', () => sharePreset(p, share));
+  const share = tileButton('share', '🔗', ot(p.song ? 'copyCodeStem' : 'copyCode'), () => sharePreset(p, share));
   if (mine) {
-    const up = tileButton('share up', '☁', '서버에 공유', () => openShareDialog(p));
-    const del = tileButton('del', '✕', '삭제', () => {
+    const up = tileButton('share up cloud', '☁', ot('shareServer'), () => openShareDialog(p));
+    const del = tileButton('del', '✕', ot('del'), () => {
       savePresets(loadPresets().filter((q) => q.id !== p.id));
       renderPresets();
     });
     tile.append(ball, name, meta, up, share, del);
   } else {
-    const keep = tileButton('share up', '＋', '내 프리셋에 담기', () => {
+    const keep = tileButton('share up', '＋', ot('keep'), () => {
       savePresets([{ ...p, id: Date.now().toString(36) }, ...loadPresets()]);
       renderPresets();
       bump(ui.presetList.firstChild, 'gulp');
@@ -1367,18 +1432,46 @@ function presetTile(p, mine) {
 // Saved presets fill the top half of the left sidebar, presets shared on the server the bottom half.
 function renderPresets() {
   const list = loadPresets();
-  ui.presetList.innerHTML = list.length ? '' : '<p class="empty">지금 구성을<br>저장하면<br>여기 쌓여요</p>';
+  ui.presetList.innerHTML = list.length ? '' : `<p class="empty">${ot('presetsEmpty')}</p>`;
   for (const p of list) ui.presetList.append(presetTile(p, true));
+}
+
+// Whether the preset server answers. While it doesn't, sharing to it is switched off (the button
+// says so) and the list is checked again every 30 s, or right away with ↻.
+let serverUp = null; // null until the first check
+let serverRetry;
+function setServerUp(up) {
+  serverUp = up;
+  const b = $('serverShareBtn');
+  b.disabled = !up;
+  b.textContent = ot(up ? 'serverShare' : 'serverDown');
+  b.title = ot(up ? 'serverShareTip' : 'serverDownTip');
+  document.body.classList.toggle('server-down', !up);
+  clearTimeout(serverRetry);
+  if (!up) serverRetry = setTimeout(refreshShared, 30_000);
 }
 
 const sharedList = $('sharedList');
 let sharedLoading = null;
+let sharedLast = null; // the last list the server sent, re-drawn when the language changes
+function renderShared() {
+  if (!sharedLast) return;
+  sharedList.innerHTML = sharedLast.length ? '' : `<p class="empty">${ot('sharedEmpty')}</p>`;
+  for (const p of sharedLast) sharedList.append(presetTile(p, false));
+}
 function refreshShared() {
-  if (!sharedList.children.length) sharedList.innerHTML = '<p class="empty">불러오는 중…</p>';
-  sharedLoading ??= listPresets({ limit: 100 })
+  if (!sharedList.children.length) sharedList.innerHTML = `<p class="empty">${ot('loading')}</p>`;
+  sharedLoading ??= fetchPresets({ limit: 100 })
     .then((list) => {
-      sharedList.innerHTML = list.length ? '' : '<p class="empty">아직 공유된<br>곡이 없어요</p>';
-      for (const p of list) sharedList.append(presetTile(p, false));
+      setServerUp(true);
+      sharedLast = list;
+      renderShared();
+    })
+    .catch((e) => {
+      console.info('preset server unavailable:', e.message);
+      setServerUp(false);
+      sharedLast = null;
+      sharedList.innerHTML = `<p class="empty">${ot('serverDownList')}</p>`;
     })
     .finally(() => (sharedLoading = null));
   return sharedLoading;
@@ -1414,11 +1507,11 @@ function currentPreset(fallbackName, { withSong = false } = {}) {
 $('presetForm').addEventListener('submit', (e) => {
   e.preventDefault();
   if (!active.size) {
-    ui.soloHint.textContent = '저장할 오브가 없어요';
+    ui.soloHint.textContent = ot('nothingToSave');
     return;
   }
   const list = loadPresets();
-  list.unshift(currentPreset(`프리셋 ${list.length + 1}`, { withSong: true }));
+  list.unshift(currentPreset(ot('presetN', { n: list.length + 1 }), { withSong: true }));
   savePresets(list);
   ui.presetName.value = '';
   ui.presetName.blur();
@@ -1610,9 +1703,9 @@ function parsePresetText(text) {
     const ok = new Set(drawn.map((x) => x.id));
     const layers = (d.l ?? []).filter((x) => ok.has(x) || (byId[x] && !byId[x].raw));
     const song = d.s && typeof d.s === 'object' ? { song: d.s } : {}; // checked when it is applied
-    return { id, name: String(d.n ?? '불러온 프리셋').slice(0, 24), layers, drawn, variation: +d.v || 0, ...song };
+    return { id, name: String(d.n ?? ot('importedPreset')).slice(0, 24), layers, drawn, variation: +d.v || 0, ...song };
   }
-  const byName = new Map(LAYERS.map((l) => [l.name, l.id]));
+  const byName = new Map(LAYERS.flatMap((l) => [[l.nameKo ?? l.name, l.id], [l.name, l.id]]));
   const layers = [];
   for (const line of text.split(/\r?\n/)) {
     const name = line.replace(/^\s*(\d+[.)]|[-•*])\s*/, '').replace(/\s*\([^)]*\)\s*$/, '').trim();
@@ -1620,7 +1713,7 @@ function parsePresetText(text) {
     if (lid && !layers.includes(lid)) layers.push(lid);
   }
   const title = text.match(/프리셋\s*—\s*(.+)/)?.[1]?.trim();
-  return { id, name: (title || '불러온 프리셋').slice(0, 24), layers, drawn: [], variation: +(text.match(/변주\s*#(\d+)/)?.[1] ?? 0) };
+  return { id, name: (title || ot('importedPreset')).slice(0, 24), layers, drawn: [], variation: +(text.match(/변주\s*#(\d+)/)?.[1] ?? 0) };
 }
 
 // copy to the clipboard (falls back to a box to copy from); the button says how it went
@@ -1628,9 +1721,9 @@ async function shareText(text, btn) {
   const label = btn.textContent;
   try {
     await navigator.clipboard.writeText(text);
-    btn.textContent = btn.classList.contains('share') ? '✓' : '✓ 복사됨';
+    btn.textContent = btn.classList.contains('share') ? '✓' : ot('copied');
   } catch {
-    prompt('이 코드를 복사해서 공유하세요', text);
+    prompt(ot('copyPrompt'), text);
   }
   setTimeout(() => (btn.textContent = label), 1500);
 }
@@ -1638,14 +1731,14 @@ const sharePreset = (p, btn) => shareText(presetText(p), btn);
 
 $('shareBtn').addEventListener('click', (e) => {
   if (!active.size) {
-    ui.soloHint.textContent = '공유할 오브가 없어요';
+    ui.soloHint.textContent = ot('nothingToShare');
     return;
   }
-  shareText(presetText(currentPreset('내 구성')), e.currentTarget);
+  shareText(presetText(currentPreset(ot('myMix'))), e.currentTarget);
 });
 $('stemShareBtn').addEventListener('click', (e) => {
   if (!song?.sections) return;
-  shareText(presetText(currentPreset('내 곡', { withSong: true })), e.currentTarget);
+  shareText(presetText(currentPreset(ot('mySong'), { withSong: true })), e.currentTarget);
 });
 const updateShareButtons = () => ($('stemShareBtn').disabled = !song?.sections);
 
@@ -1658,12 +1751,13 @@ const AUTHOR_KEY = 'orbAuthor';
 let shareSrc = null; // the preset being shared
 
 function openShareDialog(p) {
+  if (serverUp === false) return;
   shareSrc = p;
   $('shTitle').value = p.name.slice(0, LIMITS.name);
   for (const r of shareDlg.querySelectorAll('input[name=shKind]')) {
     r.disabled = r.value === 'stem' && !p.song;
     r.checked = r.value === (p.song ? 'stem' : 'orb');
-    r.parentElement.title = r.disabled ? '🎼 전체 곡 만들기를 하면 고를 수 있어요' : '';
+    r.parentElement.title = r.disabled ? ot('shStemOff') : '';
   }
   try {
     $('shAuthor').value = localStorage.getItem(AUTHOR_KEY) ?? '';
@@ -1683,10 +1777,10 @@ function openShareDialog(p) {
 
 $('serverShareBtn').addEventListener('click', () => {
   if (!active.size) {
-    ui.soloHint.textContent = '공유할 오브가 없어요';
+    ui.soloHint.textContent = ot('nothingToShare');
     return;
   }
-  openShareDialog(currentPreset('내 곡', { withSong: true }));
+  openShareDialog(currentPreset(ot('mySong'), { withSong: true }));
 });
 $('shCancel').addEventListener('click', () => shareDlg.close());
 $('shAgree').addEventListener('change', (e) => (shOk.disabled = !e.target.checked));
@@ -1713,23 +1807,24 @@ $('shareForm').addEventListener('submit', async (e) => {
     return;
   }
   shOk.disabled = true;
-  shOk.textContent = '올리는 중…';
+  shOk.textContent = ot('uploading');
   try {
     await uploadPreset(p, extra);
     try {
       localStorage.setItem(AUTHOR_KEY, extra.author.trim());
     } catch {}
-    shErr.textContent = '공유했어요! 모두의 곡 목록에 추가됐어요';
+    shErr.textContent = ot('shDone');
     shErr.classList.add('ok');
     refreshShared();
     setTimeout(() => shareDlg.close(), 1400);
   } catch (err) {
     const down = err.name === 'AbortError' || err instanceof TypeError; // timeout / no connection
-    shErr.textContent = down ? '서버에 연결할 수 없어요. 잠시 뒤에 다시 시도해 주세요' : `올리지 못했어요: ${err.message}`;
-    shOk.disabled = !$('shAgree').checked;
+    shErr.textContent = down ? ot('shDown') : ot('shFail', { msg: err.message });
+    shOk.disabled = down || !$('shAgree').checked;
+    if (down) setServerUp(false);
     console.error('preset upload failed', err);
   } finally {
-    shOk.textContent = '☁ 서버에 공유';
+    shOk.textContent = ot('shOk');
   }
 });
 
@@ -1748,7 +1843,7 @@ $('importForm').addEventListener('submit', (e) => {
     p = parsePresetText(importText.value);
   } catch {}
   if (!p?.layers.length) {
-    importErr.textContent = '알아볼 수 있는 오브가 없어요. 공유받은 코드를 붙여 넣어 주세요';
+    importErr.textContent = ot('importBad');
     return;
   }
   importDlg.close();
@@ -1808,19 +1903,19 @@ const wavBtn = $('wavBtn');
 wavBtn.addEventListener('click', async () => {
   if (renderingWav) return;
   if (!layers().some((l) => l.code)) {
-    ui.soloHint.textContent = '저장할 소리가 없어요. 오브를 먼저 넣어 주세요';
+    ui.soloHint.textContent = ot('noSound');
     return;
   }
   const { code, cycles, tempo } = renderCode();
-  const label = wavBtn.textContent;
+
   renderingWav = true;
   wavBtn.disabled = true;
-  wavBtn.textContent = '렌더링 0%';
+  wavBtn.textContent = ot('rendering', { p: 0 });
   try {
     await renderer();
     const id = ++renderJob;
     const wav = await new Promise((resolve, reject) => {
-      renderJobs.set(id, { resolve, reject, progress: (p) => (wavBtn.textContent = `렌더링 ${Math.round(p * 100)}%`) });
+      renderJobs.set(id, { resolve, reject, progress: (p) => (wavBtn.textContent = ot('rendering', { p: Math.round(p * 100) })) });
       renderFrame.contentWindow.postMessage({ type: 'render', id, code, start: 0, end: cycles, cps: tempo / 4 / 60 }, location.origin);
     });
     const name = (ui.presetName.value.trim() || layers().find((l) => l.code)?.name || 'orb').replace(/[\\/:*?"<>|]/g, '');
@@ -1831,11 +1926,11 @@ wavBtn.addEventListener('click', async () => {
     setTimeout(() => URL.revokeObjectURL(a.href), 10000);
   } catch (e) {
     console.error('render failed', e);
-    ui.soloHint.textContent = 'WAV 저장에 실패했어요';
+    ui.soloHint.textContent = ot('wavFail');
   } finally {
     renderingWav = false;
     wavBtn.disabled = false;
-    wavBtn.textContent = label;
+    wavBtn.textContent = ot('wav');
   }
 });
 
@@ -1959,7 +2054,7 @@ let stemSig = '';
 function renderSong() {
   const secs = song.sections;
   // the small timeline under the player
-  const sig = JSON.stringify([secs, song.rows, song.cells, song.audition, keyText()]);
+  const sig = JSON.stringify([secs, song.rows, song.cells, song.audition, keyText(), ot('corner')]);
   if (sig === stemSig) return;
   stemSig = sig;
   ui.songBar.innerHTML = '';
@@ -1967,7 +2062,7 @@ function renderSong() {
     const b = document.createElement('div');
     b.className = 'sec' + (sec.shift ? ' mod' : '');
     b.style.flex = sec.len;
-    b.textContent = sec.shift ? `${sec.name} · ${keyName(sec.shift)}` : sec.name;
+    b.textContent = sec.shift ? `${secName(sec.name)} · ${keyName(sec.shift)}` : secName(sec.name);
     ui.songBar.append(b);
   }
   const cur = document.createElement('i');
@@ -1996,7 +2091,7 @@ function renderStem() {
   grid.style.gridTemplateColumns = `170px repeat(${nBlocks}, minmax(74px, 1fr))`;
   const corner = document.createElement('div');
   corner.className = 'corner';
-  corner.textContent = '악기 / 섹션';
+  corner.textContent = ot('corner');
   grid.append(corner);
   secs.forEach((sec, i) => {
     const h = document.createElement('div');
@@ -2004,18 +2099,18 @@ function renderStem() {
     h.style.gridColumn = `span ${sec.len / BLOCK}`;
     const bars = document.createElement('small');
     bars.className = 'bars';
-    bars.textContent = `${sec.len}마디`;
+    bars.textContent = ot('bars', { n: sec.len });
     h.append(
-      button('ghost sname', sec.shift ? `${sec.name} · ${keyName(sec.shift)}` : sec.name, '이 섹션만 반복해서 듣기 (한 번 더 누르면 전체 곡)', () => {
+      button('ghost sname', sec.shift ? `${secName(sec.name)} · ${keyName(sec.shift)}` : secName(sec.name), ot('secTip'), () => {
         song.audition = song.audition === i ? null : i;
         song.once = false;
         onceLabel();
         sync();
       }),
       bars,
-      button('ghost len', '−', '이 섹션을 4마디 줄이기', () => resizeSection(i, -1)),
-      button('ghost len', '+', '이 섹션을 4마디 늘리기', () => resizeSection(i, 1)),
-      button('ghost batch', '↓#', '이 섹션 전체(세로)에 시드 일괄 적용 (리드는 4마디마다 +1)', (e) => askSeed(e.currentTarget, variation, (v) => {
+      button('ghost len', '−', ot('secShorter'), () => resizeSection(i, -1)),
+      button('ghost len', '+', ot('secLonger'), () => resizeSection(i, 1)),
+      button('ghost batch', '↓#', ot('secSeeds'), (e) => askSeed(e.currentTarget, variation, (v) => {
         for (const r of song.rows) song.cells[r.id][i].forEach((b, j) => b.v != null && (b.v = isLead(byId[r.id]) ? v + j : v));
         sync();
       })),
@@ -2031,33 +2126,33 @@ function renderStem() {
     head.className = 'rh' + (r.alt ? ' alt' : '');
     head.style.setProperty('--g', tint(l));
     const tag = document.createElement('b');
-    tag.textContent = ROLE_TEXT[role(l)] ?? role(l);
+    tag.textContent = roleText(role(l));
     const name = document.createElement('span');
     name.textContent = l.name;
     head.append(miniOrb(l), tag, name);
     if (!custom && seeded(l)) {
-      head.append(button('ghost batch', '→#', isLead(l) ? '이 리드 줄 전체(가로)에 시드 일괄 적용 (4마디마다 +1)' : '이 악기 줄 전체(가로)에 시드 일괄 적용', (e) => askSeed(e.currentTarget, song.cells[r.id][0][0].v, (v) => {
+      head.append(button('ghost batch', '→#', ot(isLead(l) ? 'rowSeedsLead' : 'rowSeeds'), (e) => askSeed(e.currentTarget, song.cells[r.id][0][0].v, (v) => {
         let g = 0;
         song.cells[r.id].flat().forEach((b) => (b.v = isLead(l) ? v + g++ : v));
         sync();
       })));
     }
-    head.title = r.alt ? `${l.name} — 곡 뒷부분에서 바뀌어 들어오는 악기` : l.name;
+    head.title = r.alt ? `${l.name} — ${ot('altRow')}` : l.name;
     grid.append(head);
     song.cells[r.id].forEach((blocks, i) => blocks.forEach((cell, j) => {
       const c = document.createElement('div');
       c.className = 'cell' + (cell.on ? ' on' : '') + (song.audition === i ? ' aud' : '') + (j === 0 ? ' first' : '');
       c.style.setProperty('--g', tint(l));
-      c.title = cell.on ? '클릭: 이 4마디에서 빼기' : '클릭: 이 4마디에 넣기';
+      c.title = ot(cell.on ? 'cellOff' : 'cellOn');
       if (cell.on) {
         // the seed on the left (none for an orb without one), ✕ on the right takes it out here
         const label = custom ?? (cell.v == null ? '' : `#${cell.v}`);
-        const tagEl = button('ghost seedtag', label, custom ? '직접 편집한 악기' : '시드 바꾸기', (e) => {
+        const tagEl = button('ghost seedtag', label, ot(custom ? 'customInst' : 'changeSeed'), (e) => {
           e.stopPropagation();
           if (!custom && cell.v != null) askSeed(e.currentTarget, cell.v, (v) => ((cell.v = v), sync()));
         });
         if (!label) tagEl.style.visibility = 'hidden';
-        const x = button('ghost cellx', '✕', '이 4마디에서 이 악기 지우기', (e) => {
+        const x = button('ghost cellx', '✕', ot('cellDel'), (e) => {
           e.stopPropagation();
           cell.on = false;
           sync();
@@ -2098,7 +2193,7 @@ function onceLabel() {
   const b = $('stemOnce');
   if (!b) return;
   const on = !!song?.once && playing;
-  b.textContent = on ? '■ 끝까지 재생 중' : '▶ 처음부터 끝까지';
+  b.textContent = ot(on ? 'onceOn' : 'once');
   b.classList.toggle('on', on);
 }
 $('stemOnce')?.addEventListener('click', async () => {
@@ -2120,7 +2215,7 @@ $('stemOnce')?.addEventListener('click', async () => {
 function openSong() {
   document.body.classList.add('stem-open');
   ui.song.classList.add('on');
-  ui.songBtn.textContent = '🎼 다른 구성으로';
+  ui.songBtn.textContent = ot('otherSong');
   updateShareButtons();
 }
 function closeSong() {
@@ -2130,7 +2225,7 @@ function closeSong() {
   stemSig = '';
   document.body.classList.remove('stem-open');
   ui.song.classList.remove('on');
-  ui.songBtn.textContent = '🎼 전체 곡 만들기';
+  ui.songBtn.textContent = ot('makeSong');
   updateShareButtons();
   for (const a of active.values()) a.at = 0;
   sync();
@@ -2138,7 +2233,7 @@ function closeSong() {
 
 ui.songBtn.addEventListener('click', async () => {
   if (!layers().some((l) => l.code)) {
-    ui.soloHint.textContent = '먼저 오브를 몇 개 넣어 주세요';
+    ui.soloHint.textContent = ot('addOrbsFirst');
     return;
   }
   const was = playing;
@@ -2334,7 +2429,7 @@ $('shuffle').addEventListener('click', seedRain);
 // Terms are separated by spaces or "/" and all have to match. A term is looked up in an orb's
 // name, kind and part (Korean or English) and in a combo's parts; "bpm" / "템포" finds tempo
 // orbs and a number finds tempos near it; Am / minor / 단조 and A / major / 장조 find by key.
-const MODE_WORDS = { minor: ['minor', '단조', '마이너'], major: ['major', '장조', '메이저'] };
+const MODE_WORDS = { minor: ['minor', '단조', '마이너', '短調'], major: ['major', '장조', '메이저', '長調'] };
 const FLATS = { db: 'c#', eb: 'd#', gb: 'f#', ab: 'g#', bb: 'a#' };
 // "Bm" -> { tonic: 2, mode: 'minor' }, "F#" / "Gb" / "f#maj" -> major; anything else -> null
 function parseKey(term) {
@@ -2347,9 +2442,10 @@ function parseKey(term) {
 }
 // a combo's key is the key orb inside it
 const keyOf = (l) => (l.cat === 'mode' ? l : l.combo?.map((c) => byId[c]).find((x) => x.cat === 'mode'));
-const orbText = (l) => [l.name, l.kind, l.cat, ROLE_TEXT[role(l)] ?? '', ...(l.combo ?? []).map((c) => `${byId[c].name} ${byId[c].kind} ${ROLE_TEXT[role(byId[c])] ?? ''}`)].join(' ').toLowerCase();
+const partText = (l) => `${ROLE_TEXT[role(l)] ?? ''} ${allLangs(`role.${role(l)}`)} ${allLangs(`slot.${role(l)}`)}`;
+const orbText = (l) => [l.name, l.kind, l.cat, partText(l), ...(l.combo ?? []).map((c) => `${byId[c].name} ${byId[c].kind} ${partText(byId[c])}`)].join(' ').toLowerCase();
 function matchesTerm(l, term) {
-  if (/^(bpm|tempo|템포)$/.test(term)) return !!l.bpm;
+  if (/^(bpm|tempo|템포|テンポ)$/.test(term)) return !!l.bpm;
   // a number finds tempos near it, and also drum machines by name (808, 909 …)
   if (/^\d+$/.test(term)) return (!!l.bpm && Math.abs(l.bpm - +term) <= 6) || orbText(l).includes(term);
   for (const [mode, words] of Object.entries(MODE_WORDS)) if (words.includes(term)) return keyOf(l)?.mode === mode;
@@ -2364,7 +2460,7 @@ const searchOrbs = (q) => {
 function renderSearch() {
   const q = ui.searchInput.value;
   const found = searchOrbs(q);
-  ui.searchResults.innerHTML = found.length ? '' : `<p class="empty">${q.trim() ? '맞는 오브가 없어요' : '예: Bm · F# · Eb · 장조 · bpm · 140 · 베이스 · 바나나'}</p>`;
+  ui.searchResults.innerHTML = found.length ? '' : `<p class="empty">${ot(q.trim() ? 'noMatch' : 'searchEx')}</p>`;
   for (const l of found) {
     const item = document.createElement('div');
     item.className = 'hit' + (active.has(l.id) ? ' on' : '');
@@ -2374,7 +2470,7 @@ function renderSearch() {
     const kind = document.createElement('small');
     kind.textContent = l.kind;
     item.append(miniOrb(l), name, kind);
-    item.title = active.has(l.id) ? '이미 곡에 들어가 있어요' : '클릭: 오브 필드에 띄우기 · 드래그: 바로 잡아서 던지기';
+    item.title = ot(active.has(l.id) ? 'inSong' : 'hitTip');
     item.addEventListener('mouseenter', () => hoverOn(l.id));
     item.addEventListener('mouseleave', hoverOff);
     item.addEventListener('pointerdown', (e) => grabFromSearch(e, l.id));
@@ -2439,6 +2535,42 @@ $('clear').addEventListener('click', () => {
 });
 $('codeToggle').addEventListener('click', () => ui.drawer.classList.toggle('open'));
 $('codeClose').addEventListener('click', () => ui.drawer.classList.remove('open'));
+
+// Text built in script, redrawn when KR / EN / JP is switched (static text is handled by orbsI18n.js).
+function applyLangUI() {
+  ui.songBtn.textContent = ot(song?.sections ? 'otherSong' : 'makeSong');
+  const sb = $('serverShareBtn');
+  sb.textContent = ot(serverUp === false ? 'serverDown' : 'serverShare');
+  sb.title = ot(serverUp === false ? 'serverDownTip' : 'serverShareTip');
+  volRing.setAttribute('aria-label', ot('volume'));
+  if (!renderingWav) wavBtn.textContent = ot('wav');
+  onceLabel();
+}
+mountLangButtons($('langs'), () => {
+  applyLangUI();
+  renderStatus();
+  renderPresets();
+  renderShared();
+  if (serverUp === false) sharedList.innerHTML = `<p class="empty">${ot('serverDownList')}</p>`;
+  renderRollHead();
+  if (song?.sections) {
+    stemSig = '';
+    renderSong();
+  }
+  if (ui.search.classList.contains('open')) renderSearch();
+  ui.soloHint.textContent = '';
+  // orbs already on screen (falling, in the stash, being dragged) keep their element: relabel them
+  for (const el of document.querySelectorAll('.orb[data-id]')) {
+    const l = byId[el.dataset.id];
+    if (!l) continue;
+    const label = el.querySelector('.label'), kind = el.querySelector('.kind');
+    if (label) label.textContent = l.name;
+    if (kind) kind.textContent = l.kind;
+  }
+  renderStash();
+  ui.code.textContent = buildCode();
+});
+applyLangUI();
 
 restoreSession();
 renderStash();

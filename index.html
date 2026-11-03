@@ -4,89 +4,190 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>ORBRAVE</title>
-  <meta name="description" content="Endless generative electronic music, live-coded by an algorithm with Strudel." />
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>∞</text></svg>" />
-  <link rel="stylesheet" href="/src/style.css" />
+  <meta name="description" content="Drag glowing orbs into the player to build a track, one layer at a time." />
+  <!-- old player share links (/#seed.style, /#preset.id) used to live here; send them to the player -->
+  <script>if (/^#[\w-]+\.[\w-]+$/.test(location.hash)) location.replace('play.html' + location.hash);</script>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>●</text></svg>" />
 </head>
 <body>
-  <div class="boot" id="boot" role="status" aria-live="polite">
-    <div class="boot-title" data-i18n="loadingSounds"></div>
-    <div class="boot-bar"><i id="bootBar"></i></div>
-    <div class="boot-count" id="bootCount"></div>
-  </div>
   <canvas id="viz"></canvas>
-  <div class="genres" id="genres"></div>
 
   <header class="top">
-    <div class="logo">∞ ORBRAVE</div>
-    <div class="top-right">
+    <div class="logo">● ORBRAVE<span class="by">-made by <a href="https://sites.google.com/view/r3c0d3r/home_ura" target="_blank" rel="noopener">R3C0D3r</a></span><a class="nav-btn" href="play.html" data-i18n="toPlayer" data-i18n-title="toPlayerTip">∞ 무한 재생</a></div>
+    <div class="tools">
+      <button id="importBtn" data-i18n="import" data-i18n-title="importTip">📥 불러오기</button>
+      <button id="shuffle" data-i18n="shuffle" data-i18n-title="shuffleTip">↻ 오브 새로고침</button>
+      <button id="searchBtn" data-i18n="search" data-i18n-title="searchTip">🔍 오브 검색</button>
+      <button id="codeToggle" data-i18n="code">&lt;/&gt; 코드</button>
       <div class="langs" id="langs" role="group" aria-label="language"></div>
-      <a class="nav-btn" href="orbs.html" data-i18n="toOrbs"></a>
     </div>
   </header>
 
-  <main class="stage">
-    <section class="info">
-      <h1 id="title">∞</h1>
-      <div class="meta" id="meta"></div>
-    </section>
+  <div class="search" id="searchBox">
+    <input id="searchInput" type="search" data-i18n-ph="searchPh" placeholder="예: Am · bpm · 140 · 베이스 · 드럼 · 장조" autocomplete="off" />
+    <div class="search-results" id="searchResults"></div>
+  </div>
 
-    <section class="core" id="core">
-      <svg class="ring" id="ring" viewBox="0 0 240 240" role="slider" tabindex="0" aria-valuemin="0" aria-valuemax="100">
-        <defs>
-          <linearGradient id="volGrad" x1="0" y1="1" x2="1" y2="0">
-            <stop offset="0" stop-color="#39ff9c" />
-            <stop offset="1" stop-color="#ff3bd4" />
-          </linearGradient>
-          <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
-            <feGaussianBlur stdDeviation="3" result="b" />
-            <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
-          </filter>
-        </defs>
-        <g id="ticks"></g>
-        <path id="volTrack" class="track" />
-        <path id="volArc" class="arc" stroke="url(#volGrad)" filter="url(#glow)" />
-        <circle id="volKnob" class="knob" r="7" filter="url(#glow)" />
-      </svg>
-      <button class="play" id="play" aria-label="play">
-        <svg viewBox="0 0 24 24" class="i-play"><path d="M8 5.5v13l11-6.5z" /></svg>
-        <svg viewBox="0 0 24 24" class="i-stop"><rect x="6.5" y="6.5" width="11" height="11" rx="1.5" /></svg>
-      </button>
-    </section>
+  <main class="stage" id="stage">
+    <aside class="presetbar" id="presetbar">
+      <div class="pb-half">
+        <div class="side-head" data-i18n="presets">프리셋</div>
+        <form id="presetForm" class="pb-save">
+          <input id="presetName" maxlength="24" data-i18n-ph="presetNamePh" placeholder="이름" />
+          <button data-i18n="save" data-i18n-title="saveTip">＋ 저장</button>
+        </form>
+        <div class="pb-list" id="presetList"></div>
+      </div>
+      <div class="pb-half pb-shared">
+        <div class="side-head"><span data-i18n="shared">모두의 곡</span> <button id="sharedRefresh" class="ghost" data-i18n-title="sharedRefreshTip">↻</button></div>
+        <div class="pb-list" id="sharedList"></div>
+      </div>
+    </aside>
 
-    <section class="lower">
-      <div class="timeline" id="timeline"></div>
-      <div class="buttons">
-        <button id="prev" disabled><b data-i18n="prev"></b></button>
-        <button id="skip" disabled><b data-i18n="next"></b></button>
-        <button id="share" disabled><b data-i18n="share"></b></button>
-        <button id="download" disabled><b data-i18n="download"></b></button>
+    <section class="left">
+      <button id="clear" class="clear-all" data-i18n="clearAll" data-i18n-title="clearAllTip">전부 비우기</button>
+      <div class="roles" id="roles"></div>
+      <div class="core" id="core">
+        <div class="ring"></div>
+        <svg class="volring" id="volRing" viewBox="0 0 240 240" role="slider" tabindex="0" aria-valuemin="0" aria-valuemax="100">
+          <defs>
+            <linearGradient id="volGrad" x1="0" y1="1" x2="1" y2="0">
+              <stop offset="0" stop-color="#39ff9c" />
+              <stop offset="1" stop-color="#ff3bd4" />
+            </linearGradient>
+            <filter id="volGlow" x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur stdDeviation="3" result="b" />
+              <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
+            </filter>
+          </defs>
+          <g id="volTicks"></g>
+          <path id="volTrack" class="track" />
+          <path id="volArc" class="arc" stroke="url(#volGrad)" filter="url(#volGlow)" />
+          <circle id="volKnob" class="knob" r="7" filter="url(#volGlow)" />
+          <path id="volHit" class="hit" />
+        </svg>
+        <button class="play" id="play" aria-label="play">
+          <svg viewBox="0 0 24 24" class="i-play"><path d="M8 5.5v13l11-6.5z" /></svg>
+          <svg viewBox="0 0 24 24" class="i-stop"><rect x="6.5" y="6.5" width="11" height="11" rx="1.5" /></svg>
+        </button>
+        <div class="sats" id="sats"></div>
+      </div>
+      <p class="status" id="status"></p>
+      <div class="chips" id="chips"></div>
+      <p class="solo-hint" id="soloHint"></p>
+      <div class="seeds" id="seeds" data-i18n-title="seedsTip"></div>
+      <div class="actions">
+        <button id="variate" data-i18n="variate" data-i18n-title="variateTip">🎲 변주</button>
+        <button id="favSeed" class="fav" data-i18n-title="favTip">☆</button>
+        <button id="songBtn" data-i18n-title="makeSongTip">🎼 전체 곡 만들기</button>
+      </div>
+      <div class="actions">
+        <button id="wavBtn" data-i18n="wav" data-i18n-title="wavTip">💾 WAV로 저장</button>
+        <button id="shareBtn" data-i18n="shareOrbs" data-i18n-title="shareOrbsTip">🔗 오브 공유</button>
+        <button id="stemShareBtn" data-i18n="shareStems" data-i18n-title="shareStemsTip" disabled>🔗 스템 공유</button>
+        <button id="serverShareBtn">☁ 서버 공유</button>
+      </div>
+      <div class="song" id="song">
+        <div class="song-bar" id="songBar"></div>
+        <button id="songOff" class="ghost" data-i18n="toLoop">✕ 루프로</button>
       </div>
     </section>
+
+    <section class="right" id="right">
+      <div class="field" id="field"></div>
+      <section class="stems" id="stems">
+        <div class="stem-head">
+          <b data-i18n="stems">스템</b>
+          <span class="stem-hint" data-i18n="stemHint">칸 = 4마디 · 섹션 이름: 그 부분만 반복 · −/+: 4마디 줄이기/늘리기 · 칸 클릭: 넣기/빼기 · ✕: 이 칸에서 지우기 · #시드 클릭: 바꾸기 · 리드는 4마디마다 다른 시드</span>
+          <button id="stemOnce" class="go" data-i18n-title="onceTip">▶ 처음부터 끝까지</button>
+          <button id="stemClose" class="ghost" data-i18n="toLoop">✕ 루프로</button>
+        </div>
+        <div class="stem-body" id="stemBody">
+          <div class="stem-grid" id="stemGrid"></div>
+          <i class="stem-cursor" id="stemCursor"></i>
+        </div>
+      </section>
+      <section class="roll" id="roll">
+        <div class="roll-head">
+          <div class="roll-slot" id="rollSlot"></div>
+          <div class="roll-name" id="rollName"></div>
+          <span class="roll-hint" id="rollHint"></span>
+          <div class="roll-tools">
+            <button id="rollAdd" class="go" data-i18n="rollAdd">＋ 곡에 추가</button>
+            <button id="rollStash" data-i18n="rollStash">⇥ 보관함</button>
+            <button id="rollErase" data-i18n="rollErase">지우개</button>
+            <button id="rollClear" data-i18n="rollClear">지우기</button>
+              </div>
+        </div>
+        <canvas id="rollCanvas"></canvas>
+      </section>
+    </section>
+
+    <aside class="stash" id="stash">
+      <div class="stash-head" data-i18n="stash">보관함</div>
+      <div class="stash-slots" id="stashSlots"></div>
+    </aside>
   </main>
 
-  <footer class="powered">Powered by <a href="https://strudel.cc/" target="_blank" rel="noopener">strudel</a> · <a href="https://github.com/r3coder/orbrave" target="_blank" rel="noopener">source (AGPL-3.0)</a></footer>
-  <button class="code-btn" id="codeToggle">&lt;/&gt; <span data-i18n="code"></span></button>
-
   <aside class="drawer" id="drawer">
-    <div class="drawer-head">
-      <span data-i18n="generatedCode"></span>
-      <button id="codeClose" class="ghost">✕</button>
-    </div>
-    <div class="code" id="code"></div>
-    <div class="drawer-head"><span data-i18n="history"></span></div>
-    <ol class="history" id="history"></ol>
-    <div class="drawer-head"><span>credits</span></div>
-    <p class="credits">
-      Engine: <a href="https://strudel.cc" target="_blank" rel="noopener">Strudel</a> (AGPL-3.0) ·
-      Font: <a href="https://github.com/RanolP/dalmoori-font" target="_blank" rel="noopener">Dalmoori</a> by RanolP (Apache-2.0) ·
-      Samples: <a href="https://github.com/MckAudio/MckSamplePacks" target="_blank" rel="noopener">MckSamplePacks</a> (CC0),
-      <a href="https://github.com/sfzinstruments/karoryfer.big-rusty-drums" target="_blank" rel="noopener">Big Rusty Drums</a> by Karoryfer (CC0),
-      <a href="https://github.com/sgossner/VCSL" target="_blank" rel="noopener">VCSL</a> (CC0),
-      <a href="https://archive.org/details/SalamanderGrandPianoV3" target="_blank" rel="noopener">Salamander Grand Piano</a> by Alexander Holm (CC-BY 3.0)
-    </p>
+    <div class="drawer-head"><span>generated strudel</span><button id="codeClose" class="ghost">✕</button></div>
+    <pre class="code" id="code"></pre>
   </aside>
 
-  <script type="module" src="/src/main.js"></script>
+  <form class="seedpop" id="seedPop">
+    <input type="number" min="0" max="99999" aria-label="seed" />
+    <button class="go" data-i18n="apply">적용</button>
+  </form>
+
+  <dialog class="import" id="importDlg">
+    <form method="dialog" id="importForm">
+      <div class="side-head" data-i18n="importTitle">프리셋 불러오기</div>
+      <p data-i18n="importBody">공유받은 코드를 붙여 넣으세요. 프리셋 목록에 추가되고 바로 재생돼요.</p>
+      <textarea id="importText" rows="4" spellcheck="false" placeholder="orb1:…"></textarea>
+      <p class="import-err" id="importErr"></p>
+      <div class="import-btns">
+        <button type="button" class="ghost" id="importCancel" data-i18n="cancel">취소</button>
+        <button id="importOk" class="go" data-i18n="importOk">불러오기</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog class="import upload" id="shareDlg">
+    <form method="dialog" id="shareForm" autocomplete="off">
+      <div class="side-head" data-i18n="shTitle">서버에 공유</div>
+      <label class="fld"><span data-i18n="shSongTitle">노래 제목</span>
+        <input id="shTitle" maxlength="32" required />
+      </label>
+      <div class="fld"><span data-i18n="shKind">종류</span>
+        <div class="kinds">
+          <label><input type="radio" name="shKind" value="orb" /> <span data-i18n="shOrb">오브</span> <small data-i18n="shOrbSub">지금 넣은 오브 조합</small></label>
+          <label><input type="radio" name="shKind" value="stem" /> <span data-i18n="shStem">스템</span> <small data-i18n="shStemSub">전체 곡 구성까지</small></label>
+        </div>
+      </div>
+      <label class="fld"><span data-i18n="shAuthor">노래 저자</span> <small data-i18n="shOptional">(생략 가능)</small>
+        <input id="shAuthor" maxlength="24" />
+      </label>
+      <label class="fld"><span data-i18n="shDesc">노래 설명</span> <small id="shCount">0 / 100</small>
+        <textarea id="shDesc" rows="2" maxlength="100"></textarea>
+      </label>
+      <!-- left empty by people; bots that fill every field get refused -->
+      <input class="hp" id="shWebsite" name="website" tabindex="-1" aria-hidden="true" />
+      <p data-i18n-html="shBody">서버에 공유하면 이 오브 / 스템 조합이 왼쪽 <b>모두의 곡</b> 목록에 나타나요.
+        누구나 그 조합을 불러와 그대로 재생하거나 이어서 바꿀 수 있고, 메인 무한 재생기에도 섞여 나와요.
+        저장되는 건 오브 목록, 직접 그린 선, 시드, 스템 구성과 위에 적은 글뿐이에요.
+        링크나 태그는 쓸 수 없고, 한 번 올린 곡은 여기서 지울 수 없어요.</p>
+      <label class="agree"><input type="checkbox" id="shAgree" /> <span data-i18n="shAgree">이 조합을 서버에 업로드하는 것에 동의합니다.</span></label>
+      <p class="import-err" id="shErr"></p>
+      <div class="import-btns">
+        <button type="button" class="ghost" id="shCancel" data-i18n="cancel">취소</button>
+        <button id="shOk" class="go" disabled>☁ 서버에 공유</button>
+      </div>
+    </form>
+  </dialog>
+
+  <footer class="powered">Powered by <a href="https://strudel.cc/" target="_blank" rel="noopener">strudel</a> · <a href="https://github.com/r3coder/orbrave" target="_blank" rel="noopener">source (AGPL-3.0)</a></footer>
+
+  <script type="module" src="/src/orbs.js"></script>
+  <script type="module" src="/src/orbsMobile.js"></script>
 </body>
 </html>
