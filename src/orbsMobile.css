@@ -63,6 +63,7 @@
      right under the player, and dragging one out shouldn't land it straight back */
   .core { --size: 116px; --drop-pad: 24px; --drop-pull: 1.25; }
   .ring { inset: -22px; }
+  .core { --vote-gap: 30px; }
   .volring { inset: -22px; width: calc(100% + 44px); height: calc(100% + 44px); }
   .status { margin-top: 18px; text-shadow: 0 1px 3px #000; }
   .solo-hint { text-shadow: 0 1px 3px #000; }

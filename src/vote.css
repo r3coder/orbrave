@@ -1,0 +1,29 @@
+/* 👍 / 👎 beside the play button (src/vote.js), on the orb page and the player */
+.vote {
+  position: absolute; top: 50%; left: calc(100% + var(--vote-gap, 92px));
+  transform: translateY(-50%);
+  display: flex; flex-direction: column; gap: 8px;
+  z-index: 3; pointer-events: auto;
+}
+.vote[hidden] { display: none; }
+.vote button {
+  width: 36px; height: 36px; padding: 0;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  border: 1px solid var(--line, rgba(255, 255, 255, 0.15));
+  background: rgba(5, 12, 9, 0.85);
+  color: var(--dim, #8aa);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s, transform 0.1s;
+}
+.vote button svg { width: 17px; height: 17px; fill: currentColor; }
+.vote .vote-down svg { transform: scaleY(-1); }
+.vote button:hover { color: var(--fg, #fff); border-color: var(--acc, #39ff9c); }
+.vote button:active { transform: scale(0.92); }
+.vote .vote-up.on { color: #050c09; background: var(--acc, #39ff9c); border-color: var(--acc, #39ff9c); }
+.vote .vote-down.on { color: #fff; background: #ff3bd4; border-color: #ff3bd4; }
+.vote.busy { opacity: 0.6; }
+.vote button.pop { animation: vote-pop 0.35s ease-out; }
+.vote.shake { animation: vote-shake 0.35s; }
+@keyframes vote-pop { 40% { transform: scale(1.25); } }
+@keyframes vote-shake { 25% { margin-left: -4px; } 75% { margin-left: 4px; } }

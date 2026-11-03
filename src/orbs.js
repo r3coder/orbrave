@@ -8,9 +8,11 @@ import {
   LAYERS, BASE_BPM, KEYS, BAR_CHORDS, snap, rng, hash, byId, role, ROLE_TEXT, setMode, keyLabel,
 } from './orbCatalog.js';
 import { BARS, STEPS, ROWS, packRaw, unpackRaw, sheetCode, quantize, songToWire, songFromWire, toWire } from './orbPreset.js';
-import { uploadPreset, fetchPresets } from './presetApi.js';
+import { uploadPreset, fetchPresets, weightedOrder } from './presetApi.js';
+import { mountVote } from './vote.js';
 import { ot, secName, allLangs, mountLangButtons } from './orbsI18n.js';
 import { mountLicenses } from './licenses.js';
+import { copyText } from './copyBox.js';
 import { LIMITS, validatePreset } from '../server/presetSchema.mjs';
 
 // Gate a pattern to one window of a looping song: the song starts at cycle `s0`, is `len`
@@ -329,7 +331,25 @@ function put(layer, at, home = null) {
   active.set(layer.id, { layer, at, home, sat: makeSat(layer) });
 }
 
+// The MIDI pane stays tucked away until five orbs have been thrown into the player; then it
+// slides up from the bottom and stays (remembered across reloads).
+const ROLL_READY_KEY = 'orbRollReady';
+const ROLL_AFTER = 5;
+let orbsThrown = 0;
+function revealRoll({ animate = true } = {}) {
+  if (document.body.classList.contains('roll-ready')) return;
+  document.body.classList.add('roll-ready');
+  if (animate) bump(ui.roll, 'intro');
+  try {
+    localStorage.setItem(ROLL_READY_KEY, '1');
+  } catch {}
+}
+try {
+  if (localStorage.getItem(ROLL_READY_KEY)) document.body.classList.add('roll-ready');
+} catch {}
+
 async function addLayer(id, home) {
+  if (++orbsThrown >= ROLL_AFTER) revealRoll();
   previewOnly = false; // putting an orb in means the song plays on
   if (!playing) await play();
   const layer = byId[id];
@@ -391,6 +411,8 @@ function returnOrb(id, home) {
 // ---------- status, list, solo ----------
 
 function renderStatus() {
+  // the centre hint shows only while the song has no orbs
+  document.body.classList.toggle('has-orbs', active.size > 0);
   const key = song ? '' : ` · ${keyText()} (${ot(keyMode())})`;
   ui.status.innerHTML = active.size
     ? `${bpm()} BPM${key}${layers().some(seeded) ? ` · ${ot('variation')} <b>#${variation}</b>` : ''}`
@@ -916,21 +938,31 @@ function goHome(el, home) {
 
 function fling(el, home, x, y, vx, vy) {
   let last = performance.now();
+  // while nothing plays, a throw heading left (towards the player) always lands in it, so the
+  // first orb starts the song without pressing play
+  const aim = !playing && home.kind !== 'active' && vx < 0 && -vx > Math.abs(vy);
   const step = (now) => {
     const dt = Math.min(0.05, (now - last) / 1000);
     last = now;
-    // a light pull near the player so a roughly aimed throw still lands
     const c = coreCenter();
     const dx = c.x - x, dy = c.y - y, dist = Math.hypot(dx, dy);
-    if (dist < c.drop * c.pull) {
+    if (aim) {
+      // fly straight at the player, never slower than a brisk throw
+      const sp = Math.max(Math.hypot(vx, vy), 1100);
+      vx = (dx / dist) * sp;
+      vy = (dy / dist) * sp;
+    } else if (dist < c.drop * c.pull) {
+      // a light pull near the player so a roughly aimed throw still lands
       vx += (dx / dist) * 2600 * dt;
       vy += (dy / dist) * 2600 * dt;
     }
     x += vx * dt;
     y += vy * dt;
-    const f = Math.pow(0.2, dt);
-    vx *= f;
-    vy *= f;
+    if (!aim) {
+      const f = Math.pow(0.2, dt);
+      vx *= f;
+      vy *= f;
+    }
     el.style.left = x + 'px';
     el.style.top = y + 'px';
     highlight(x, y, el.dataset.id);
@@ -1461,7 +1493,8 @@ function presetTile(p, mine) {
     tile.append(ball, name, meta, up, share, del);
   } else {
     const keep = tileButton('share up', '＋', ot('keep'), () => {
-      savePresets([{ ...p, id: Date.now().toString(36) }, ...loadPresets()]);
+      const { w, ...kept } = p; // the list weight stays with the server's copy
+      savePresets([{ ...kept, id: Date.now().toString(36) }, ...loadPresets()]);
       renderPresets();
       bump(ui.presetList.firstChild, 'gulp');
     });
@@ -1503,10 +1536,11 @@ function renderShared() {
 }
 function refreshShared() {
   if (!sharedList.children.length) sharedList.innerHTML = `<p class="empty">${ot('loading')}</p>`;
-  sharedLoading ??= fetchPresets({ limit: 100 })
+  // well-liked and recent presets tend to come first, and to make the cut of 100
+  sharedLoading ??= fetchPresets({ limit: 500 })
     .then((list) => {
       setServerUp(true);
-      sharedLast = list;
+      sharedLast = weightedOrder(list).slice(0, 100);
       renderShared();
     })
     .catch((e) => {
@@ -1614,7 +1648,11 @@ function grabPreset(e, p, tile) {
   window.addEventListener('pointercancel', up);
 }
 
+// 👍 / 👎 beside the play button for the shared preset last loaded (hidden for other sets)
+const setVote = mountVote($('vote'));
+
 async function applyPreset(p) {
+  setVote(p);
   for (const id of [...active.keys()]) removeLayer(id, { silent: true, respawn: false });
   // drawn parts are rebuilt under fresh ids so they never clash with drawings made since
   const ids = new Map((p.drawn ?? []).map((d) => [d.id, makeDrawn(d.src, d.raw).id]));
@@ -1713,6 +1751,7 @@ function restoreSession() {
     for (const id of s.layers ?? []) if (byId[id]) put(byId[id], 0);
     for (const [id, v] of Object.entries(s.seeds ?? {})) if (active.has(id) && Number.isSafeInteger(v)) ownSeed.set(id, v);
     if (typeof s.name === 'string') ui.presetName.value = s.name;
+    if (s.roll || active.size >= ROLL_AFTER) revealRoll({ animate: false });
     if (s.roll && byId[s.roll.id] && pickInstrument(s.roll.id, s.roll.home)) {
       if (byId[s.roll.src] && Array.isArray(s.roll.raw)) draft = { src: s.roll.src, raw: [...s.roll.raw], edited: !!s.roll.edited };
       renderRollHead();
@@ -1763,15 +1802,11 @@ function parsePresetText(text) {
   return { id, name: (title || ot('importedPreset')).slice(0, 24), layers, drawn: [], variation: +(text.match(/변주\s*#(\d+)/)?.[1] ?? 0) };
 }
 
-// copy to the clipboard (falls back to a box to copy from); the button says how it went
+// copy to the clipboard (on mobile, or if that fails, a popup to copy from); the button says how it went
 async function shareText(text, btn) {
+  if (!(await copyText(text))) return;
   const label = btn.textContent;
-  try {
-    await navigator.clipboard.writeText(text);
-    btn.textContent = btn.classList.contains('share') ? '✓' : ot('copied');
-  } catch {
-    prompt(ot('copyPrompt'), text);
-  }
+  btn.textContent = btn.classList.contains('share') ? '✓' : ot('copied');
   setTimeout(() => (btn.textContent = label), 1500);
 }
 const sharePreset = (p, btn) => shareText(presetText(p), btn);
@@ -2577,6 +2612,7 @@ $('searchBtn').addEventListener('click', () => {
 ui.searchInput.addEventListener('input', renderSearch);
 ui.searchInput.addEventListener('keydown', (e) => e.key === 'Escape' && $('searchBtn').click());
 $('clear').addEventListener('click', () => {
+  setVote(null);
   for (const id of [...active.keys()]) removeLayer(id, { silent: true, respawn: false });
   sync();
 });
@@ -2594,6 +2630,7 @@ function applyLangUI() {
   onceLabel();
 }
 mountLicenses($('licenseBtn'));
+$('feedbackBtn').addEventListener('click', () => window.open('https://forms.gle/gvjXSkEM7W6ug6US9', '_blank', 'noopener'));
 mountLangButtons($('langs'), () => {
   applyLangUI();
   renderStatus();

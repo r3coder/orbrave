@@ -20,6 +20,7 @@
       <button id="searchBtn" data-i18n="search" data-i18n-title="searchTip">🔍 오브 검색</button>
       <button id="codeToggle" data-i18n="code">&lt;/&gt; 코드</button>
       <button id="licenseBtn" data-i18n="licenses">ⓘ 라이선스</button>
+      <button id="feedbackBtn" data-i18n="feedback">🐞 버그/의견 제출</button>
       <div class="langs" id="langs" role="group" aria-label="language"></div>
     </div>
   </header>
@@ -72,6 +73,7 @@
           <svg viewBox="0 0 24 24" class="i-stop"><rect x="6.5" y="6.5" width="11" height="11" rx="1.5" /></svg>
         </button>
         <div class="sats" id="sats"></div>
+        <div id="vote"></div>
       </div>
       <p class="status" id="status"></p>
       <div class="chips" id="chips"></div>
@@ -129,6 +131,7 @@
       <div class="stash-slots" id="stashSlots"></div>
     </aside>
   </main>
+  <p class="empty-hint" id="emptyHint" data-i18n="emptyHint">아무 오브나 잡고 재생 버튼이 있는 곳으로 던지거나, 왼쪽 프리셋에서 오브를 불러와 주세요</p>
 
   <aside class="drawer" id="drawer">
     <div class="drawer-head"><span>generated strudel</span><button id="codeClose" class="ghost">✕</button></div>

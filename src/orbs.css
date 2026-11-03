@@ -325,6 +325,17 @@ body.loading .play { animation: blink 0.8s infinite alternate; }
 }
 /* with an orb in it the roll takes two thirds of the height */
 body.roll-full .roll { flex-basis: 66vh; }
+/* hidden until five orbs have gone into the player, then it slides up from the bottom */
+@media (min-width: 761px) {
+  body:not(.roll-ready) .roll { flex-basis: 0; border-top-width: 0; }
+  .roll { transition: flex-basis 0.6s cubic-bezier(.2, .9, .3, 1.15), box-shadow 0.2s; }
+}
+.roll.intro { animation: rollIntro 2.4s ease-out; }
+@keyframes rollIntro {
+  0%, 30% { box-shadow: inset 0 8px 50px rgba(57, 255, 156, 0.45); border-top-color: var(--acc); }
+}
+.roll.intro .roll-name b { animation: rollIntroText 0.9s ease-in-out 0.5s 3; }
+@keyframes rollIntroText { 50% { color: var(--acc); text-shadow: 0 0 12px var(--acc); } }
 .roll.hot { box-shadow: inset 0 6px 40px rgba(57, 255, 156, 0.3); border-top-color: var(--acc); }
 .roll.gulp { animation: rollGulp 0.6s ease-out; }
 @keyframes rollGulp { from { box-shadow: inset 0 10px 60px var(--g); } }
@@ -696,3 +707,13 @@ body.stem-open.roll-full .roll { flex-basis: 40vh; }
 .mini.major { outline: 2px solid #ffe066; outline-offset: 2px; box-shadow: 0 0 10px rgba(255, 210, 63, 0.8); }
 .sat.major { outline: 2px solid #ffe066; outline-offset: 2px; }
 .role > i.major { box-shadow: 0 0 0 1.5px #ffe066, 0 0 8px #ffd23f; }
+
+/* centre hint while the song has no orbs */
+.empty-hint {
+  position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 5;
+  width: min(560px, calc(100vw - 32px)); margin: 0; padding: 14px 18px;
+  text-align: center; font-size: 15px; line-height: 1.6; color: var(--fg);
+  background: var(--panel); border: 1px solid var(--line); box-shadow: 0 0 24px rgba(57, 255, 156, 0.15);
+  pointer-events: none; transition: opacity 0.3s;
+}
+body.has-orbs .empty-hint { opacity: 0; visibility: hidden; transition: opacity 0.3s, visibility 0s 0.3s; }

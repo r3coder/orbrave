@@ -141,6 +141,8 @@ export function fromWire(x) {
     layers, drawn, variation: Number.isSafeInteger(x.variation) && x.variation >= 0 ? x.variation : 0,
     ...(seeds ? { seeds } : {}),
     ...(song ? { song } : {}),
+    // how often it comes up (from 👍 / 👎 on the server); never shown
+    ...(Number.isFinite(x.w) && x.w > 0 ? { w: Math.min(10, x.w) } : {}),
   };
   return presetLayers(p).some((l) => l.code) ? p : null;
 }

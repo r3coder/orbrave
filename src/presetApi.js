@@ -56,3 +56,77 @@ export async function uploadPreset(p, extra = {}) {
   if (!saved) throw new Error('bad response');
   return saved;
 }
+
+// ---------- 👍 / 👎 ----------
+// Each browser gets one random voter id (localStorage), so the server keeps one vote per
+// browser and preset. The votes themselves never come back: lists only carry a coarse weight
+// `w` (1 = no votes) that decides how often a preset comes up.
+
+const VOTER_KEY = 'orbVoter';
+const VOTES_KEY = 'orbVotes'; // { presetId: 1 | -1 } — what this browser voted, to light the buttons
+
+// ids the server hands out (261104-k3j9x2abq0); presets saved or imported here have other ids
+export const isSharedId = (id) => /^\d{6}-[a-z0-9]{10}$/.test(String(id ?? ''));
+
+function voterId() {
+  try {
+    let id = localStorage.getItem(VOTER_KEY);
+    if (!/^[a-z0-9-]{16,40}$/.test(id ?? '')) {
+      id = crypto.randomUUID?.() ?? [...crypto.getRandomValues(new Uint8Array(16))].map((b) => b.toString(16).padStart(2, '0')).join('');
+      localStorage.setItem(VOTER_KEY, id);
+    }
+    return id;
+  } catch {
+    return null; // no storage (private window etc.): no voting
+  }
+}
+
+function readVotes() {
+  try {
+    const v = JSON.parse(localStorage.getItem(VOTES_KEY));
+    return v && typeof v === 'object' ? v : {};
+  } catch {
+    return {};
+  }
+}
+
+// this browser's vote on a preset: 1, -1 or 0
+export const myVote = (id) => readVotes()[id] ?? 0;
+export const canVote = (id) => isSharedId(id) && !!voterId();
+
+// Send a vote (1, -1, or 0 to take it back); resolves to the vote now stored, or throws.
+export async function votePreset(id, v) {
+  const voter = voterId();
+  if (!voter || !isSharedId(id)) throw new Error('cannot vote');
+  await request(`/presets/${encodeURIComponent(id)}/vote`, { method: 'POST', body: JSON.stringify({ voter, v }) });
+  const all = readVotes();
+  if (v) all[id] = v;
+  else delete all[id];
+  try {
+    localStorage.setItem(VOTES_KEY, JSON.stringify(all));
+  } catch {}
+  return v;
+}
+
+const weightOf = (p) => (Number.isFinite(p?.w) && p.w > 0 ? p.w : 1);
+
+// one preset at random, a well-liked one more often (weight `w`)
+export function weightedPick(list) {
+  let r = Math.random() * list.reduce((s, p) => s + weightOf(p), 0);
+  for (const p of list) if ((r -= weightOf(p)) < 0) return p;
+  return list.at(-1);
+}
+
+// The list in a random order where well-liked and recent presets tend to come first
+// (weighted shuffle: each gets the key rand^(1/weight), highest first).
+export function weightedOrder(list) {
+  const now = Date.now();
+  const DAY = 86_400_000;
+  return list
+    .map((p) => {
+      const age = Math.max(0, (now - (Date.parse(p.createdAt) || 0)) / DAY);
+      return [Math.random() ** (1 / (weightOf(p) * (1 + 2 * Math.exp(-age / 3)))), p];
+    })
+    .sort((a, b) => b[0] - a[0])
+    .map((x) => x[1]);
+}

@@ -29,3 +29,15 @@
 .lic-badge { font-size: 11px; white-space: nowrap; }
 .lic-badge a { color: var(--acc); }
 .lic li.attr .lic-badge a { color: var(--acc2); }
+
+/* Copy popup (src/copyBox.js), same frame as the license dialog */
+.copybox { width: min(480px, calc(100vw - 32px)); }
+.cb-text {
+  display: block; box-sizing: border-box; width: 100%; resize: vertical;
+  padding: 8px; color: var(--fg); background: rgba(0, 0, 0, 0.4); border: 1px solid var(--line);
+  font: 12px/1.5 ui-monospace, monospace; white-space: pre-wrap; word-break: break-all;
+  user-select: text; -webkit-user-select: text;
+}
+.cb-row { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
+.cb-row button { padding: 8px 16px; }
+.cb-copy { color: var(--acc); border-color: var(--acc); }

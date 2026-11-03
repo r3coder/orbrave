@@ -9,6 +9,16 @@ import { validatePreset } from './presetSchema.mjs';
 
 const ID = /^(\d{2})(\d{2})(\d{2})-[a-z0-9]{10}$/;
 const CACHE = 500; // newest presets kept in memory for the list (GET /presets returns at most this)
+const VOTER = /^[a-z0-9-]{16,40}$/;
+const VOTE_SAVE_MS = 2000; // votes are written to disk at most this often
+
+// How often a preset comes up on the pages, from its 👍 / 👎 balance: 1 with no votes,
+// doubling every 3 net 👍 up to 4×, halving every 3 net 👎 down to ¼×. The counts themselves
+// never leave the server; lists only carry this coarse weight.
+export function voteWeight(up, down) {
+  const s = Math.max(-6, Math.min(6, up - down));
+  return Math.round(2 ** (s / 3) * 100) / 100;
+}
 
 const pad = (n) => String(n).padStart(2, '0');
 const ALPHA = 'abcdefghijklmnopqrstuvwxyz0123456789';
@@ -22,6 +32,54 @@ export function createPresetStore(dataDir, { maxPerDay = 2000 } = {}) {
   };
   let cache = null; // newest first
   const perDay = new Map(); // 'YYMMDD' -> files in that folder
+
+  // Votes: one file, <dataDir>/votes.json = { presetId: { voterId: 1 | -1 } }, kept in memory
+  // and written back (temp file + rename) a moment after the last change.
+  const votesFile = join(dataDir, 'votes.json');
+  let votes = null;
+  let voteTimer = null;
+  let voteWrite = Promise.resolve();
+  async function loadVotes() {
+    if (votes) return votes;
+    try {
+      const raw = JSON.parse(await readFile(votesFile, 'utf8'));
+      votes = new Map();
+      for (const [id, by] of Object.entries(raw ?? {})) {
+        if (!ID.test(id) || !by || typeof by !== 'object') continue;
+        const m = new Map(Object.entries(by).filter(([k, v]) => VOTER.test(k) && (v === 1 || v === -1)));
+        if (m.size) votes.set(id, m);
+      }
+    } catch {
+      votes ??= new Map();
+    }
+    return votes;
+  }
+  function saveVotesSoon() {
+    if (voteTimer) return;
+    voteTimer = setTimeout(() => {
+      voteTimer = null;
+      const data = JSON.stringify(Object.fromEntries([...votes].map(([id, m]) => [id, Object.fromEntries(m)])));
+      voteWrite = voteWrite.then(async () => {
+        const tmp = join(dataDir, `.votes.${randomId(6)}.tmp`);
+        try {
+          await mkdir(dataDir, { recursive: true });
+          await writeFile(tmp, data, { mode: 0o644 });
+          await rename(tmp, votesFile);
+        } catch (e) {
+          await rm(tmp, { force: true });
+          console.error('[preset store] votes not saved', e);
+        }
+      });
+    }, VOTE_SAVE_MS);
+    voteTimer.unref?.();
+  }
+  const weightOf = (id) => {
+    const m = votes?.get(id);
+    if (!m) return 1;
+    let up = 0;
+    for (const v of m.values()) up += v > 0;
+    return voteWeight(up, m.size - up);
+  };
 
   // a stored file, re-checked on the way out so a hand-edited or damaged file never reaches a page
   async function readRecord(file) {
@@ -64,7 +122,27 @@ export function createPresetStore(dataDir, { maxPerDay = 2000 } = {}) {
   return {
     async list(limit = 200) {
       cache ??= await loadCache();
-      return cache.slice(0, Math.max(1, Math.min(CACHE, limit)));
+      await loadVotes();
+      return cache.slice(0, Math.max(1, Math.min(CACHE, limit))).map((r) => ({ ...r, w: weightOf(r.id) }));
+    },
+
+    // One vote per voter id and preset: 1 (👍), -1 (👎), or 0 to take it back. Voting again
+    // replaces the earlier vote, so it never adds up. Resolves to false when there is no such preset.
+    async vote(id, voter, v) {
+      if (!VOTER.test(voter ?? '') || ![1, -1, 0].includes(v)) throw Object.assign(new Error('평가 값이 올바르지 않아요'), { status: 400 });
+      if (!(await this.get(id))) return false;
+      await loadVotes();
+      let m = votes.get(id);
+      if (v === 0) {
+        if (!m?.delete(voter)) return true;
+        if (!m.size) votes.delete(id);
+      } else {
+        if (m?.get(voter) === v) return true;
+        if (!m) votes.set(id, (m = new Map()));
+        m.set(voter, v);
+      }
+      saveVotesSoon();
+      return true;
     },
 
     async get(id) {

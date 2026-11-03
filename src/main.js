@@ -5,9 +5,11 @@ import {
 import { generateSong, nextSeed, randomSeed, STYLE_NAMES } from './composer.js';
 import { LANGS, getLang, setLang, t } from './i18n.js';
 import { presetSong, presetColors } from './orbPreset.js';
-import { listPresets, getPreset } from './presetApi.js';
+import { listPresets, getPreset, weightedPick, weightedOrder } from './presetApi.js';
+import { mountVote } from './vote.js';
 import { loadSampleBanks, preloadSamples, preloadDrums } from './samples.js';
 import { mountLicenses } from './licenses.js';
+import { copyText } from './copyBox.js';
 
 // Place a pattern at an absolute cycle window: shift it so its cycle 0 lands on `a`,
 // and drop every event outside [a, a+len). Generated songs use this for every line.
@@ -22,6 +24,8 @@ const ui = {
   download: $('download'), drawer: $('drawer'), code: $('code'), history: $('history'),
   core: $('core'), ring: $('ring'), genres: $('genres'), langs: $('langs'),
 };
+// 👍 / 👎 beside the play button while a shared preset plays
+const setVote = mountVote($('vote'));
 
 const replReady = initStrudel({
   prebake: loadSampleBanks,
@@ -87,9 +91,10 @@ const presetMode = () => presets.length > 0;
 const refOf = (song) => (song.preset ? { preset: song.preset } : { seed: song.seed, style: song.style });
 const keyOf = (ref) => (ref.preset ? `p:${ref.preset.id}` : `s:${ref.seed}`);
 const hashOf = (song) => (song.preset ? `#preset.${song.preset.id}` : `#${song.id}.${song.style}`);
+// well-liked presets come up more often (their weight from 👍 / 👎)
 function randomPreset(except) {
   const list = presets.length > 1 ? presets.filter((p) => p.id !== except) : presets;
-  return list[Math.floor(Math.random() * list.length)];
+  return weightedPick(list);
 }
 // what plays after `song`: another user preset when there are any, else the next generated song
 const nextRef = (song) => (presetMode() ? { preset: randomPreset(song.preset?.id) } : { seed: nextSeed(song.seed) });
@@ -239,6 +244,7 @@ function setButtons() {
   ui.prev.disabled = !playing || played.length < 2;
   ui.download.disabled = !current || rendering;
   ui.play.setAttribute('aria-label', t(playing ? 'stop' : 'play'));
+  setVote(playing ? current?.preset : null);
 }
 
 // ---------- floating labels: user presets, or genres when there are none ----------
@@ -286,7 +292,7 @@ function renderFloaters() {
   let items;
   if (presetMode()) {
     const cur = current?.preset && presets.find((p) => p.id === current.preset.id);
-    const others = presets.filter((p) => p !== cur).map((p) => [Math.random(), p]).sort((a, b) => a[0] - b[0]).map((x) => x[1]);
+    const others = weightedOrder(presets.filter((p) => p !== cur));
     items = [cur, ...others].filter(Boolean).slice(0, MAX_FLOATERS).map(presetFloater);
   } else items = STYLE_NAMES.map(genreFloater);
   ui.genres.replaceChildren(...items);
@@ -584,6 +590,7 @@ for (const [code, name] of Object.entries(LANGS)) {
   ui.langs.append(b);
 }
 mountLicenses($('licenseBtn'));
+$('feedbackBtn').addEventListener('click', () => window.open('https://forms.gle/gvjXSkEM7W6ug6US9', '_blank', 'noopener'));
 setLang(getLang());
 applyLang();
 
@@ -593,13 +600,9 @@ ui.skip.onclick = () => jump(refOf(upcoming));
 ui.download.onclick = download;
 ui.share.onclick = async () => {
   const url = location.href.split('#')[0] + hashOf(current);
+  if (!(await copyText(url))) return;
   const label = ui.share.querySelector('b');
-  try {
-    await navigator.clipboard.writeText(url);
-    label.textContent = t('copied');
-  } catch {
-    prompt('URL', url);
-  }
+  label.textContent = t('copied');
   setTimeout(() => (label.textContent = t('share')), 1500);
 };
 $('codeToggle').onclick = () => ui.drawer.classList.toggle('open');
