@@ -1,0 +1,369 @@
+{
+ "TR909_bd": [
+  "TR909/bd/00.flac",
+  "TR909/bd/01.flac",
+  "TR909/bd/02.flac",
+  "TR909/bd/03.flac",
+  "TR909/bd/04.flac",
+  "TR909/bd/05.flac"
+ ],
+ "TR909_sd": [
+  "TR909/sd/00.flac",
+  "TR909/sd/01.flac",
+  "TR909/sd/02.flac",
+  "TR909/sd/03.flac",
+  "TR909/sd/04.flac"
+ ],
+ "TR909_cp": [
+  "TR909/cp/00.flac",
+  "TR909/cp/01.flac"
+ ],
+ "TR909_rim": [
+  "TR909/rim/00.flac"
+ ],
+ "TR909_hh": [
+  "TR909/hh/00.flac",
+  "TR909/hh/01.flac"
+ ],
+ "TR909_oh": [
+  "TR909/oh/00.flac",
+  "TR909/oh/01.flac"
+ ],
+ "TR909_cr": [
+  "TR909/cr/00.flac",
+  "TR909/cr/01.flac"
+ ],
+ "TR909_rd": [
+  "TR909/rd/00.flac",
+  "TR909/rd/01.flac"
+ ],
+ "TR909_lt": [
+  "TR909/lt/00.flac",
+  "TR909/lt/01.flac"
+ ],
+ "TR909_mt": [
+  "TR909/mt/00.flac",
+  "TR909/mt/01.flac"
+ ],
+ "TR909_ht": [
+  "TR909/ht/00.flac",
+  "TR909/ht/01.flac"
+ ],
+ "TR808_bd": [
+  "TR808/bd/00.flac",
+  "TR808/bd/01.flac",
+  "TR808/bd/02.flac",
+  "TR808/bd/03.flac",
+  "TR808/bd/04.flac"
+ ],
+ "TR808_sd": [
+  "TR808/sd/00.flac",
+  "TR808/sd/01.flac",
+  "TR808/sd/02.flac",
+  "TR808/sd/03.flac"
+ ],
+ "TR808_cp": [
+  "TR808/cp/00.flac",
+  "TR808/cp/01.flac",
+  "TR808/cp/02.flac",
+  "TR808/cp/03.flac"
+ ],
+ "TR808_rim": [
+  "TR808/rim/00.flac"
+ ],
+ "TR808_hh": [
+  "TR808/hh/00.flac",
+  "TR808/hh/01.flac"
+ ],
+ "TR808_oh": [
+  "TR808/oh/00.flac",
+  "TR808/oh/01.flac",
+  "TR808/oh/02.flac"
+ ],
+ "TR808_cr": [
+  "TR808/cr/00.flac",
+  "TR808/cr/01.flac"
+ ],
+ "TR808_cb": [
+  "TR808/cb/00.flac",
+  "TR808/cb/01.flac"
+ ],
+ "TR808_sh": [
+  "TR808/sh/00.flac",
+  "TR808/sh/01.flac"
+ ],
+ "TR808_perc": [
+  "TR808/perc/00.flac",
+  "TR808/perc/01.flac",
+  "TR808/perc/02.flac",
+  "TR808/perc/03.flac",
+  "TR808/perc/04.flac",
+  "TR808/perc/05.flac"
+ ],
+ "TR808_lt": [
+  "TR808/lt/00.flac",
+  "TR808/lt/01.flac",
+  "TR808/lt/02.flac",
+  "TR808/lt/03.flac"
+ ],
+ "TR808_mt": [
+  "TR808/mt/00.flac",
+  "TR808/mt/01.flac",
+  "TR808/mt/02.flac"
+ ],
+ "TR808_ht": [
+  "TR808/ht/00.flac",
+  "TR808/ht/01.flac",
+  "TR808/ht/02.flac"
+ ],
+ "TR707_bd": [
+  "TR707/bd/00.flac",
+  "TR707/bd/01.flac",
+  "TR707/bd/02.flac"
+ ],
+ "TR707_sd": [
+  "TR707/sd/00.flac",
+  "TR707/sd/01.flac",
+  "TR707/sd/02.flac"
+ ],
+ "TR707_cp": [
+  "TR707/cp/00.flac"
+ ],
+ "TR707_rim": [
+  "TR707/rim/00.flac",
+  "TR707/rim/01.flac"
+ ],
+ "TR707_hh": [
+  "TR707/hh/00.flac"
+ ],
+ "TR707_oh": [
+  "TR707/oh/00.flac"
+ ],
+ "TR707_cr": [
+  "TR707/cr/00.flac",
+  "TR707/cr/01.flac"
+ ],
+ "TR707_rd": [
+  "TR707/rd/00.flac",
+  "TR707/rd/01.flac"
+ ],
+ "TR707_tb": [
+  "TR707/tb/00.flac"
+ ],
+ "TR707_lt": [
+  "TR707/lt/00.flac",
+  "TR707/lt/01.flac"
+ ],
+ "TR707_mt": [
+  "TR707/mt/00.flac",
+  "TR707/mt/01.flac"
+ ],
+ "TR707_ht": [
+  "TR707/ht/00.flac",
+  "TR707/ht/01.flac"
+ ],
+ "TR606_bd": [
+  "TR606/bd/00.flac",
+  "TR606/bd/01.flac",
+  "TR606/bd/02.flac"
+ ],
+ "TR606_sd": [
+  "TR606/sd/00.flac",
+  "TR606/sd/01.flac",
+  "TR606/sd/02.flac",
+  "TR606/sd/03.flac"
+ ],
+ "TR606_hh": [
+  "TR606/hh/00.flac",
+  "TR606/hh/01.flac"
+ ],
+ "TR606_oh": [
+  "TR606/oh/00.flac",
+  "TR606/oh/01.flac"
+ ],
+ "TR606_cr": [
+  "TR606/cr/00.flac",
+  "TR606/cr/01.flac"
+ ],
+ "TR606_lt": [
+  "TR606/lt/00.flac",
+  "TR606/lt/01.flac",
+  "TR606/lt/02.flac",
+  "TR606/lt/03.flac"
+ ],
+ "TR606_ht": [
+  "TR606/ht/00.flac",
+  "TR606/ht/01.flac"
+ ],
+ "TR727_perc": [
+  "TR727/perc/00.flac",
+  "TR727/perc/01.flac",
+  "TR727/perc/02.flac",
+  "TR727/perc/03.flac",
+  "TR727/perc/04.flac",
+  "TR727/perc/05.flac",
+  "TR727/perc/06.flac",
+  "TR727/perc/07.flac",
+  "TR727/perc/08.flac",
+  "TR727/perc/09.flac",
+  "TR727/perc/10.flac",
+  "TR727/perc/11.flac",
+  "TR727/perc/12.flac",
+  "TR727/perc/13.flac",
+  "TR727/perc/14.flac"
+ ],
+ "TR727_sh": [
+  "TR727/sh/00.flac"
+ ],
+ "RD6_bd": [
+  "RD6/bd/00.flac",
+  "RD6/bd/01.flac",
+  "RD6/bd/02.flac",
+  "RD6/bd/03.flac",
+  "RD6/bd/04.flac",
+  "RD6/bd/05.flac"
+ ],
+ "RD6_sd": [
+  "RD6/sd/00.flac",
+  "RD6/sd/01.flac",
+  "RD6/sd/02.flac",
+  "RD6/sd/03.flac",
+  "RD6/sd/04.flac",
+  "RD6/sd/05.flac",
+  "RD6/sd/06.flac"
+ ],
+ "RD6_cp": [
+  "RD6/cp/00.flac",
+  "RD6/cp/01.flac",
+  "RD6/cp/02.flac",
+  "RD6/cp/03.flac",
+  "RD6/cp/04.flac",
+  "RD6/cp/05.flac",
+  "RD6/cp/06.flac",
+  "RD6/cp/07.flac",
+  "RD6/cp/08.flac",
+  "RD6/cp/09.flac",
+  "RD6/cp/10.flac"
+ ],
+ "RD6_hh": [
+  "RD6/hh/00.flac",
+  "RD6/hh/01.flac",
+  "RD6/hh/02.flac",
+  "RD6/hh/03.flac"
+ ],
+ "RD6_oh": [
+  "RD6/oh/00.flac",
+  "RD6/oh/01.flac",
+  "RD6/oh/02.flac",
+  "RD6/oh/03.flac"
+ ],
+ "RD6_cr": [
+  "RD6/cr/00.flac",
+  "RD6/cr/01.flac",
+  "RD6/cr/02.flac",
+  "RD6/cr/03.flac"
+ ],
+ "RD6_lt": [
+  "RD6/lt/00.flac",
+  "RD6/lt/01.flac",
+  "RD6/lt/02.flac",
+  "RD6/lt/03.flac",
+  "RD6/lt/04.flac",
+  "RD6/lt/05.flac"
+ ],
+ "RD6_ht": [
+  "RD6/ht/00.flac",
+  "RD6/ht/01.flac",
+  "RD6/ht/02.flac",
+  "RD6/ht/03.flac",
+  "RD6/ht/04.flac",
+  "RD6/ht/05.flac"
+ ],
+ "Kit_bd": [
+  "Kit/bd/00.flac",
+  "Kit/bd/01.flac",
+  "Kit/bd/02.flac",
+  "Kit/bd/03.flac",
+  "Kit/bd/04.flac",
+  "Kit/bd/05.flac",
+  "Kit/bd/06.flac"
+ ],
+ "Kit_sd": [
+  "Kit/sd/00.flac",
+  "Kit/sd/01.flac",
+  "Kit/sd/02.flac",
+  "Kit/sd/03.flac",
+  "Kit/sd/04.flac",
+  "Kit/sd/05.flac",
+  "Kit/sd/06.flac",
+  "Kit/sd/07.flac"
+ ],
+ "Kit_rim": [
+  "Kit/rim/00.flac",
+  "Kit/rim/01.flac",
+  "Kit/rim/02.flac",
+  "Kit/rim/03.flac"
+ ],
+ "Kit_hh": [
+  "Kit/hh/00.flac",
+  "Kit/hh/01.flac",
+  "Kit/hh/02.flac",
+  "Kit/hh/03.flac"
+ ],
+ "Kit_oh": [
+  "Kit/oh/00.flac",
+  "Kit/oh/01.flac",
+  "Kit/oh/02.flac",
+  "Kit/oh/03.flac"
+ ],
+ "Kit_lt": [
+  "Kit/lt/00.flac",
+  "Kit/lt/01.flac"
+ ],
+ "Kit_ht": [
+  "Kit/ht/00.flac",
+  "Kit/ht/01.flac"
+ ],
+ "Kit_rd": [
+  "Kit/rd/00.flac",
+  "Kit/rd/01.flac"
+ ],
+ "Kit_cr": [
+  "Kit/cr/00.flac",
+  "Kit/cr/01.flac"
+ ],
+ "kitbreak": [
+  "kitbreak/00.flac",
+  "kitbreak/01.flac",
+  "kitbreak/02.flac",
+  "kitbreak/03.flac",
+  "kitbreak/04.flac",
+  "kitbreak/05.flac",
+  "kitbreak/06.flac",
+  "kitbreak/07.flac",
+  "kitbreak/08.flac",
+  "kitbreak/09.flac",
+  "kitbreak/10.flac",
+  "kitbreak/11.flac",
+  "kitbreak/12.flac",
+  "kitbreak/13.flac",
+  "kitbreak/14.flac",
+  "kitbreak/15.flac",
+  "kitbreak/16.flac",
+  "kitbreak/17.flac",
+  "kitbreak/18.flac",
+  "kitbreak/19.flac",
+  "kitbreak/20.flac",
+  "kitbreak/21.flac",
+  "kitbreak/22.flac",
+  "kitbreak/23.flac",
+  "kitbreak/24.flac",
+  "kitbreak/25.flac",
+  "kitbreak/26.flac",
+  "kitbreak/27.flac",
+  "kitbreak/28.flac",
+  "kitbreak/29.flac",
+  "kitbreak/30.flac",
+  "kitbreak/31.flac"
+ ]
+}

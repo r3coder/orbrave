@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ORBRAVE</title>
+  <meta name="description" content="Endless generative electronic music, live-coded by an algorithm with Strudel." />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>∞</text></svg>" />
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+  <div class="boot" id="boot" role="status" aria-live="polite">
+    <div class="boot-title" data-i18n="loadingSounds"></div>
+    <div class="boot-bar"><i id="bootBar"></i></div>
+    <div class="boot-count" id="bootCount"></div>
+  </div>
+  <canvas id="viz"></canvas>
+  <div class="genres" id="genres"></div>
+
+  <header class="top">
+    <div class="logo">∞ ORBRAVE</div>
+    <div class="top-right">
+      <div class="langs" id="langs" role="group" aria-label="language"></div>
+      <a class="nav-btn" href="orbs.html" data-i18n="toOrbs"></a>
+    </div>
+  </header>
+
+  <main class="stage">
+    <section class="info">
+      <h1 id="title">∞</h1>
+      <div class="meta" id="meta"></div>
+    </section>
+
+    <section class="core" id="core">
+      <svg class="ring" id="ring" viewBox="0 0 240 240" role="slider" tabindex="0" aria-valuemin="0" aria-valuemax="100">
+        <defs>
+          <linearGradient id="volGrad" x1="0" y1="1" x2="1" y2="0">
+            <stop offset="0" stop-color="#39ff9c" />
+            <stop offset="1" stop-color="#ff3bd4" />
+          </linearGradient>
+          <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="3" result="b" />
+            <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
+          </filter>
+        </defs>
+        <g id="ticks"></g>
+        <path id="volTrack" class="track" />
+        <path id="volArc" class="arc" stroke="url(#volGrad)" filter="url(#glow)" />
+        <circle id="volKnob" class="knob" r="7" filter="url(#glow)" />
+      </svg>
+      <button class="play" id="play" aria-label="play">
+        <svg viewBox="0 0 24 24" class="i-play"><path d="M8 5.5v13l11-6.5z" /></svg>
+        <svg viewBox="0 0 24 24" class="i-stop"><rect x="6.5" y="6.5" width="11" height="11" rx="1.5" /></svg>
+      </button>
+    </section>
+
+    <section class="lower">
+      <div class="timeline" id="timeline"></div>
+      <div class="buttons">
+        <button id="prev" disabled><b data-i18n="prev"></b></button>
+        <button id="skip" disabled><b data-i18n="next"></b></button>
+        <button id="share" disabled><b data-i18n="share"></b></button>
+        <button id="download" disabled><b data-i18n="download"></b></button>
+      </div>
+    </section>
+  </main>
+
+  <footer class="powered">Powered by <a href="https://strudel.cc/" target="_blank" rel="noopener">strudel</a> · <a href="https://github.com/r3coder/orbrave" target="_blank" rel="noopener">source (AGPL-3.0)</a></footer>
+  <button class="code-btn" id="codeToggle">&lt;/&gt; <span data-i18n="code"></span></button>
+
+  <aside class="drawer" id="drawer">
+    <div class="drawer-head">
+      <span data-i18n="generatedCode"></span>
+      <button id="codeClose" class="ghost">✕</button>
+    </div>
+    <div class="code" id="code"></div>
+    <div class="drawer-head"><span data-i18n="history"></span></div>
+    <ol class="history" id="history"></ol>
+    <div class="drawer-head"><span>credits</span></div>
+    <p class="credits">
+      Engine: <a href="https://strudel.cc" target="_blank" rel="noopener">Strudel</a> (AGPL-3.0) ·
+      Font: <a href="https://github.com/RanolP/dalmoori-font" target="_blank" rel="noopener">Dalmoori</a> by RanolP (Apache-2.0) ·
+      Samples: <a href="https://github.com/MckAudio/MckSamplePacks" target="_blank" rel="noopener">MckSamplePacks</a> (CC0),
+      <a href="https://github.com/sfzinstruments/karoryfer.big-rusty-drums" target="_blank" rel="noopener">Big Rusty Drums</a> by Karoryfer (CC0),
+      <a href="https://github.com/sgossner/VCSL" target="_blank" rel="noopener">VCSL</a> (CC0),
+      <a href="https://archive.org/details/SalamanderGrandPianoV3" target="_blank" rel="noopener">Salamander Grand Piano</a> by Alexander Holm (CC-BY 3.0)
+    </p>
+  </aside>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

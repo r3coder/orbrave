@@ -1,0 +1,8 @@
+# install CUDA PyTorch first (see README), then: pip install -r requirements.txt
+demucs
+librosa
+soundfile
+soxr
+pyloudnorm
+matplotlib
+beat_this @ git+https://github.com/CPJKU/beat_this.git

@@ -1,0 +1,125 @@
+/* Phone (portrait) layout, loaded after orbs.css so it wins over its narrow-screen rules.
+   presets (row) / player with the orbs falling around it / [midi] / [song] / dock / stash */
+.m-dock, .m-song { display: none; }
+
+@media (max-width: 760px) {
+  .top { padding: 8px 12px; gap: 6px; }
+  .tools { gap: 4px; }
+  .tools button, .tools .nav-btn { padding: 3px 7px; font-size: 11px; }
+  .vol input { width: 70px; }
+
+  .stage {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(350px, 1fr) minmax(0, auto) minmax(0, auto) auto 52px;
+    grid-template-areas: 'pre' 'main' 'roll' 'song' 'dock' 'stash';
+    height: 100%;
+  }
+  /* the field and the roll become grid items of their own */
+  .right { display: contents; }
+
+  /* presets: one row under the header */
+  .presetbar {
+    grid-area: pre; order: 0;
+    flex-direction: row; align-items: center; gap: 8px;
+    padding: calc(var(--top-h, 76px) + 2px) 10px 6px;
+    border: 0; border-bottom: 1px dashed var(--line);
+    min-width: 0;
+  }
+  .presetbar > .side-head { display: none; }
+  .pb-save { flex-direction: row; flex: none; width: auto; gap: 4px; }
+  .pb-save input { width: 84px; }
+  .pb-save button { white-space: nowrap; }
+  .pb-list { flex-direction: row; align-items: center; gap: 4px; overflow-x: auto; overflow-y: hidden; padding: 0; min-width: 0; height: 44px; }
+  .pb-list .empty { text-align: left; white-space: nowrap; font-size: 0; }
+  .pb-list .empty::before { content: '지금 구성을 저장하면 여기 쌓여요'; font-size: 10px; }
+  .ptile { padding: 2px; }
+  .ptile .mini { width: 30px; height: 30px; }
+  .ptile .pname, .ptile small { display: none; }
+
+  /* one window: the orbs rain behind and beside the player */
+  .field { grid-area: main; order: 0; z-index: 0; }
+  .left {
+    grid-area: main; order: 0; z-index: 1; position: relative;
+    justify-content: center; gap: 8px;
+    padding: 10px 12px;
+    border: 0;
+    pointer-events: none; /* the orbs underneath stay grabbable */
+    min-width: 0; overflow: hidden;
+  }
+  .left .play, .left .chips, .left .actions button, .left .song { pointer-events: auto; }
+  .roles { margin-bottom: 24px; max-width: 100%; }
+  /* with a panel open the player area is short: drop the extras, and never clip the top */
+  .left { justify-content: safe center; }
+  body.song-open .left, body.roll-open .left { gap: 4px; padding: 26px 8px 4px; }
+  body.song-open .roles, body.roll-open .roles,
+  body.song-open .solo-hint, body.roll-open .solo-hint,
+  body.song-open .left .clear-all, body.roll-open .left .clear-all,
+  body.song-open .seeds, body.roll-open .seeds { display: none; }
+  body.song-open .status, body.roll-open .status { margin-top: 20px; }
+  /* only a drop on the ring counts, and throws are barely pulled in: the song's own orbs sit
+     right under the player, and dragging one out shouldn't land it straight back */
+  .core { --size: 116px; --drop-pad: 24px; --drop-pull: 1.25; }
+  .ring { inset: -22px; }
+  .status { margin-top: 18px; text-shadow: 0 1px 3px #000; }
+  .solo-hint { text-shadow: 0 1px 3px #000; }
+  .chips { max-width: 100%; }
+
+  /* midi (piano roll): closed until asked for, or until an orb is dropped into it */
+  .roll { grid-area: roll; order: 0; display: none; height: 34vh; flex: none; }
+  body.roll-open .roll { display: flex; }
+  body.roll-full .roll { height: 50vh; }
+  .roll-head { padding: 6px 8px; gap: 4px 6px; }
+  .roll-name { flex: 1 1 calc(100% - 50px); font-size: 12px; }
+  .roll-hint:empty { display: none; }
+  .roll-tools { flex: 1 1 100%; justify-content: flex-end; }
+  .roll-tools button { font-size: 11px; padding: 3px 7px; }
+  .roll-slot { width: 38px; height: 38px; }
+  .roll-slot .mini { width: 32px; height: 32px; }
+
+  /* the full song (and its stems): its own panel, opened from the dock */
+  .m-song {
+    grid-area: song; display: none; flex-direction: column; gap: 8px;
+    padding: 8px 10px; overflow-y: auto;
+    background: rgba(6, 8, 12, 0.94); border-top: 1px solid var(--line);
+  }
+  body.song-open .m-song { display: flex; }
+  body.song-open.stem-open .m-song { height: 40vh; padding: 0; }
+  /* the panels give way before the player does */
+  .m-song, .roll { min-height: 0; max-height: 100%; }
+  body.song-open:not(.stem-open) .m-song { max-height: min(40vh, 100%); }
+  .m-song .song { max-width: none; }
+  /* the stem grid already shows the sections, so the plain timeline steps aside */
+  .m-song:has(.stems) .song { display: none; }
+  body.stem-open .m-song-empty, .m-song:has(.song.on) .m-song-empty { display: none; }
+  .m-song .stems { flex: 1 1 auto; min-height: 0; }
+  body:not(.stem-open) .m-song .stems { display: none; }
+  .stem-hint { display: none; }
+  .stem-head { justify-content: space-between; }
+
+  /* the song's orbs: smaller strips so a full song still fits under the player */
+  .chips { gap: 4px; }
+  .strip { width: 62px; padding: 2px 2px 3px; }
+  .strip .mini { width: 28px; height: 28px; margin: 3px 0 2px; }
+  .strip b { font-size: 10px; }
+  .strip span { font-size: 8px; }
+
+  /* search drops under the (taller) phone header, full width */
+  .search { top: calc(var(--top-h, 76px) + 4px); left: 8px; right: 8px; width: auto; max-height: 60vh; }
+  .search-results { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); }
+  .m-song-empty { font-size: 12px; color: var(--dim); text-align: center; padding: 6px 0; }
+
+  .m-dock {
+    grid-area: dock; display: flex; gap: 6px; justify-content: center;
+    padding: 5px 10px; border-top: 1px dashed var(--line); background: rgba(6, 8, 12, 0.85);
+  }
+  .m-dock button { flex: 1; max-width: 160px; font-size: 12px; padding: 4px 8px; }
+  .m-dock button i { font-style: normal; color: var(--dim); margin-left: 4px; }
+  .m-dock button.open { border-color: var(--acc); color: var(--acc); }
+  .m-dock button.live { box-shadow: inset 0 -2px 0 #ffd23f; }
+
+  .stash { grid-area: stash; order: 0; flex-direction: row; align-items: center; padding: 0 8px 12px; border: 0; border-top: 1px dashed var(--line); }
+  .powered { left: 64px; bottom: 1px; font-size: 9px; }
+  .stash-head { margin: 0 8px 0 0; white-space: nowrap; }
+  .stash-slots { flex-direction: row; overflow-x: auto; overflow-y: hidden; height: 100%; }
+}

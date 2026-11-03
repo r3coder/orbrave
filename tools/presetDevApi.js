@@ -1,0 +1,17 @@
+// Dev server hook for the preset API: `npm run dev` serves /api/presets with the same handler
+// and validation as the production server (server/index.mjs). Shared presets are stored in
+// .preset-data/ at the project root, so the orb dev server (5174) and the main one (5173) see
+// the same list. Not part of any build.
+import { resolve } from 'node:path';
+import { createPresetApi } from '../server/presetApi.mjs';
+
+export function presetDevApi() {
+  return {
+    name: 'preset-dev-api',
+    apply: 'serve',
+    configureServer(server) {
+      const api = createPresetApi({ dataDir: resolve(import.meta.dirname, '..', '.preset-data') });
+      server.middlewares.use('/api', (req, res, next) => api(req, res, next));
+    },
+  };
+}

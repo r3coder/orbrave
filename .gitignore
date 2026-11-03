@@ -1,0 +1,25 @@
+# dependencies / build output
+node_modules/
+dist/
+
+# preset data (dev + production server)
+.preset-data/
+.preset-mock.json
+server/data/
+
+# reference-track analysis: tracks, stem cache, results (local only, see README)
+analysis/
+
+# Python venv for tools/analyze (setup in README)
+.venv/
+__pycache__/
+*.pyc
+
+# editor / agent / OS
+.claude/
+.vscode/
+.idea/
+*.log
+.DS_Store
+Thumbs.db
+desktop.ini

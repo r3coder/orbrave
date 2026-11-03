@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Night Shift</title>
+  <style>
+    :root { --bg: #07070a; --fg: #d8ffe9; --acc: #39ff9c; --dim: #4a5a52; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.5 ui-monospace, Consolas, monospace; }
+    header { display: flex; gap: 8px; align-items: center; padding: 12px 16px; flex-wrap: wrap; border-bottom: 1px solid #1a2a22; }
+    h1 { font-size: 16px; margin: 0 12px 0 0; color: var(--acc); letter-spacing: .1em; }
+    button { background: #0f1a14; color: var(--fg); border: 1px solid var(--acc); padding: 6px 14px; font: inherit; cursor: pointer; }
+    button:hover { background: var(--acc); color: var(--bg); }
+    button.rec { border-color: #ff3b5c; }
+    button.rec.on { background: #ff3b5c; color: #fff; }
+    #status { color: var(--dim); margin-left: auto; }
+    canvas { display: block; width: 100%; height: 120px; }
+    textarea { width: 100%; height: calc(100vh - 190px); background: transparent; color: var(--fg); border: 0; padding: 12px 16px; font: inherit; resize: none; outline: none; tab-size: 2; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>NIGHT SHIFT</h1>
+    <button id="play">▶ play / update (Ctrl+Enter)</button>
+    <button id="stop">■ stop (Ctrl+.)</button>
+    <button id="rec" class="rec">● record</button>
+    <span id="status">loading samples…</span>
+  </header>
+  <canvas id="scope"></canvas>
+  <textarea id="code" spellcheck="false"></textarea>
+  <script type="module" src="/src/night-shift.js"></script>
+</body>
+</html>

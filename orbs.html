@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ORBRAVE</title>
+  <meta name="description" content="Drag glowing orbs into the player to build a track, one layer at a time." />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>●</text></svg>" />
+</head>
+<body>
+  <canvas id="viz"></canvas>
+
+  <header class="top">
+    <div class="logo">● ORBRAVE<span class="by">-made by <a href="https://sites.google.com/view/r3c0d3r/home_ura" target="_blank" rel="noopener">R3C0D3r</a></span></div>
+    <div class="tools">
+      <label class="vol" title="음량">🔊<input id="volume" type="range" min="0" max="100" value="80" aria-label="volume" /></label>
+      <button id="importBtn" title="공유받은 코드를 붙여 넣어 불러오기">📥 불러오기</button>
+      <button id="shuffle" title="떨어지는 오브를 새로 뽑기">↻ 오브 새로고침</button>
+      <button id="searchBtn" title="이름 · 종류 · 템포 · 조성으로 오브 찾기">🔍 오브 검색</button>
+      <button id="codeToggle">&lt;/&gt; 코드</button>
+      <a class="nav-btn" href="index.html" title="자동으로 끝없이 생성되는 재생 화면으로">∞ 무한 재생</a>
+    </div>
+  </header>
+
+  <div class="search" id="searchBox">
+    <input id="searchInput" type="search" placeholder="예: Am · bpm · 140 · 베이스 · 드럼 · 장조" autocomplete="off" />
+    <div class="search-results" id="searchResults"></div>
+  </div>
+
+  <main class="stage" id="stage">
+    <aside class="presetbar" id="presetbar">
+      <div class="pb-half">
+        <div class="side-head">프리셋</div>
+        <form id="presetForm" class="pb-save">
+          <input id="presetName" maxlength="24" placeholder="이름" />
+          <button title="지금 구성을 프리셋으로 저장">＋ 저장</button>
+        </form>
+        <div class="pb-list" id="presetList"></div>
+      </div>
+      <div class="pb-half pb-shared">
+        <div class="side-head">모두의 곡 <button id="sharedRefresh" class="ghost" title="서버 목록 새로고침">↻</button></div>
+        <div class="pb-list" id="sharedList"></div>
+      </div>
+    </aside>
+
+    <section class="left">
+      <button id="clear" class="clear-all" title="곡에 들어간 오브를 모두 빼기">전부 비우기</button>
+      <div class="roles" id="roles"></div>
+      <div class="core" id="core">
+        <div class="ring"></div>
+        <button class="play" id="play" aria-label="play">
+          <svg viewBox="0 0 24 24" class="i-play"><path d="M8 5.5v13l11-6.5z" /></svg>
+          <svg viewBox="0 0 24 24" class="i-stop"><rect x="6.5" y="6.5" width="11" height="11" rx="1.5" /></svg>
+        </button>
+        <div class="sats" id="sats"></div>
+      </div>
+      <p class="status" id="status"></p>
+      <div class="chips" id="chips"></div>
+      <p class="solo-hint" id="soloHint"></p>
+      <div class="seeds" id="seeds" title="이전 변주들 (★ 즐겨찾기는 지워지지 않아요)"></div>
+      <div class="actions">
+        <button id="variate" title="같은 구성, 다른 멜로디와 베이스라인">🎲 변주</button>
+        <button id="favSeed" class="fav" title="지금 변주를 즐겨찾기 (목록에서 지워지지 않아요)">☆</button>
+        <button id="songBtn" title="지금 구성을 중심으로 앞뒤를 만들어 한 곡으로">🎼 전체 곡 만들기</button>
+      </div>
+      <div class="actions">
+        <button id="wavBtn" title="지금 구성을 WAV 파일로 저장 (전체 곡이면 곡 전체, 아니면 16마디)">💾 WAV로 저장</button>
+        <button id="shareBtn" title="지금 오브 구성을 공유 코드로 복사">🔗 오브 공유</button>
+        <button id="stemShareBtn" title="전체 곡(스템)까지 담은 공유 코드를 복사" disabled>🔗 스템 공유</button>
+        <button id="serverShareBtn" title="서버에 올려서 모두의 곡에 공유">☁ 서버 공유</button>
+      </div>
+      <div class="song" id="song">
+        <div class="song-bar" id="songBar"></div>
+        <button id="songOff" class="ghost">✕ 루프로</button>
+      </div>
+    </section>
+
+    <section class="right" id="right">
+      <div class="field" id="field"></div>
+      <section class="stems" id="stems">
+        <div class="stem-head">
+          <b>스템</b>
+          <span class="stem-hint">칸 = 4마디 · 섹션 이름: 그 부분만 반복 · −/+: 4마디 줄이기/늘리기 · 칸 클릭: 넣기/빼기 · ✕: 이 칸에서 지우기 · #시드 클릭: 바꾸기 · 리드는 4마디마다 다른 시드</span>
+          <button id="stemOnce" class="go" title="곡을 처음부터 끝까지 한 번 재생하고 멈추기">▶ 처음부터 끝까지</button>
+          <button id="stemClose" class="ghost">✕ 루프로</button>
+        </div>
+        <div class="stem-body" id="stemBody">
+          <div class="stem-grid" id="stemGrid"></div>
+          <i class="stem-cursor" id="stemCursor"></i>
+        </div>
+      </section>
+      <section class="roll" id="roll">
+        <div class="roll-head">
+          <div class="roll-slot" id="rollSlot"></div>
+          <div class="roll-name" id="rollName"></div>
+          <span class="roll-hint" id="rollHint"></span>
+          <div class="roll-tools">
+            <button id="rollAdd" class="go">＋ 곡에 추가</button>
+            <button id="rollStash">⇥ 보관함</button>
+            <button id="rollErase">지우개</button>
+            <button id="rollClear">지우기</button>
+              </div>
+        </div>
+        <canvas id="rollCanvas"></canvas>
+      </section>
+    </section>
+
+    <aside class="stash" id="stash">
+      <div class="stash-head">보관함</div>
+      <div class="stash-slots" id="stashSlots"></div>
+    </aside>
+  </main>
+
+  <aside class="drawer" id="drawer">
+    <div class="drawer-head"><span>generated strudel</span><button id="codeClose" class="ghost">✕</button></div>
+    <pre class="code" id="code"></pre>
+  </aside>
+
+  <form class="seedpop" id="seedPop">
+    <input type="number" min="0" max="99999" aria-label="seed" />
+    <button class="go">적용</button>
+  </form>
+
+  <dialog class="import" id="importDlg">
+    <form method="dialog" id="importForm">
+      <div class="side-head">프리셋 불러오기</div>
+      <p>공유받은 코드를 붙여 넣으세요. 프리셋 목록에 추가되고 바로 재생돼요.</p>
+      <textarea id="importText" rows="4" spellcheck="false" placeholder="orb1:…"></textarea>
+      <p class="import-err" id="importErr"></p>
+      <div class="import-btns">
+        <button type="button" class="ghost" id="importCancel">취소</button>
+        <button id="importOk" class="go">불러오기</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog class="import upload" id="shareDlg">
+    <form method="dialog" id="shareForm" autocomplete="off">
+      <div class="side-head">서버에 공유</div>
+      <label class="fld">노래 제목
+        <input id="shTitle" maxlength="32" required />
+      </label>
+      <div class="fld">종류
+        <div class="kinds">
+          <label><input type="radio" name="shKind" value="orb" /> 오브 <small>지금 넣은 오브 조합</small></label>
+          <label><input type="radio" name="shKind" value="stem" /> 스템 <small>전체 곡 구성까지</small></label>
+        </div>
+      </div>
+      <label class="fld">노래 저자 <small>(생략 가능)</small>
+        <input id="shAuthor" maxlength="24" />
+      </label>
+      <label class="fld">노래 설명 <small id="shCount">0 / 100</small>
+        <textarea id="shDesc" rows="2" maxlength="100"></textarea>
+      </label>
+      <!-- left empty by people; bots that fill every field get refused -->
+      <input class="hp" id="shWebsite" name="website" tabindex="-1" aria-hidden="true" />
+      <p>서버에 공유하면 이 오브 / 스템 조합이 왼쪽 <b>모두의 곡</b> 목록에 나타나요.
+        누구나 그 조합을 불러와 그대로 재생하거나 이어서 바꿀 수 있고, 메인 무한 재생기에도 섞여 나와요.
+        저장되는 건 오브 목록, 직접 그린 선, 시드, 스템 구성과 위에 적은 글뿐이에요.
+        링크나 태그는 쓸 수 없고, 한 번 올린 곡은 여기서 지울 수 없어요.</p>
+      <label class="agree"><input type="checkbox" id="shAgree" /> 이 조합을 서버에 업로드하는 것에 동의합니다.</label>
+      <p class="import-err" id="shErr"></p>
+      <div class="import-btns">
+        <button type="button" class="ghost" id="shCancel">취소</button>
+        <button id="shOk" class="go" disabled>☁ 서버에 공유</button>
+      </div>
+    </form>
+  </dialog>
+
+  <footer class="powered">Powered by <a href="https://strudel.cc/" target="_blank" rel="noopener">strudel</a> · <a href="https://github.com/r3coder/orbrave" target="_blank" rel="noopener">source (AGPL-3.0)</a></footer>
+
+  <script type="module" src="/src/orbs.js"></script>
+  <script type="module" src="/src/orbsMobile.js"></script>
+</body>
+</html>

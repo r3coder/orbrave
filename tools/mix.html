@@ -1,0 +1,19 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Mix balance tool</title>
+  <style>
+    body { background: #111; color: #ddd; font: 13px/1.5 ui-monospace, Consolas, monospace; padding: 16px; }
+    button { font: inherit; padding: 6px 12px; margin-right: 8px; }
+    pre { white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <p>Dev tool: measures K-weighted loudness of every one-shot and every part of each style, and computes the trims stored in <code>src/mixTrim.js</code>.</p>
+  <button id="run">run all</button>
+  <button id="report">report only</button>
+  <pre id="log"></pre>
+  <script type="module" src="./mix.js"></script>
+</body>
+</html>
