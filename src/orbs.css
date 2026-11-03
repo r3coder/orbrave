@@ -633,6 +633,45 @@ body.stem-open.roll-full .roll { flex-basis: 40vh; }
 .seedpop input { width: 90px; font: inherit; font-size: 12px; color: var(--fg); background: #000; border: 1px solid var(--line); padding: 3px 6px; user-select: text; }
 .seedpop button { font-size: 12px; padding: 3px 8px; }
 
+/* ---------- short desktop screens (1366x768, 1600x900, 125% scaling ...) ---------- */
+@media (min-width: 761px) {
+  /* a full song can be taller than the window: never clip it at both ends, let it scroll */
+  .left { justify-content: safe center; overflow-y: auto; overflow-x: hidden; scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+}
+@media (min-width: 761px) and (max-height: 860px) {
+  .left { gap: 8px; padding: 56px 12px 22px; }
+  /* the ring sticks 34px out of the core, so these keep the same clearance with the smaller gap */
+  .roles { margin-bottom: 26px; gap: 2px 4px; }
+  .status { margin-top: 28px; }
+  .chips { gap: 4px; max-width: 100%; }
+  .strip { width: 66px; padding: 2px 2px 3px; }
+  .strip .mini { width: 28px; height: 28px; margin: 3px 0 2px; }
+  .strip b { font-size: 10px; }
+  .strip span { font-size: 8px; }
+  .actions button { padding: 4px 10px; }
+  .song-bar { height: 26px; }
+  /* 20vh is only ~130px here: keep the roll usable */
+  .roll { flex-basis: max(20vh, 150px); }
+  /* leave the orb field room to grab from while the stems are open */
+  body.stem-open .stems { flex-basis: 40vh; }
+  .stash { padding-top: 56px; }
+  .stash-slots .cell { width: 36px; height: 36px; }
+}
+@media (min-width: 761px) and (max-height: 680px) {
+  .left { gap: 6px; padding-top: 52px; }
+  .core { --size: clamp(100px, min(20vw, 20vh), 210px); }
+  .ring, .volring { inset: -28px; }
+  .volring { width: calc(100% + 56px); height: calc(100% + 56px); }
+  .roles { margin-bottom: 22px; }
+  .role { width: 44px; font-size: 9px; }
+  .status { margin-top: 22px; }
+  .solo-hint:empty { display: none; }
+  .search { max-height: calc(100vh - 80px); }
+  /* with a song on, the strips below already show every part: the empty-slot row steps aside */
+  .left:has(.song.on) .roles { display: none; }
+  .left:has(.song.on) .clear-all { margin-bottom: 36px; }
+}
+
 @media (max-width: 760px) {
   .left .clear-all, .left .seeds { pointer-events: auto; }
   body.stem-open .stems { flex-basis: auto; }

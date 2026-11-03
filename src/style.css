@@ -212,6 +212,17 @@ body.playing .timeline .seg:hover { border-color: var(--acc); color: var(--fg); 
   .drawer { top: 40%; width: 100%; border-left: 0; border-top: 1px solid var(--line); transform: translateY(100%); }
   .make-orbs { font-size: 15px; padding: 9px 22px; margin-bottom: 18px; }
 }
+/* short desktop screens (1366x768, 125% scaling ...): shrink the middle so title, link and ring don't collide */
+@media (min-width: 641px) and (max-height: 700px) {
+  .stage { padding: 56px 16px 44px; }
+  h1 { font-size: clamp(26px, min(6.5vw, 8vh), 72px); }
+  .core { width: 196px; height: 196px; }
+  .play { width: 108px; height: 108px; margin: -54px 0 0 -54px; }
+  .play svg { width: 44px; height: 44px; }
+  .make-orbs { font-size: 15px; padding: 8px 22px; margin-bottom: 14px; }
+  .lower { gap: 8px; }
+  .buttons button { padding: 6px 14px; }
+}
 body.loading .play { animation: breathe 0.7s ease-in-out infinite; }
 
 /* ---------- boot screen (sample preload) ---------- */
