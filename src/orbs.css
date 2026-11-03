@@ -525,7 +525,14 @@ body.server-down .ptile .share.cloud { display: none; } /* no ☁ on tiles while
   border: 1px solid color-mix(in srgb, var(--g) 30%, transparent);
   background: rgba(10, 14, 12, 0.72);
   transition: border-color 0.15s, background 0.15s;
+  position: relative;
 }
+/* an orb's own seed: 🎲 top-right, and its number top-left only when it differs from the shared one */
+.strip .sdice, .strip .snum { position: absolute; top: 1px; padding: 0 2px; border: 0; background: none; line-height: 1.2; }
+.strip .sdice { right: 1px; font-size: 11px; opacity: 0.45; }
+.strip .sdice:hover { opacity: 1; }
+.strip .snum { left: 2px; font-size: 9px; color: var(--g); }
+.strip .snum:hover { text-decoration: line-through; }
 .strip:hover { border-color: var(--g); background: color-mix(in srgb, var(--g) 12%, rgba(10, 14, 12, 0.8)); }
 .strip .mini { width: 36px; height: 36px; margin: 6px 0 4px; cursor: grab; touch-action: none; transition: transform 0.06s linear; will-change: transform; }
 .strip b { font-size: 11px; font-weight: 400; color: var(--g); white-space: nowrap; }

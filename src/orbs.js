@@ -10,6 +10,7 @@ import {
 import { BARS, STEPS, ROWS, packRaw, unpackRaw, sheetCode, quantize, songToWire, songFromWire, toWire } from './orbPreset.js';
 import { uploadPreset, fetchPresets } from './presetApi.js';
 import { ot, secName, allLangs, mountLangButtons } from './orbsI18n.js';
+import { mountLicenses } from './licenses.js';
 import { LIMITS, validatePreset } from '../server/presetSchema.mjs';
 
 // Gate a pattern to one window of a looping song: the song starts at cycle `s0`, is `len`
@@ -49,6 +50,10 @@ let playing = false;
 let started = false; // audio context unlocked + master chain built
 const active = new Map(); // id -> { layer, at, sat, home }
 let variation = 1 + Math.floor(Math.random() * 9999); // every page load starts from its own seed
+// orbs given their own seed with the 🎲 on their strip; the rest follow `variation`
+const ownSeed = new Map(); // id -> seed
+const seedOf = (l) => ownSeed.get(l.id) ?? variation;
+const ownSeeds = () => (ownSeed.size ? Object.fromEntries(ownSeed) : null);
 let solo = null; // id of the orb being auditioned from the list
 let song = null; // { seed, s0 } while the full-song arrangement plays
 let songPlanCache = null;
@@ -255,7 +260,7 @@ function buildCode() {
   const audition = !offline && hoverSounds().length > 0 && !hoverMix;
   for (const l of hoverSounds()) if (!active.has(l.id)) lines.push(lineFor(l, variation, '', { preview: true }));
   for (const a of audition ? [] : active.values()) {
-    const line = lineFor(a.layer, variation);
+    const line = lineFor(a.layer, seedOf(a.layer));
     // each layer waits for the next bar; while a song is queued, the loop hands over at its start
     const gate = [a.at > 0 && !offline && `t >= ${a.at}`, song && `t < ${song.s0}`].filter(Boolean);
     if (line) lines.push(line + (gate.length ? `\n  .filterWhen((t) => ${gate.join(' && ')})` : ''));
@@ -343,6 +348,7 @@ function removeLayer(id, { silent = false, respawn = true } = {}) {
   const r = a.sat.getBoundingClientRect();
   a.sat.remove();
   active.delete(id);
+  ownSeed.delete(id);
   chans.delete(id);
   if (solo === id) setSolo(null);
   if (respawn) eject(id, a.home, r.left + r.width / 2, r.top + r.height / 2);
@@ -444,6 +450,29 @@ function renderChips() {
       const name = document.createElement('span');
       name.textContent = l.name;
       strip.append(ball, tag, name);
+      // its own seed: 🎲 in the corner rolls one, the number (shown only when it differs) goes back
+      if (seeded(l)) {
+        const dice = document.createElement('button');
+        dice.className = 'ghost sdice';
+        dice.textContent = '🎲';
+        dice.title = ot('ownSeedTip');
+        dice.addEventListener('click', (e) => {
+          e.stopPropagation();
+          setOwnSeed(l.id, 1 + Math.floor(Math.random() * 9999));
+        });
+        strip.append(dice);
+        if (ownSeed.has(l.id)) {
+          const num = document.createElement('button');
+          num.className = 'ghost snum';
+          num.textContent = `#${ownSeed.get(l.id)}`;
+          num.title = ot('ownSeedBack', { v: variation });
+          num.addEventListener('click', (e) => {
+            e.stopPropagation();
+            setOwnSeed(l.id, null);
+          });
+          strip.append(num);
+        }
+      }
       strip.title = `${l.name} — ${ot('stripTip')}`;
       strip.addEventListener('mouseenter', () => setSolo(l.id));
       strip.addEventListener('mouseleave', () => setSolo(null));
@@ -1050,7 +1079,7 @@ function patternToRaw(l) {
   const v = l.voice;
   let pat;
   try {
-    const js = transpiler(codeOf(l, variation).replaceAll('__DT__', '0.3'), { emitMiniLocations: false, emitWidgets: false }).output;
+    const js = transpiler(codeOf(l, seedOf(l)).replaceAll('__DT__', '0.3'), { emitMiniLocations: false, emitWidgets: false }).output;
     pat = new Function(js)();
   } catch {
     return null;
@@ -1328,6 +1357,19 @@ function setVariation(v) {
   bump(ui.core, 'gulp');
   sync();
 }
+// one orb's own seed (null: back to the shared one); a new grid row picks it up too
+function setOwnSeed(id, v) {
+  if (v == null || v === variation) ownSeed.delete(id);
+  else ownSeed.set(id, v);
+  // with the full song open, its row in the stem grid takes the new seed (leads +1 per block)
+  const cells = song?.cells?.[id], l = byId[id];
+  if (cells && seeded(l)) {
+    let g = 0;
+    cells.forEach((sec, i) => sec.forEach((b) => (b.v = blockSeed(l, seedOf(l) + (song.sections[i].v ?? 0) * 100, g++))));
+  }
+  bump(ui.chips.querySelector(`.strip[data-id="${CSS.escape(id)}"] .mini`), 'gulp');
+  sync();
+}
 function renderSeeds() {
   const fav = seeds.find((x) => x.v === variation)?.fav;
   ui.favSeed.textContent = fav ? '★' : '☆';
@@ -1496,6 +1538,7 @@ function currentPreset(fallbackName, { withSong = false } = {}) {
     layers: [...active.keys()],
     drawn: layers().filter((l) => l.raw).map((l) => ({ id: l.id, src: l.src, raw: l.raw })),
     ...(layers().some(seeded) ? { variation } : {}),
+    ...(ownSeeds() ? { seeds: ownSeeds() } : {}),
   };
   if (withSong && song?.sections) {
     syncRows();
@@ -1580,6 +1623,7 @@ async function applyPreset(p) {
     keepSeed(variation);
     variation = p.variation;
   }
+  for (const [id, v] of Object.entries(p.seeds ?? {})) if (Number.isSafeInteger(v) && v >= 0) ownSeed.set(ids.get(id) ?? id, v);
   previewOnly = false;
   if (!playing) await play();
   const at = nextBar();
@@ -1604,7 +1648,7 @@ async function applyPreset(p) {
 function fillSeeds(grid) {
   for (const r of grid.rows) {
     const on = seeded(byId[r.id]);
-    let last = variation;
+    let last = seedOf(byId[r.id]);
     for (const sec of grid.cells[r.id]) {
       for (const c of sec) {
         if (!on) c.v = null;
@@ -1633,6 +1677,7 @@ function saveSession() {
     drawn,
     stash: [...stash],
     variation,
+    seeds: ownSeeds(),
     name: ui.presetName.value,
     roll: rollOrb && draft ? { id: rollOrb.id, home: rollOrb.home ?? null, src: draft.src, raw: draft.raw, edited: !!draft.edited } : null,
   };
@@ -1666,6 +1711,7 @@ function restoreSession() {
     if (+s.variation) variation = +s.variation;
     for (const id of s.stash ?? []) if (byId[id] && stash.length < STASH_MAX) stash.push(id);
     for (const id of s.layers ?? []) if (byId[id]) put(byId[id], 0);
+    for (const [id, v] of Object.entries(s.seeds ?? {})) if (active.has(id) && Number.isSafeInteger(v)) ownSeed.set(id, v);
     if (typeof s.name === 'string') ui.presetName.value = s.name;
     if (s.roll && byId[s.roll.id] && pickInstrument(s.roll.id, s.roll.home)) {
       if (byId[s.roll.src] && Array.isArray(s.roll.raw)) draft = { src: s.roll.src, raw: [...s.roll.raw], edited: !!s.roll.edited };
@@ -1689,7 +1735,7 @@ const unb64 = (str) => new TextDecoder().decode(Uint8Array.from(atob(str.replace
 // the share code alone: one line that carries the whole preset (name, orbs, drawings, variation,
 // and for a stem share the full-song grid)
 function presetText(p) {
-  const data = { n: p.name, l: p.layers, d: (p.drawn ?? []).map((d) => [d.id, d.src, packRaw(d.raw)]), v: p.variation ?? 0, ...(p.song ? { s: p.song } : {}) };
+  const data = { n: p.name, l: p.layers, d: (p.drawn ?? []).map((d) => [d.id, d.src, packRaw(d.raw)]), v: p.variation ?? 0, ...(p.seeds ? { vs: p.seeds } : {}), ...(p.song ? { s: p.song } : {}) };
   return SHARE_TAG + b64(JSON.stringify(data));
 }
 
@@ -1703,7 +1749,8 @@ function parsePresetText(text) {
     const ok = new Set(drawn.map((x) => x.id));
     const layers = (d.l ?? []).filter((x) => ok.has(x) || (byId[x] && !byId[x].raw));
     const song = d.s && typeof d.s === 'object' ? { song: d.s } : {}; // checked when it is applied
-    return { id, name: String(d.n ?? ot('importedPreset')).slice(0, 24), layers, drawn, variation: +d.v || 0, ...song };
+    const seeds = d.vs && typeof d.vs === 'object' ? { seeds: Object.fromEntries(Object.entries(d.vs).filter(([k, v]) => layers.includes(k) && Number.isSafeInteger(v) && v >= 0)) } : {};
+    return { id, name: String(d.n ?? ot('importedPreset')).slice(0, 24), layers, drawn, variation: +d.v || 0, ...seeds, ...song };
   }
   const byName = new Map(LAYERS.flatMap((l) => [[l.nameKo ?? l.name, l.id], [l.name, l.id]]));
   const layers = [];
@@ -1978,7 +2025,7 @@ const newSeed = () => 1 + Math.floor(Math.random() * 9999);
 const blockSeed = (l, base, g) => (!seeded(l) ? null : isLead(l) ? base + g : base);
 function cellsFor(l, on) {
   let g = 0;
-  return song.sections.map((sec, i) => Array.from({ length: sec.len / BLOCK }, () => ({ on: on(sec, i), v: blockSeed(l, variation + (sec.v ?? 0) * 100, g++) })));
+  return song.sections.map((sec, i) => Array.from({ length: sec.len / BLOCK }, () => ({ on: on(sec, i), v: blockSeed(l, seedOf(l) + (sec.v ?? 0) * 100, g++) })));
 }
 function buildGrid() {
   const plan = songPlan();
@@ -2546,6 +2593,7 @@ function applyLangUI() {
   if (!renderingWav) wavBtn.textContent = ot('wav');
   onceLabel();
 }
+mountLicenses($('licenseBtn'));
 mountLangButtons($('langs'), () => {
   applyLangUI();
   renderStatus();

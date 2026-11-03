@@ -7,9 +7,9 @@ import { superdough, initAudio, setAudioContext, setSuperdoughAudioController, g
 const SAMPLE_RATE = 44100;
 const tick = () => new Promise((r) => setTimeout(r, 0));
 
-export async function renderOffline(pattern, { start, end, cps, tail = 3, limiter = true, onProgress } = {}) {
+export async function renderOffline(pattern, { start, end, cps, tail = 3, limiter = true, sampleRate = SAMPLE_RATE, onProgress } = {}) {
   const seconds = (end - start) / cps + tail;
-  const ctx = new OfflineAudioContext(2, Math.ceil(seconds * SAMPLE_RATE), SAMPLE_RATE);
+  const ctx = new OfflineAudioContext(2, Math.ceil(seconds * sampleRate), sampleRate);
   try {
     setAudioContext(ctx);
     setSuperdoughAudioController(null);

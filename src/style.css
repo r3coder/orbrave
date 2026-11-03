@@ -47,6 +47,8 @@ button.ghost { background: transparent; }
 }
 .logo { font-weight: 700; letter-spacing: 0.2em; color: var(--acc); white-space: nowrap; }
 .logo span { color: var(--fg); margin-left: 8px; }
+.top-right { display: flex; align-items: center; gap: 8px; }
+.lic-btn { font-size: 12px; padding: 5px 10px; }
 .langs { display: flex; border: 1px solid var(--line); }
 .langs button { border: 0; background: transparent; color: var(--dim); padding: 5px 10px; font-size: 12px; }
 .langs button.on { color: var(--bg); background: var(--acc); }
@@ -203,6 +205,8 @@ body.playing .timeline .seg:hover { border-color: var(--acc); color: var(--fg); 
 @media (max-width: 640px) {
   .top { padding: 10px 16px; }
   .logo { font-size: 12px; }
+  .top-right { gap: 6px; }
+  .lic-btn, .langs button { padding: 4px 7px; font-size: 11px; }
   .stage { padding: 52px 16px 76px; }
   .core { width: 210px; height: 210px; }
   .play { width: 112px; height: 112px; margin: -56px 0 0 -56px; }

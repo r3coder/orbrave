@@ -8,7 +8,7 @@ const STR = {
     copied: '복사됨',
     loadingSounds: '사운드 불러오는 중',
     code: '코드', generatedCode: '생성된 코드', history: '재생 기록',
-    toOrbs: '● 내 오브 만들기',
+    toOrbs: '● 내 오브 만들기', licenses: 'ⓘ 라이선스',
   },
   en: {
     play: 'Play', stop: 'Stop',
@@ -17,7 +17,7 @@ const STR = {
     copied: 'Copied',
     loadingSounds: 'Loading sounds',
     code: 'code', generatedCode: 'generated code', history: 'history',
-    toOrbs: '● Make my orbs',
+    toOrbs: '● Make my orbs', licenses: 'ⓘ Licenses',
   },
   ja: {
     play: '再生', stop: '停止',
@@ -26,7 +26,7 @@ const STR = {
     copied: 'コピー済み',
     loadingSounds: 'サウンドを読み込み中',
     code: 'コード', generatedCode: '生成されたコード', history: '再生履歴',
-    toOrbs: '● マイオーブを作る',
+    toOrbs: '● マイオーブを作る', licenses: 'ⓘ ライセンス',
   },
 };
 

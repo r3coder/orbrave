@@ -55,6 +55,7 @@
 | `layers` | 문자열 배열, 1–24개 | 오브 id(`src/orbCatalog.js`의 `LAYERS`) 또는 `drawn`의 id |
 | `drawn` | 배열, 8개 이하 | 피아노 롤로 그린 파트 (아래 참고) |
 | `variation` | 0 이상의 정수 | 변주 시드 |
+| `seeds` | 객체, 생략 가능 | 따로 변주한 악기: `{ 오브 id: 시드 }` (`layers`에 있는 id만, 나머지는 `variation`) |
 | `song` | 객체, `kind: "stem"`일 때만 | 스템 그리드 (아래 참고) |
 
 글 필드(`name`, `author`, `description`)는 공백을 하나로 줄인 뒤 검사합니다. 다음이 들어 있으면 거절합니다.

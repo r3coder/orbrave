@@ -7,6 +7,7 @@ import { LANGS, getLang, setLang, t } from './i18n.js';
 import { presetSong, presetColors } from './orbPreset.js';
 import { listPresets, getPreset } from './presetApi.js';
 import { loadSampleBanks, preloadSamples, preloadDrums } from './samples.js';
+import { mountLicenses } from './licenses.js';
 
 // Place a pattern at an absolute cycle window: shift it so its cycle 0 lands on `a`,
 // and drop every event outside [a, a+len). Generated songs use this for every line.
@@ -582,6 +583,7 @@ for (const [code, name] of Object.entries(LANGS)) {
   };
   ui.langs.append(b);
 }
+mountLicenses($('licenseBtn'));
 setLang(getLang());
 applyLang();
 

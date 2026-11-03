@@ -116,7 +116,18 @@ export function validatePreset(b) {
   if (!layers.length) fail('오브가 하나도 없어요');
   const variation = int(b.variation ?? 0, 0, LIMITS.seed, '변주');
 
-  const out = { name, author, description, kind, layers, drawn: drawn.filter((d) => layers.includes(d.id)), variation };
+  // orbs varied on their own: { orb id: seed }, only for orbs in the set
+  let seeds = null;
+  if (b.seeds != null) {
+    if (typeof b.seeds !== 'object' || Array.isArray(b.seeds)) fail('악기별 변주 형식이 올바르지 않아요');
+    const entries = Object.entries(b.seeds);
+    if (entries.length > LIMITS.layers) fail('악기별 변주가 너무 많아요');
+    seeds = {};
+    for (const [k, v] of entries) if (layers.includes(id(k, '악기별 변주'))) seeds[k] = int(v, 0, LIMITS.seed, '악기별 변주');
+    if (!Object.keys(seeds).length) seeds = null;
+  }
+
+  const out = { name, author, description, kind, layers, drawn: drawn.filter((d) => layers.includes(d.id)), variation, ...(seeds ? { seeds } : {}) };
   if (kind === 'stem') out.song = cleanSong(b.song, new Set(layers));
   return out;
 }

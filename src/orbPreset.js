@@ -53,7 +53,8 @@ export function sheetCode(raw, v) {
 // ---------- wire format ----------
 // What the server stores and returns for one preset (see docs/PRESET_API.md):
 //   { id, name, author?, description?, kind: 'orb' | 'stem', createdAt?,
-//     layers: [orb id | drawing id], drawn: [{ id, src, raw }], variation, song? }
+//     layers: [orb id | drawing id], drawn: [{ id, src, raw }], variation, seeds?, song? }
+// `seeds` ({ orb id: seed }) names orbs that play their own variation instead of `variation`.
 // `raw` travels packed (64 chars). A stem preset also carries the full-song grid (`song`, below).
 // Anything unknown is dropped, so presets made with an older or newer catalogue still load with
 // the orbs this page knows.
@@ -110,6 +111,7 @@ export function toWire(p, extra = {}) {
     layers: p.layers,
     drawn: (p.drawn ?? []).map((d) => ({ id: d.id, src: d.src, raw: packRaw(d.raw) })),
     variation: p.variation ?? 0,
+    ...(p.seeds ? { seeds: p.seeds } : {}),
     ...(stem ? { song: p.song } : {}),
     agree: extra.agree === true,
     website: extra.website ?? '',
@@ -129,11 +131,15 @@ export function fromWire(x) {
   const layers = [...new Set((Array.isArray(x.layers) ? x.layers : [])
     .filter((l) => ok.has(l) || (known(l) && !byId[l].combo)))].slice(0, 24);
   // the grid is kept in wire form; it is checked (and drawings renamed) when it is loaded
+  const seeds = x.seeds && typeof x.seeds === 'object'
+    ? Object.fromEntries(Object.entries(x.seeds).filter(([k, v]) => layers.includes(k) && Number.isSafeInteger(v) && v >= 0))
+    : null;
   const song = x.kind === 'stem' && x.song && typeof x.song === 'object' ? x.song : null;
   const p = {
     id, name: clip(x.name, 32) || '이름 없는 프리셋', author: clip(x.author, 24), description: clip(x.description, 100),
     kind: song ? 'stem' : 'orb', createdAt: typeof x.createdAt === 'string' ? x.createdAt : null,
     layers, drawn, variation: Number.isSafeInteger(x.variation) && x.variation >= 0 ? x.variation : 0,
+    ...(seeds ? { seeds } : {}),
     ...(song ? { song } : {}),
   };
   return presetLayers(p).some((l) => l.code) ? p : null;
@@ -174,7 +180,8 @@ export function presetLines(p) {
   try {
     for (const l of ls) {
       if (!l.code || mood?.mute?.includes(role(l))) continue;
-      let code = typeof l.code === 'function' ? l.code(rng(hash(l.id) + p.variation * 7919)) : l.code;
+      const v = p.seeds?.[l.id] ?? p.variation; // an orb may carry its own seed
+      let code = typeof l.code === 'function' ? l.code(rng(hash(l.id) + v * 7919)) : l.code;
       if (mode !== 'minor') code = code.replaceAll(':minor"', `:${mode}"`);
       const pitched = l.pitched || /\b(scale|chord|note)\(/.test(code);
       const key = shift && pitched ? `.transpose(${shift})` : '';

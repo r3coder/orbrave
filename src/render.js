@@ -27,6 +27,8 @@ const ready = initStrudel({
 });
 const post = (msg, transfer) => parent.postMessage({ source: 'algorave-render', ...msg }, location.origin, transfer);
 const tick = () => new Promise((r) => setTimeout(r, 0));
+// downloads render at 32 kHz instead of 44.1 kHz: ~27% smaller files, still clean up to 16 kHz
+const DOWNLOAD_RATE = 32000;
 
 addEventListener('message', async (e) => {
   if (e.origin !== location.origin || e.data?.type !== 'render') return;
@@ -36,6 +38,7 @@ addEventListener('message', async (e) => {
     const pattern = await repl.evaluate(code, false);
     const buffer = await renderOffline(pattern, {
       start, end, cps,
+      sampleRate: DOWNLOAD_RATE,
       onProgress: (value) => post({ type: 'progress', id, value }),
     });
     const wav = await encodeWav(buffer);
