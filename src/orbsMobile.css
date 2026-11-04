@@ -1,129 +1,241 @@
 /* Phone (portrait) layout, loaded after orbs.css so it wins over its narrow-screen rules.
-   presets (row) / player with the orbs falling around it / [midi] / [song] / dock / stash */
-.m-dock, .m-song { display: none; }
+   One-row header (📁 presets sheet, 🔍, ⋯ menu) / the orbs raining around the player, with the
+   song's orbs and buttons under it / the stash as a strip at the bottom.
+   MIDI and the full-song stems stay on wide screens. orbsMobile.js moves the elements around. */
+.m-head-btns, .m-credit, .m-sheet, .m-export, .m-rotate { display: none; }
 
-@media (max-width: 760px) {
-  .top { padding: 8px 12px; gap: 6px; }
-  .tools { gap: 4px; }
-  .langs button { padding: 3px 6px; font-size: 11px; }
-  .tools button, .logo .nav-btn { padding: 3px 7px; font-size: 11px; }
+/* phones held sideways: just a notice. A touch screen that short, or any screen phone-sized
+   on its side (up to the 932px of the biggest phones); taller or wider desktop windows are left alone */
+@media (orientation: landscape) and (max-height: 500px) and (pointer: coarse),
+  (orientation: landscape) and (max-height: 500px) and (max-width: 960px) {
+  .m-rotate {
+    display: flex; position: fixed; inset: 0; z-index: 200;
+    align-items: center; justify-content: center; padding: 24px;
+    background: var(--bg); color: var(--fg); font-size: 16px; text-align: center;
+  }
+}
 
+/* phone layout: narrow screens, and near-square ones (unfolded foldables). Same query as
+   src/phoneLayout.js PHONE_QUERY: keep the two in step. */
+@media (max-width: 760px), (max-width: 900px) and (max-height: 1000px) and (min-aspect-ratio: 3/4) and (max-aspect-ratio: 4/3) {
+  :root { --safe-b: env(safe-area-inset-bottom, 0px); }
+
+  /* ---------- header: logo, ∞, 📁, 🔍, ⋯ ---------- */
+  .top {
+    flex-wrap: nowrap; gap: 8px;
+    padding: max(8px, env(safe-area-inset-top, 0px)) 10px 8px;
+    background: rgba(5, 5, 8, 0.94); border-bottom: 1px dashed var(--line);
+    pointer-events: auto;
+  }
+  .logo { display: flex; align-items: center; min-width: 0; font-size: 14px; letter-spacing: 0.12em; }
+  .logo .by { display: none; }
+  .logo .nav-btn { margin-left: 10px; padding: 7px 10px; font-size: 12px; letter-spacing: 0; }
+  .m-head-btns { display: flex; gap: 6px; margin-left: auto; flex: none; }
+  .m-head-btns button { min-width: 40px; height: 36px; padding: 0 10px; font-size: 15px; line-height: 1; }
+  .m-head-btns #searchBtn { font-size: 0; }
+  .m-head-btns #searchBtn::before { content: '🔍'; font-size: 15px; }
+  .m-menu-btn { font-size: 18px !important; }
+  .m-head-btns button.on, body.m-menu-open .m-menu-btn, body.m-sheet-open .m-presets-btn {
+    border-color: var(--acc); color: var(--acc); background: rgba(57, 255, 156, 0.12);
+  }
+  /* everything else from the header: a menu under ⋯ */
+  .tools {
+    position: fixed; top: calc(var(--top-h, 52px) + 4px); right: 8px; z-index: 13;
+    display: none; flex-direction: column; flex-wrap: nowrap; gap: 6px;
+    width: min(270px, calc(100vw - 16px)); max-height: calc(100dvh - var(--top-h, 52px) - 16px); overflow-y: auto;
+    padding: 10px; background: var(--panel); border: 1px solid var(--line); box-shadow: 0 10px 40px rgba(0, 0, 0, 0.7);
+  }
+  body.m-menu-open .tools { display: flex; }
+  .tools button { text-align: left; font-size: 13px; padding: 10px 12px; min-height: 44px; }
+  .tools .langs { align-self: stretch; }
+  .tools .langs button { flex: 1; text-align: center; padding: 10px 0; font-size: 13px; min-height: 0; }
+  .m-credit { display: flex; flex-wrap: wrap; gap: 4px 14px; padding-top: 8px; border-top: 1px dashed var(--line); font-size: 11px; }
+  .m-credit a { color: var(--dim); text-decoration: none; }
+  .powered, #emptyHint { display: none; }
+
+  /* search drops under the header, full width */
+  .search { top: calc(var(--top-h, 52px) + 4px); left: 8px; right: 8px; width: auto; max-height: 60vh; }
+  .search input { font-size: 16px; } /* 16px: iOS doesn't zoom into the field */
+  .search-results { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); }
+
+  /* ---------- the screen: orbs + player, stash strip under them ---------- */
   .stage {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto minmax(350px, 1fr) minmax(0, auto) minmax(0, auto) auto 52px;
-    grid-template-areas: 'pre' 'main' 'roll' 'song' 'dock' 'stash';
-    height: 100%;
+    display: grid; position: fixed; left: 0; right: 0; top: var(--top-h, 52px); bottom: 0; height: auto;
+    grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto;
+    grid-template-areas: 'main' 'stash';
+    overflow: hidden;
   }
-  /* the field and the roll become grid items of their own */
   .right { display: contents; }
-
-  /* presets: one row under the header */
-  .presetbar {
-    grid-area: pre; order: 0;
-    flex-direction: row; align-items: center; gap: 8px;
-    padding: calc(var(--top-h, 76px) + 2px) 10px 6px;
-    border: 0; border-bottom: 1px dashed var(--line);
-    min-width: 0;
-  }
-  .presetbar > .side-head { display: none; }
-  .pb-save { flex-direction: row; flex: none; width: auto; gap: 4px; }
-  .pb-save input { width: 84px; }
-  .pb-save button { white-space: nowrap; }
-  .pb-list { flex-direction: row; align-items: center; gap: 4px; overflow-x: auto; overflow-y: hidden; padding: 0; min-width: 0; height: 44px; }
-  .pb-list .empty { text-align: left; white-space: nowrap; font-size: 0; }
-  .pb-list .empty::before { content: '지금 구성을 저장하면 여기 쌓여요'; font-size: 10px; }
-  html[lang='en'] .pb-list .empty::before { content: 'Saved sets will pile up here'; }
-  html[lang='ja'] .pb-list .empty::before { content: '今の構成を保存するとここに並びます'; }
-  .ptile { padding: 2px; }
-  .ptile .mini { width: 30px; height: 30px; }
-  .ptile .pname, .ptile small { display: none; }
-
-  /* one window: the orbs rain behind and beside the player */
   .field { grid-area: main; order: 0; z-index: 0; }
+  /* MIDI and the stems are for wide screens */
+  .roll, .stems, #songBtn { display: none !important; }
+
+  /* falling orbs: name above, a short description under each */
+  .orb .label {
+    font-size: 12px;
+    text-shadow: 0 0 3px #000, 0 1px 2px #000, 0 0 10px color-mix(in srgb, var(--g, var(--c)) 50%, transparent);
+  }
+  .orb .kind {
+    display: block; top: calc(var(--s) / 2 + 5px);
+    font-size: 9px; letter-spacing: 0.08em; color: rgba(230, 255, 242, 0.62); text-shadow: 0 1px 2px #000, 0 0 4px #000;
+  }
+
   .left {
     grid-area: main; order: 0; z-index: 1; position: relative;
-    justify-content: center; gap: 8px;
-    padding: 10px 12px;
-    border: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 8px;
+    padding: 58px 0 10px; border: 0; min-width: 0; overflow: hidden;
     pointer-events: none; /* the orbs underneath stay grabbable */
-    min-width: 0; overflow: hidden;
   }
-  .left .play, .left .chips, .left .actions button, .left .song { pointer-events: auto; }
-  .roles { margin-bottom: 24px; max-width: 100%; }
-  /* with a panel open the player area is short: drop the extras, and never clip the top */
-  .left { justify-content: safe center; }
-  body.song-open .left, body.roll-open .left { gap: 4px; padding: 26px 8px 4px; }
-  body.song-open .roles, body.roll-open .roles,
-  body.song-open .solo-hint, body.roll-open .solo-hint,
-  body.song-open .left .clear-all, body.roll-open .left .clear-all,
-  body.song-open .seeds, body.roll-open .seeds { display: none; }
-  body.song-open .status, body.roll-open .status { margin-top: 20px; }
-  /* only a drop on the ring counts, and throws are barely pulled in: the song's own orbs sit
-     right under the player, and dragging one out shouldn't land it straight back */
-  .core { --size: 116px; --drop-pad: 24px; --drop-pull: 1.25; }
+  .left .play, .left .chips, .left .seeds, .left .actions, .left .clear-all, .left #vote, .left .song { pointer-events: auto; }
+  .left .roles { display: none; }
+  .left .clear-all { position: absolute; top: 10px; left: 10px; font-size: 12px; padding: 7px 10px; }
+  .stage > #shuffle { grid-area: main; align-self: start; justify-self: end; z-index: 2; margin: 10px; font-size: 12px; padding: 7px 10px; }
+  .m-empty-hint { top: calc(var(--top-h, 52px) + 60px); transform: translateX(-50%); width: calc(100% - 32px); font-size: 13px; padding: 10px 14px; }
+
+  /* the player, centred in what the rows below leave over; a dark halo keeps it readable
+     over the orbs passing behind it */
+  .core { margin-block: auto; --size: clamp(120px, min(24vw, 19vh), 168px); --drop-pad: 34px; --drop-pull: 1.5; --vote-gap: 30px; }
+  .core::before {
+    content: ''; position: absolute; inset: -78px; border-radius: 50%; z-index: -1; pointer-events: none;
+    background: radial-gradient(closest-side, rgba(5, 5, 8, 0.8) 55%, rgba(5, 5, 8, 0));
+  }
   .ring { inset: -22px; }
-  .core { --vote-gap: 30px; }
   .volring { inset: -22px; width: calc(100% + 44px); height: calc(100% + 44px); }
-  .status { margin-top: 18px; text-shadow: 0 1px 3px #000; }
-  .solo-hint { text-shadow: 0 1px 3px #000; }
-  .chips { max-width: 100%; }
-
-  /* midi (piano roll): closed until asked for, or until an orb is dropped into it */
-  .roll { grid-area: roll; order: 0; display: none; height: 34vh; flex: none; }
-  body.roll-open .roll { display: flex; }
-  body.roll-full .roll { height: 50vh; }
-  .roll-head { padding: 6px 8px; gap: 4px 6px; }
-  .roll-name { flex: 1 1 calc(100% - 50px); font-size: 12px; }
-  .roll-hint:empty { display: none; }
-  .roll-tools { flex: 1 1 100%; justify-content: flex-end; }
-  .roll-tools button { font-size: 11px; padding: 3px 7px; }
-  .roll-slot { width: 38px; height: 38px; }
-  .roll-slot .mini { width: 32px; height: 32px; }
-
-  /* the full song (and its stems): its own panel, opened from the dock */
-  .m-song {
-    grid-area: song; display: none; flex-direction: column; gap: 8px;
-    padding: 8px 10px; overflow-y: auto;
-    background: rgba(6, 8, 12, 0.94); border-top: 1px solid var(--line);
+  .left .status {
+    flex: none; margin: 18px 0 0; padding: 3px 12px; max-width: calc(100% - 20px);
+    font-size: 12px; background: rgba(5, 5, 8, 0.78); border-radius: 999px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
-  body.song-open .m-song { display: flex; }
-  body.song-open.stem-open .m-song { height: 40vh; padding: 0; }
-  /* the panels give way before the player does */
-  .m-song, .roll { min-height: 0; max-height: 100%; }
-  body.song-open:not(.stem-open) .m-song { max-height: min(40vh, 100%); }
-  .m-song .song { max-width: none; }
-  /* the stem grid already shows the sections, so the plain timeline steps aside */
-  .m-song:has(.stems) .song { display: none; }
-  body.stem-open .m-song-empty, .m-song:has(.song.on) .m-song-empty { display: none; }
-  .m-song .stems { flex: 1 1 auto; min-height: 0; }
-  body:not(.stem-open) .m-song .stems { display: none; }
-  .stem-hint { display: none; }
-  .stem-head { justify-content: space-between; }
+  .left .solo-hint { flex: none; padding: 0 12px; text-shadow: 0 1px 3px #000; }
+  .left .solo-hint:empty { display: none; }
+  /* a full song loaded from a preset: no timeline here, just the way back to the loop */
+  .left .song.on { width: auto; }
+  .left .song .song-bar { display: none; }
+  .left .song button { font-size: 12px; padding: 6px 12px; border: 1px solid var(--line); background: rgba(5, 5, 8, 0.78); }
 
-  /* the song's orbs: smaller strips so a full song still fits under the player */
-  .chips { gap: 4px; }
-  .strip { width: 62px; padding: 2px 2px 3px; }
-  .strip .mini { width: 28px; height: 28px; margin: 3px 0 2px; }
-  .strip b { font-size: 10px; }
-  .strip span { font-size: 8px; }
-
-  /* search drops under the (taller) phone header, full width */
-  .search { top: calc(var(--top-h, 76px) + 4px); left: 8px; right: 8px; width: auto; max-height: 60vh; }
-  .search-results { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); }
-  .m-song-empty { font-size: 12px; color: var(--dim); text-align: center; padding: 6px 0; }
-
-  .m-dock {
-    grid-area: dock; display: flex; gap: 6px; justify-content: center;
-    padding: 5px 10px; border-top: 1px dashed var(--line); background: rgba(6, 8, 12, 0.85);
+  /* the song's orbs: one row, swiped sideways (the ball itself is grabbed, so swipe on the name);
+     the edges fade so it shows there is more */
+  .left .chips {
+    flex: none; flex-wrap: nowrap; justify-content: safe center; gap: 6px;
+    width: 100%; max-width: none; padding: 2px 12px;
+    overflow-x: auto; overflow-y: hidden; scrollbar-width: none; overscroll-behavior-x: contain;
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 12px, #000 calc(100% - 12px), transparent);
+    mask-image: linear-gradient(90deg, transparent, #000 12px, #000 calc(100% - 12px), transparent);
   }
-  .m-dock button { flex: 1; max-width: 160px; font-size: 12px; padding: 4px 8px; }
-  .m-dock button i { font-style: normal; color: var(--dim); margin-left: 4px; }
-  .m-dock button.open { border-color: var(--acc); color: var(--acc); }
-  .m-dock button.live { box-shadow: inset 0 -2px 0 #ffd23f; }
+  .left .chips::-webkit-scrollbar, .left .seeds::-webkit-scrollbar, .stash-slots::-webkit-scrollbar { display: none; }
+  .strip { flex: none; width: 70px; padding: 3px 3px 4px; }
+  .strip .mini { width: 32px; height: 32px; margin: 7px 0 2px; }
+  .strip b { font-size: 11px; }
+  .strip span { font-size: 9px; }
+  .strip .sdice { font-size: 13px; opacity: 0.7; padding: 0 3px; }
 
-  .stash { grid-area: stash; order: 0; flex-direction: row; align-items: center; padding: 0 8px 12px; border: 0; border-top: 1px dashed var(--line); }
-  .powered { left: 64px; bottom: 1px; font-size: 9px; }
-  .stash-head { margin: 0 8px 0 0; white-space: nowrap; }
-  .stash-slots { flex-direction: row; overflow-x: auto; overflow-y: hidden; height: 100%; }
+  /* past variations: one row too */
+  .left .seeds {
+    flex: none; flex-wrap: nowrap; justify-content: safe center;
+    max-width: 100%; padding: 0 10px; overflow-x: auto; scrollbar-width: none;
+  }
+  .seed { flex: none; font-size: 11px; padding: 4px 8px; }
+
+  /* 🎲 변주 · ☆ · ⇪ 내보내기 (the stash's ⇪ only on short phones) */
+  .m-export-stash { display: none !important; }
+  .left .actions { flex: none; flex-wrap: nowrap; justify-content: center; gap: 8px; width: 100%; padding: 2px 10px 0; }
+  .left .actions button { flex: 1; max-width: 160px; min-height: 44px; font-size: 13px; }
+  .left #favSeed { flex: 0 0 48px; }
+
+  /* ---------- stash: a strip at the bottom, ⇪ export on its right ---------- */
+  .stash {
+    grid-area: stash; order: 0;
+    display: grid; grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas: 'head slots' 'hint slots';
+    align-items: center; column-gap: 10px;
+    padding: 6px 10px calc(6px + var(--safe-b)); border: 0; border-top: 1px dashed var(--line);
+    background: rgba(6, 8, 12, 0.94);
+  }
+  .stash-head { grid-area: head; align-self: end; margin: 0; font-size: 11px; white-space: nowrap; }
+  .m-stash-hint { grid-area: hint; align-self: start; max-width: 76px; font-size: 9px; line-height: 1.3; color: var(--dim); word-break: keep-all; }
+  .stash-slots {
+    grid-area: slots; flex-direction: row; gap: 6px; height: auto; padding: 2px 0;
+    overflow-x: auto; overflow-y: hidden; scrollbar-width: none;
+    -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 14px), transparent);
+    mask-image: linear-gradient(90deg, #000 calc(100% - 14px), transparent);
+  }
+  .stash-slots .cell { width: 44px; height: 44px; }
+  .stash-slots .cell .mini { width: 32px; height: 32px; touch-action: none; }
+  .stash .m-export-btn {
+    grid-area: export; align-self: center;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    width: 58px; height: 46px; padding: 0 4px; font-size: 10px; line-height: 1.25; white-space: normal; word-break: keep-all;
+  }
+  body.m-export-open .m-export-btn { border-color: var(--acc); color: var(--acc); background: rgba(57, 255, 156, 0.12); }
+
+  /* ---------- export popover: the loop's / song's save and share buttons, above the stash ---------- */
+  .m-export {
+    position: fixed; left: 8px; right: 8px; z-index: 8;
+    bottom: calc(124px + var(--safe-b)); /* above the 🎲 · ☆ · ⇪ row (above the stash on short phones) */
+    padding: 10px; background: var(--panel); border: 1px solid var(--line);
+    box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.7);
+  }
+  body.m-export-open .m-export { display: flex; }
+  .m-export .actions { flex-direction: column; flex-wrap: nowrap; width: 100%; gap: 6px; }
+  .m-export .actions button { min-height: 46px; font-size: 13px; text-align: left; padding: 0 14px; }
+
+  /* ---------- 📁 presets sheet: my presets and the shared ones ---------- */
+  .m-sheet {
+    position: fixed; left: 0; right: 0; top: var(--top-h, 52px); bottom: 0; z-index: 7;
+    overflow-y: auto; overscroll-behavior: contain; padding-bottom: var(--safe-b);
+    background: rgba(6, 8, 12, 0.97);
+    scrollbar-width: thin; scrollbar-color: var(--line) transparent;
+  }
+  body.m-sheet-open .m-sheet { display: block; }
+  .m-sheet-close { display: block; margin: 6px 6px 0 auto; padding: 8px 12px; font-size: 13px; color: var(--dim); }
+  .m-sheet .presetbar {
+    display: flex; flex-direction: column; align-items: stretch; gap: 16px; padding: 4px 12px 16px;
+    border: 0; background: none; min-height: 0;
+  }
+  .m-sheet .pb-half { flex: none; display: flex; flex-direction: column; align-items: stretch; gap: 8px; max-width: none; height: auto; }
+  .m-sheet .pb-half > .side-head {
+    display: flex; align-items: center; justify-content: flex-start; gap: 6px;
+    writing-mode: horizontal-tb; font-size: 12px; text-align: left;
+  }
+  .m-sheet .pb-shared { border-top: 1px dashed var(--line); border-left: 0; padding: 14px 0 0; }
+  .m-sheet .pb-shared .side-head button { font-size: 14px; padding: 4px 8px; }
+  .m-sheet .pb-save { flex-direction: row; width: auto; gap: 6px; }
+  .m-sheet .pb-save input { flex: 1; width: auto; min-width: 0; font-size: 16px; padding: 8px 10px; }
+  .m-sheet .pb-save button { font-size: 13px; padding: 0 16px; white-space: nowrap; }
+  .m-sheet .pb-list {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(86px, 1fr)); gap: 6px;
+    flex: none; height: auto; padding: 0; overflow: visible;
+  }
+  .m-sheet .pb-list .empty { grid-column: 1 / -1; margin: 0; text-align: left; font-size: 12px; }
+  .m-sheet .ptile { padding: 10px 4px 6px; border: 1px solid var(--line); background: rgba(10, 14, 12, 0.6); }
+  .m-sheet .ptile .mini { width: 34px; height: 34px; }
+  .m-sheet .ptile .pname, .m-sheet .ptile small {
+    display: block; max-width: 100%; text-align: center;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .m-sheet .ptile .pname { font-size: 12px; }
+  /* no hover on touch: the tile buttons are always there */
+  .m-sheet .ptile .del, .m-sheet .ptile .share { display: block; font-size: 13px; padding: 2px 6px; }
+}
+
+/* phones the size of an iPhone SE (667px tall) or smaller: no variations at all (🎲 변주, ☆,
+   the recent list, each strip's own 🎲 seed), and a smaller player */
+@media (max-width: 760px) and (max-height: 667px),
+  (max-width: 900px) and (max-height: 667px) and (min-aspect-ratio: 3/4) and (max-aspect-ratio: 4/3) {
+  .left .actions, .left .seeds, .strip .sdice, .strip button.snum { display: none; }
+  /* ⇪ moves next to the stash, its popover just above it */
+  .m-export-stash { display: flex !important; }
+  .stash { grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: 'head slots export' 'hint slots export'; }
+  .m-export { bottom: calc(72px + var(--safe-b)); }
+  .core { --size: 104px; }
+  .ring, .volring { inset: -20px; }
+  .volring { width: calc(100% + 40px); height: calc(100% + 40px); }
+  .core::before { inset: -64px; }
+  .left { gap: 6px; padding-top: 54px; }
+  .left .status { margin-top: 16px; }
+}
+/* narrow phones: ∞ alone */
+@media (max-width: 380px) {
+  .logo .nav-btn { font-size: 0; padding: 7px 11px; }
+  .logo .nav-btn::before { content: '∞'; font-size: 14px; }
 }

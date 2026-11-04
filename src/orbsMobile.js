@@ -1,87 +1,126 @@
-// Phone (portrait) layout helpers for the orb page. Kept apart from orbs.js: it only adds
-// a dock with two toggles and moves the song timeline into its own bottom panel. Every
-// element orbs.js holds keeps its identity, so its listeners and rect checks still work.
+// Phone (portrait) layout for the orb page. Kept apart from orbs.js: on a phone the page is one
+// screen (the orbs rain around the player, the song's orbs and buttons under it, the stash at
+// the bottom). MIDI and the full-song stems are left to wide screens; the header folds into a
+// menu, presets open as a sheet, and the save/share buttons share one popover. Elements orbs.js
+// holds are only moved (and put back on wide screens), so its listeners and rect checks still work.
 import './orbsMobile.css';
 import { ot } from './orbsI18n.js';
+import { isPhone } from './phoneLayout.js';
 
 const $ = (id) => document.getElementById(id);
+const body = document.body;
 const stage = $('stage');
-const stash = $('stash');
 const top = document.querySelector('.top');
+const h = (html) => {
+  const t = document.createElement('template');
+  t.innerHTML = html.trim();
+  return t.content.firstChild;
+};
 
-// the header is fixed and wraps on narrow screens: let the layout know how tall it is
+// the header is fixed: let the layout know how tall it is
 new ResizeObserver(() => {
   document.documentElement.style.setProperty('--top-h', top.offsetHeight + 'px');
 }).observe(top);
 
-// bottom panel for the full song (and its stems, once they live here)
-const songPanel = document.createElement('section');
-songPanel.className = 'm-song';
-songPanel.id = 'mSong';
-songPanel.innerHTML = `<div class="m-song-empty" data-i18n="mSongEmpty">${ot('mSongEmpty')}</div>`;
-stage.insertBefore(songPanel, stash);
+// phones held sideways get a notice instead of a squeezed layout (orbsMobile.css decides when)
+body.append(h(`<div class="m-rotate"><p data-i18n="mRotate">${ot('mRotate')}</p></div>`));
 
-// everything song-related goes in the panel: the timeline now, a stem builder later
-const SONG_PARTS = '#song, #stems, .stems';
-const isPhone = matchMedia('(max-width: 760px)');
+// ---------- open / close: ⋯ menu, 📁 presets sheet, ⇪ export popover ----------
+const PANELS = ['m-menu-open', 'm-sheet-open', 'm-export-open'];
+function openPanel(cls, open = !body.classList.contains(cls)) {
+  for (const c of PANELS) body.classList.toggle(c, c === cls && open);
+}
+const closePanels = () => openPanel(null, false);
+const toggler = (cls, html) => {
+  const b = h(html);
+  b.addEventListener('click', (e) => {
+    e.stopPropagation();
+    openPanel(cls);
+  });
+  return b;
+};
+
+// header: 📁 and 🔍 stay out, the rest folds into ⋯
+const headBtns = h(`<div class="m-head-btns"></div>`);
+const presetsBtn = toggler('m-sheet-open', `<button type="button" class="m-presets-btn" data-i18n-title="mPresets" title="${ot('mPresets')}" aria-label="presets">📁</button>`);
+const menuBtn = toggler('m-menu-open', `<button type="button" class="m-menu-btn" data-i18n-title="mMenu" title="${ot('mMenu')}" aria-label="menu">⋯</button>`);
+const credit = h(`<div class="m-credit"></div>`);
+credit.append(...[...document.querySelectorAll('.logo .by a, .powered a')].map((a) => a.cloneNode(true)));
+
+// presets sheet: my presets and the shared ones
+const sheet = h(`<div class="m-sheet"><button type="button" class="ghost m-sheet-close" data-i18n="mClose">${ot('mClose')}</button></div>`);
+sheet.querySelector('.m-sheet-close').addEventListener('click', closePanels);
+
+// export popover: the loop's / song's save and share buttons (the whole .actions row moves in)
+const exportPop = h(`<div class="m-export"></div>`);
+// ⇪ sits right of 🎲 변주 · ☆; on short phones that row is gone and a smaller one sits by the stash
+// (orbsMobile.css shows one of the two)
+const exportBtn = () => toggler('m-export-open', `<button type="button" class="m-export-btn" data-i18n="mExport">${ot('mExport')}</button>`);
+const exportRow = exportBtn(), exportStash = exportBtn();
+exportStash.classList.add('m-export-stash');
+
+// the hint while the song is empty (the desktop one points at the sidebar), and one over the stash
+const emptyHint = h(`<p class="empty-hint m-empty-hint" data-i18n="mEmptyHint">${ot('mEmptyHint')}</p>`);
+const stashHint = h(`<small class="m-stash-hint" data-i18n="mStashHint">${ot('mStashHint')}</small>`);
+
+// a tap anywhere outside closes what is open (a tap on a button inside does its job first)
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.tools, .m-sheet, .m-export')) closePanels();
+});
+document.querySelector('.tools').addEventListener('click', (e) => {
+  if (e.target.closest('button') && !e.target.closest('.langs')) closePanels();
+});
+// a preset tapped (not dragged) in the sheet loads: close it to show the player
+let tapAt = null;
+sheet.addEventListener('pointerdown', (e) => (tapAt = [e.clientX, e.clientY]), true);
+sheet.addEventListener('pointerup', (e) => {
+  if (!tapAt || !e.target.closest('.ptile') || e.target.closest('button')) return;
+  if (Math.hypot(e.clientX - tapAt[0], e.clientY - tapAt[1]) < 6) setTimeout(closePanels, 120);
+});
+// dragging a preset out of the sheet: get the sheet out of the way so the player shows
+window.addEventListener('pointermove', () => {
+  if (body.classList.contains('m-sheet-open') && document.querySelector('body > .orb.dragging')) closePanels();
+}, { passive: true });
+
+// ---------- moving things in and out ----------
+const actions = document.querySelectorAll('.left > .actions');
+const PLACES = [
+  [presetsBtn, headBtns],
+  [$('searchBtn'), headBtns],
+  [menuBtn, headBtns],
+  [credit, document.querySelector('.tools')],
+  [$('shuffle'), stage],
+  [emptyHint, stage],
+  [$('presetbar'), sheet],
+  [actions[1], exportPop],
+  [exportRow, actions[0]],
+  [stashHint, $('stash')],
+  [exportStash, $('stash')],
+];
+const OWN = new Set([presetsBtn, menuBtn, credit, emptyHint, exportRow, exportStash, stashHint]);
 const homes = new Map(); // el -> [parent, nextSibling] to put it back on wide screens
-function placeSongParts() {
-  for (const el of document.querySelectorAll(SONG_PARTS)) {
-    if (isPhone.matches) {
-      if (el.parentNode === songPanel) continue;
-      homes.set(el, [el.parentNode, el.nextSibling]);
-      songPanel.append(el);
-    } else if (homes.has(el)) {
-      const [p, next] = homes.get(el);
-      p.insertBefore(el, next?.parentNode === p ? next : null);
-      homes.delete(el);
+function place() {
+  if (isPhone.matches) {
+    top.append(headBtns);
+    body.append(sheet, exportPop);
+    for (const [el, to] of PLACES) {
+      if (el.parentNode === to) continue;
+      if (el.parentNode && !homes.has(el)) homes.set(el, [el.parentNode, el.nextSibling]);
+      to.append(el);
     }
+  } else {
+    // back in reverse, so a moved element's old neighbour is home again before it is needed
+    for (const [el] of [...PLACES].reverse()) {
+      const home = homes.get(el);
+      if (home) {
+        const [p, next] = home;
+        p.insertBefore(el, next?.parentNode === p ? next : null);
+      } else if (OWN.has(el)) el.remove(); // made here for the phone layout only
+    }
+    homes.clear();
+    for (const el of [headBtns, sheet, exportPop]) el.remove();
+    closePanels();
   }
 }
-
-// the dock: two toggles above the stash
-const dock = document.createElement('nav');
-dock.className = 'm-dock';
-dock.innerHTML = `
-  <button type="button" data-open="roll-open"><span data-i18n="mMidi">${ot('mMidi')}</span> <i>▴</i></button>
-  <button type="button" data-open="song-open"><span data-i18n="mSong">${ot('mSong')}</span> <i>▴</i></button>`;
-stage.insertBefore(dock, stash);
-dock.addEventListener('click', (e) => {
-  const b = e.target.closest('button[data-open]');
-  if (!b) return;
-  document.body.classList.toggle(b.dataset.open);
-  syncDock();
-});
-let wasLive = false;
-function syncDock() {
-  for (const b of dock.querySelectorAll('button[data-open]')) {
-    const open = document.body.classList.contains(b.dataset.open);
-    b.classList.toggle('open', open);
-    const arrow = open ? '▾' : '▴';
-    const i = b.querySelector('i');
-    if (i.textContent !== arrow) i.textContent = arrow;
-  }
-  const body = document.body.classList;
-  // a live song lights its toggle even while the panel is closed; a song just made opens it once
-  const live = body.contains('stem-open') || !!$('song')?.classList.contains('on');
-  if (live && !wasLive && !body.contains('song-open')) body.add('song-open');
-  wasLive = live;
-  dock.querySelector('[data-open="song-open"]').classList.toggle('live', live);
-  // an orb dropped into the roll keeps it open
-  if (body.contains('roll-full') && !body.contains('roll-open')) body.add('roll-open');
-}
-
-// follow what orbs.js does: song on/off, orb picked into the roll, a stem panel appearing
-const watch = { attributes: true, attributeFilter: ['class'] };
-const mo = new MutationObserver(() => {
-  placeSongParts();
-  syncDock();
-  mo.takeRecords(); // our own changes above don't need another pass
-});
-mo.observe(document.body, watch);
-if ($('song')) mo.observe($('song'), watch);
-mo.observe(stage, { childList: true, subtree: false });
-mo.observe(document.querySelector('.left'), { childList: true });
-isPhone.addEventListener('change', placeSongParts);
-placeSongParts();
-syncDock();
+isPhone.addEventListener('change', place);
+place();

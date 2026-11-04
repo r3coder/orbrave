@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>ORBRAVE</title>
   <meta name="description" content="Drag glowing orbs into the player to build a track, one layer at a time." />
   <!-- old player share links (/#seed.style, /#preset.id) used to live here; send them to the player -->
@@ -21,6 +21,7 @@
       <button id="codeToggle" data-i18n="code">&lt;/&gt; 코드</button>
       <button id="licenseBtn" data-i18n="licenses">ⓘ 라이선스</button>
       <button id="feedbackBtn" data-i18n="feedback">🐞 버그/의견 제출</button>
+      <button id="liteBtn" data-i18n="lite" data-i18n-title="liteTip">⚡ 저사양 모드</button>
       <div class="langs" id="langs" role="group" aria-label="language"></div>
     </div>
   </header>
@@ -82,12 +83,14 @@
       <div class="actions">
         <button id="variate" data-i18n="variate" data-i18n-title="variateTip">🎲 변주</button>
         <button id="favSeed" class="fav" data-i18n-title="favTip">☆</button>
-        <button id="songBtn" data-i18n-title="makeSongTip">🎼 전체 곡 만들기</button>
+        <button id="songBtn" data-i18n-title="makeSongTip">🎼 전체 곡 스템 생성하기</button>
       </div>
+      <!-- loop mode: the loop's buttons; with the stems open they become the stems' ones -->
       <div class="actions">
-        <button id="wavBtn" data-i18n="wav" data-i18n-title="wavTip">💾 WAV로 저장</button>
-        <button id="shareBtn" data-i18n="shareOrbs" data-i18n-title="shareOrbsTip">🔗 오브 공유</button>
-        <button id="stemShareBtn" data-i18n="shareStems" data-i18n-title="shareStemsTip" disabled>🔗 스템 공유</button>
+        <button id="wavBtn" class="loop-only" data-i18n="wav" data-i18n-title="wavTip">💾 루프 WAV 저장</button>
+        <button id="wavStemBtn" class="stem-only" data-i18n="wavStem" data-i18n-title="wavStemTip">💾 스템 WAV 저장</button>
+        <button id="shareBtn" class="loop-only" data-i18n="shareOrbs" data-i18n-title="shareOrbsTip">🔗 루프 공유</button>
+        <button id="stemShareBtn" class="stem-only" data-i18n="shareStems" data-i18n-title="shareStemsTip" disabled>🔗 스템 공유</button>
         <button id="serverShareBtn">☁ 서버 공유</button>
       </div>
       <div class="song" id="song">
@@ -116,6 +119,7 @@
           <div class="roll-name" id="rollName"></div>
           <span class="roll-hint" id="rollHint"></span>
           <div class="roll-tools">
+            <button id="rollDice" data-i18n="rollDice" data-i18n-title="rollDiceTip">🎲 변주</button>
             <button id="rollAdd" class="go" data-i18n="rollAdd">＋ 곡에 추가</button>
             <button id="rollStash" data-i18n="rollStash">⇥ 보관함</button>
             <button id="rollErase" data-i18n="rollErase">지우개</button>

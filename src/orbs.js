@@ -10,7 +10,9 @@ import {
 import { BARS, STEPS, ROWS, packRaw, unpackRaw, sheetCode, quantize, songToWire, songFromWire, toWire } from './orbPreset.js';
 import { uploadPreset, fetchPresets, weightedOrder } from './presetApi.js';
 import { mountVote } from './vote.js';
+import { lite, setLite, onLite, watchFrame } from './liteMode.js';
 import { ot, secName, allLangs, mountLangButtons } from './orbsI18n.js';
+import { isPhone } from './phoneLayout.js';
 import { mountLicenses } from './licenses.js';
 import { copyText } from './copyBox.js';
 import { LIMITS, validatePreset } from '../server/presetSchema.mjs';
@@ -31,7 +33,7 @@ const ui = {
   play: $('play'), core: $('core'), sats: $('sats'), field: $('field'), right: $('right'), status: $('status'),
   chips: $('chips'), roles: $('roles'), soloHint: $('soloHint'), drawer: $('drawer'), code: $('code'),
   roll: $('roll'), rollCanvas: $('rollCanvas'), rollSlot: $('rollSlot'), rollName: $('rollName'),
-  rollErase: $('rollErase'), rollHint: $('rollHint'), rollAdd: $('rollAdd'), rollStash: $('rollStash'),
+  rollErase: $('rollErase'), rollHint: $('rollHint'), rollAdd: $('rollAdd'), rollStash: $('rollStash'), rollDice: $('rollDice'),
   stash: $('stash'), stashSlots: $('stashSlots'),
   presetList: $('presetList'), presetName: $('presetName'),
   song: $('song'), songBar: $('songBar'), songBtn: $('songBtn'),
@@ -352,14 +354,37 @@ try {
   if (localStorage.getItem(ROLL_READY_KEY)) document.body.classList.add('roll-ready');
 } catch {}
 
-async function addLayer(id, home) {
+// The variation / stems / save / share buttons (and the 🎲 on each strip) stay hidden until the
+// player has put orbs in or taken them out 8 times by hand; then they fade in and stay (remembered
+// across reloads). Presets and the restored session don't count: only the player's own moves.
+const TOOLS_READY_KEY = 'orbToolsReady';
+const TOOLS_AFTER = 8;
+let orbMoves = 0;
+function countMove(n = 1) {
+  if ((orbMoves += n) < TOOLS_AFTER || document.body.classList.contains('tools-ready')) return;
+  document.body.classList.add('tools-ready', 'tools-intro');
+  setTimeout(() => document.body.classList.remove('tools-intro'), 1500);
+  try {
+    localStorage.setItem(TOOLS_READY_KEY, '1');
+  } catch {}
+}
+try {
+  if (localStorage.getItem(TOOLS_READY_KEY)) document.body.classList.add('tools-ready');
+} catch {}
+
+// seed: the orb comes in with its own variation (one rolled with 🎲 in the roll)
+async function addLayer(id, home, seed = null) {
   if (++orbsThrown >= ROLL_AFTER) revealRoll();
+  countMove();
   previewOnly = false; // putting an orb in means the song plays on
   if (!playing) await play();
   const layer = byId[id];
   const at = nextBar();
   if (layer.combo) for (const c of layer.combo) put(byId[c], at);
-  else put(layer, at, home);
+  else {
+    put(layer, at, home);
+    if (seed != null && seed !== variation && seeded(layer)) ownSeed.set(id, seed);
+  }
   // a combo may have pulled in parts that are still falling
   for (const o of rain) if (active.has(o.id)) vanish(o);
   await sync();
@@ -458,8 +483,11 @@ function renderRoles() {
 // The orbs in the song, under the player, grouped like the slots above it ("베이스", "베이스 2").
 // Each strip's orb pulses with its own channel. Hover to solo; drag the orb out (to the
 // field or the stash, or into the roll to edit its notes); right-click to take it out.
+// the strip orbs by id, kept here so the equaliser doesn't query the DOM for them every frame
+const strips = new Map();
 function renderChips() {
   ui.chips.innerHTML = '';
+  strips.clear();
   for (const [r, label] of roleSlots()) {
     layers().filter((l) => role(l) === r).forEach((l, i) => {
       const strip = document.createElement('div');
@@ -471,15 +499,32 @@ function renderChips() {
       ball.className = 'mini';
       paint(ball, l);
       ball.innerHTML = '<i class="swirl"></i>';
+      strips.set(l.id, ball);
       const tag = document.createElement('b');
       tag.textContent = r === 'tempo' ? `${label} ${l.bpm}` : r === 'mode' ? `${label} ${keyLabel(l)}` : i ? `${label} ${i + 1}` : label;
       const name = document.createElement('span');
       name.textContent = l.name;
       strip.append(ball, tag, name);
-      // its own seed: 🎲 in the corner rolls one, the number (shown only when it differs) goes back
-      if (seeded(l)) {
+      if (l.raw) {
+        // edited by hand: C01 … where the seed would be (the shared variation doesn't touch it),
+        // and ↺ in the corner puts the orb it was made from back in its place
+        const num = document.createElement('span');
+        num.className = 'snum custom';
+        num.textContent = customTags().get(l.id);
+        num.title = ot('customTag');
+        const undo = document.createElement('button');
+        undo.className = 'ghost sdice';
+        undo.textContent = '↺';
+        undo.title = ot('revertDrawn', { v: variation });
+        undo.addEventListener('click', (e) => {
+          e.stopPropagation();
+          revertDrawn(l.id);
+        });
+        strip.append(num, undo);
+      } else if (seeded(l)) {
+        // its own seed: 🎲 in the corner rolls one, the number (shown only when it differs) goes back
         const dice = document.createElement('button');
-        dice.className = 'ghost sdice';
+        dice.className = 'ghost sdice seed-dice';
         dice.textContent = '🎲';
         dice.title = ot('ownSeedTip');
         dice.addEventListener('click', (e) => {
@@ -504,12 +549,44 @@ function renderChips() {
       strip.addEventListener('mouseleave', () => setSolo(null));
       strip.addEventListener('contextmenu', (e) => {
         e.preventDefault();
+        countMove();
         removeLayer(l.id);
       });
       ball.addEventListener('pointerdown', (e) => e.button === 0 && grabFromSong(e, l.id));
       ui.chips.append(strip);
     });
   }
+}
+
+// hand-edited orbs in the song, numbered C01, C02 … in the order they went in (strips and stem grid)
+function customTags() {
+  let n = 0;
+  return new Map(layers().filter((l) => l.raw).map((l) => [l.id, `C${String(++n).padStart(2, '0')}`]));
+}
+
+// ↺ on a hand-edited strip: the orb it was drawn from takes its place (and its row in the stem
+// grid), following the shared variation again. The edited copy goes to the stash.
+function revertDrawn(id) {
+  const a = active.get(id), l = byId[id], src = l?.raw && byId[l.src];
+  if (!a || !src) return;
+  if (active.has(src.id)) return removeLayer(id);
+  const order = [...active.keys()].map((k) => (k === id ? src.id : k));
+  const cells = song?.cells?.[id];
+  removeLayer(id, { silent: true });
+  put(src, 0, a.home);
+  // keep the strip where it was
+  const all = new Map(active);
+  active.clear();
+  for (const k of order) if (all.has(k)) active.set(k, all.get(k));
+  for (const [k, v] of all) if (!active.has(k)) active.set(k, v);
+  if (cells && !song.cells[src.id]) {
+    let g = 0;
+    song.cells[src.id] = cells.map((sec, i) => sec.map((b) => ({ on: b.on, v: blockSeed(src, seedOf(src) + (song.sections[i].v ?? 0) * 100, g++) })));
+    const row = song.rows.find((r) => r.id === id);
+    if (row) row.id = src.id;
+    delete song.cells[id];
+  }
+  sync();
 }
 
 // one line under the list saying what an orb does
@@ -538,6 +615,11 @@ function setSolo(id) {
 
 // ---------- colours ----------
 
+// mood, tempo and key orbs add no sound of their own (see paint): a song with fewer orbs than
+// this doesn't get them in the rain yet, so the first picks are all things you can hear
+const SOUND_FIRST = 3;
+const noSound = (l) => l.cat && !l.code && !l.combo;
+
 const tint = (l) => l.glow ?? l.colors?.[0] ?? l.color;
 function paint(el, l) {
   el.style.setProperty('--c', l.color ?? l.colors[0]);
@@ -550,7 +632,7 @@ function paint(el, l) {
   if (l.raw) el.classList.add('pen');
   // mood, tempo and key orbs play nothing themselves, they change the rest: drawn with a rim
   // (preset tiles are painted from bare colours, with no cat: they get no rim)
-  if (l.cat && !l.code && !l.combo) el.classList.add('nosound');
+  if (noSound(l)) el.classList.add('nosound');
   if (l.mode === 'major' || l.modeTag === 'major') el.classList.add('major');
 }
 
@@ -565,9 +647,10 @@ function makeSat(layer) {
 
 // ---------- falling orbs ----------
 // Orbs drift down the field; near the bottom they shrink and fade out. New ones keep
-// coming in from the top so about TARGET are on screen.
+// coming in from the top so about target() are on screen.
 
-const TARGET = 16;
+// phones (orbsMobile.js) have a smaller field: fewer orbs, so their names stay readable
+const target = () => (isPhone.matches ? 10 : 16);
 const rain = []; // { id, el, x, y, v }: centre in field coordinates, fall speed in px/s
 let lastSpawn = 0;
 
@@ -620,8 +703,10 @@ function vanish(o) {
 function pickCandidate() {
   const shown = new Set([...active.keys(), ...rain.map((o) => o.id), ...stash]);
   const activeCats = new Set(layers().map((l) => l.cat));
-  let pool = LAYERS.filter((l) => !shown.has(l.id) && !(l.combo && l.combo.every((c) => active.has(c))));
-  if (!pool.length) pool = LAYERS.filter((l) => !active.has(l.id));
+  const early = active.size < SOUND_FIRST;
+  const allowed = (l) => !(early && noSound(l));
+  let pool = LAYERS.filter((l) => allowed(l) && !shown.has(l.id) && !(l.combo && l.combo.every((c) => active.has(c))));
+  if (!pool.length) pool = LAYERS.filter((l) => allowed(l) && !active.has(l.id));
   if (!pool.length) return null;
   const w = pool.map((l) => (activeCats.has(l.cat) ? 1 : 3) * (l.combo || l.fx || l.mute || l.bpm || l.mode ? 0.25 : 1));
   let x = Math.random() * w.reduce((s, v) => s + v, 0);
@@ -681,12 +766,20 @@ ui.field.addEventListener('pointerdown', (e) => {
   if (e.target !== ui.field) return;
   e.preventDefault();
   boostTarget = 7;
+  // a click on the field tucks the open MIDI pane away, so there's room to pick orbs
+  if (document.body.classList.contains('roll-full')) document.body.classList.add('roll-min');
 });
 for (const t of ['pointerup', 'pointercancel']) window.addEventListener(t, () => (boostTarget = 1));
 ui.field.addEventListener('pointerleave', () => (boostTarget = 1));
 
 // optional background art for the field: an image at public/orbs-field.webp, tiled vertically
+// It lives on its own layer that is only moved (transform), so the drift doesn't repaint the
+// whole field every frame the way animating background-position did.
 const fieldArt = new Image();
+const artEl = document.createElement('div');
+artEl.className = 'field-art';
+ui.field.prepend(artEl);
+let artTile = 0, artW = 0;
 fieldArt.onload = () => ui.field.style.setProperty('--field-bg', `url(${fieldArt.src})`);
 // relative to the site base: on GitHub Pages the site lives under /<repo>/, so '/orbs-field.webp' would 404
 fieldArt.src = `${import.meta.env.BASE_URL}orbs-field.webp`;
@@ -695,8 +788,17 @@ function updateRain(dt, now) {
   const size = fieldSize();
   boost += (boostTarget - boost) * Math.min(1, dt * 5);
   ui.field.classList.toggle('rush', boost > 2);
-  bgY = (bgY + 10 * boost * dt) % 4096;
-  ui.field.style.setProperty('--bg-y', `${bgY.toFixed(1)}px`);
+  if (fieldArt.naturalWidth) {
+    // one tile is the image scaled to the field's width; the layer is a tile taller than the
+    // field and slides down through one tile, then wraps
+    if (artW !== size.w) {
+      artW = size.w;
+      artTile = (size.w * fieldArt.naturalHeight) / fieldArt.naturalWidth;
+    }
+    artEl.style.height = `${size.h + artTile}px`;
+    bgY = (bgY + 10 * boost * dt) % artTile;
+    artEl.style.transform = `translate3d(0, ${(bgY - artTile).toFixed(1)}px, 0)`;
+  }
   for (const o of [...rain]) {
     if (o.id !== hover) o.y += o.v * boost * dt;
     if (o.y > size.h + 20) {
@@ -704,8 +806,8 @@ function updateRain(dt, now) {
       rain.splice(rain.indexOf(o), 1);
     } else placeRain(o, size);
   }
-  const every = ((size.h + 80) / 19 / TARGET / boost) * 1000;
-  if (rain.length < TARGET && now - lastSpawn > every) {
+  const every = ((size.h + 80) / 19 / target() / boost) * 1000;
+  if (rain.length < target() && now - lastSpawn > every) {
     lastSpawn = now;
     const id = pickCandidate();
     if (id) rainAdd(id, pickX(size.w), -40);
@@ -715,9 +817,10 @@ function updateRain(dt, now) {
 function seedRain() {
   for (const o of [...rain]) vanish(o);
   const { w, h } = fieldSize();
-  for (let i = 0; i < TARGET; i++) {
+  const n = target();
+  for (let i = 0; i < n; i++) {
     const id = pickCandidate();
-    if (id) rainAdd(id, 60 + Math.random() * Math.max(1, w - 120), (i / TARGET) * h * 0.85 + 10, { pop: true });
+    if (id) rainAdd(id, 60 + Math.random() * Math.max(1, w - 120), (i / n) * h * 0.85 + 10, { pop: true });
   }
   lastSpawn = performance.now();
 }
@@ -798,11 +901,46 @@ function grabFromSong(e, id) {
   const a = active.get(id);
   if (!a) return;
   const r = e.currentTarget.getBoundingClientRect();
+  countMove();
   removeLayer(id, { silent: true, respawn: false });
   startDrag(e, makeOrbEl(id), { kind: 'active', home: a.home }, { x: r.left + r.width / 2, y: r.top + r.height / 2 });
 }
 
-function grabFromStash(e, i) {
+// Phones (orbsMobile.js): a tap on a stashed orb puts it into the song; moving the finger
+// still picks it up as on desktop.
+function tapOrDrag(e, tap, drag) {
+  e.preventDefault();
+  const x0 = e.clientX, y0 = e.clientY;
+  const off = () => {
+    window.removeEventListener('pointermove', move);
+    window.removeEventListener('pointerup', up);
+    window.removeEventListener('pointercancel', off);
+  };
+  const move = (ev) => {
+    if (Math.hypot(ev.clientX - x0, ev.clientY - y0) < 8) return;
+    off();
+    drag(ev);
+  };
+  const up = () => {
+    off();
+    tap();
+  };
+  window.addEventListener('pointermove', move);
+  window.addEventListener('pointerup', up);
+  window.addEventListener('pointercancel', off);
+}
+export function stashToSong(i) {
+  const id = stash[i];
+  if (!id) return;
+  stash.splice(i, 1);
+  renderStash();
+  ui.core.style.setProperty('--gulp', tint(byId[id]));
+  bump(ui.core, 'gulp');
+  addLayer(id, { kind: 'stash', index: i });
+}
+
+function grabFromStash(e, i, moved = false) {
+  if (isPhone.matches && !moved) return tapOrDrag(e, () => stashToSong(i), (ev) => grabFromStash(ev, i, true));
   hoverOff();
   const id = stash.splice(i, 1)[0];
   renderStash();
@@ -983,7 +1121,8 @@ function fling(el, home, x, y, vx, vy) {
 }
 
 function absorb(el, home) {
-  if (home?.kind === 'roll') ({ id: el.dataset.id, home } = takeFromRoll());
+  let seed = null;
+  if (home?.kind === 'roll') ({ id: el.dataset.id, home, seed } = takeFromRoll());
   const id = el.dataset.id;
   const c = coreCenter();
   el.classList.add('flying', 'absorb');
@@ -991,7 +1130,7 @@ function absorb(el, home) {
   el.style.top = c.y + 'px';
   ui.core.style.setProperty('--gulp', tint(byId[id]));
   bump(ui.core, 'gulp');
-  addLayer(id, home);
+  addLayer(id, home, seed);
   setTimeout(() => el.remove(), 380);
 }
 
@@ -1035,7 +1174,9 @@ function pickInstrument(id, home = null) {
   if (l.raw) draft = { src: l.src, raw: [...l.raw] };
   else draft = { src: id, raw: own && hasNotes(own) ? own : draft?.raw ?? Array(STEPS).fill(null) };
   draft.edited = false;
+  draft.seed = null; // set by 🎲 in the roll: the orb leaves with that variation
   document.body.classList.add('roll-full');
+  document.body.classList.remove('roll-min');
   ui.roll.style.setProperty('--g', tint(byId[draft.src]));
   bump(ui.roll, 'gulp');
   renderRollHead();
@@ -1047,8 +1188,10 @@ function pickInstrument(id, home = null) {
 // or the plain orb when nothing is drawn. A plain orb used for a drawing goes back home.
 function takeFromRoll() {
   let { id, home } = rollOrb;
+  let seed = draft.seed ?? null;
   // only a changed drawing becomes a drawn orb; an untouched orb leaves as itself
   if (hasNotes(draft.raw) && draft.edited) {
+    seed = null;
     const l = byId[id];
     if (l.raw) l.raw = [...draft.raw];
     else {
@@ -1059,16 +1202,17 @@ function takeFromRoll() {
   }
   rollOrb = null;
   draft.raw = Array(STEPS).fill(null);
-  document.body.classList.remove('roll-full');
+  draft.seed = null;
+  document.body.classList.remove('roll-full', 'roll-min');
   renderRollHead();
-  return { id, home };
+  return { id, home, seed };
 }
 
 // back where it came from; the line stays drawn for the next instrument
 function sendRollOrbHome() {
   const { id, home } = rollOrb;
   rollOrb = null;
-  document.body.classList.remove('roll-full');
+  document.body.classList.remove('roll-full', 'roll-min');
   returnOrb(id, home);
   renderRollHead();
   sync();
@@ -1099,23 +1243,25 @@ function renderRollHead() {
     b.addEventListener('pointerdown', grabFromRoll);
     ui.rollSlot.append(b);
   }
+  const seedTag = draft?.seed != null && !draft.edited ? ` <small>#${draft.seed}</small>` : '';
   ui.rollName.innerHTML = l
-    ? `<b style="color:${tint(l)}">${held.name}</b><span>${ot(l.voice.root ? 'rollPitched' : 'rollDrum')} · ${ot('rollThrow')}</span>`
+    ? `<b style="color:${tint(l)}">${held.name}${seedTag}</b><span>${ot(l.voice.root ? 'rollPitched' : 'rollDrum')} · ${ot('rollThrow')}</span>`
     : draft && hasNotes(draft.raw)
       ? ot('rollKept')
       : ot('rollEmpty');
   ui.rollHint.textContent = '';
   ui.rollAdd.disabled = ui.rollStash.disabled = !rollOrb || !!rollOrb.grabbed;
+  ui.rollDice.disabled = !rollOrb || !!rollOrb.grabbed || !seeded(byId[draft?.src]);
 }
 
-// An orb's current notes as a drawing: its pattern (at the current variation) is built without
-// playing it and read back over 4 bars. Melodic parts map notes to scale rows (the highest note
-// of a chord wins); drums put a hit on each onset, at the height their speed / sample suggests.
-function patternToRaw(l) {
+// An orb's current notes as a drawing: its pattern (at the current variation, or `seed`) is built
+// without playing it and read back over 4 bars. Melodic parts map notes to scale rows (the highest
+// note of a chord wins); drums put a hit on each onset, at the height their speed / sample suggests.
+function patternToRaw(l, seed = seedOf(l)) {
   const v = l.voice;
   let pat;
   try {
-    const js = transpiler(codeOf(l, seedOf(l)).replaceAll('__DT__', '0.3'), { emitMiniLocations: false, emitWidgets: false }).output;
+    const js = transpiler(codeOf(l, seed).replaceAll('__DT__', '0.3'), { emitMiniLocations: false, emitWidgets: false }).output;
     pat = new Function(js)();
   } catch {
     return null;
@@ -1176,7 +1322,7 @@ async function finishDraft(where) {
     bump(ui.stash, 'reject');
     return;
   }
-  const { id, home } = takeFromRoll();
+  const { id, home, seed } = takeFromRoll();
   if (where === 'stash') {
     stash.push(id);
     renderStash();
@@ -1185,8 +1331,28 @@ async function finishDraft(where) {
   } else {
     ui.core.style.setProperty('--gulp', tint(byId[id]));
     bump(ui.core, 'gulp');
-    await addLayer(id, home);
+    await addLayer(id, home, seed);
   }
+}
+
+// 🎲 in the roll: the instrument's notes at a random variation. A plain orb stays itself and
+// leaves with that seed; on a drawn orb it replaces the drawing (an edit like any other).
+async function rollVariation() {
+  const s = rollOrb && byId[draft.src];
+  if (!s || rollOrb.grabbed || !seeded(s)) return;
+  const v = newSeed();
+  const raw = patternToRaw(s, v);
+  if (!raw) return;
+  draft.raw = raw;
+  if (byId[rollOrb.id].raw) draft.edited = true;
+  else {
+    draft.edited = false;
+    draft.seed = v;
+  }
+  bump(ui.roll, 'gulp');
+  renderRollHead();
+  if (!playing) await play();
+  else sync();
 }
 
 function rollGeom() {
@@ -1237,6 +1403,12 @@ const endStroke = async () => {
 ui.rollCanvas.addEventListener('pointerup', endStroke);
 ui.rollCanvas.addEventListener('pointercancel', endStroke);
 
+ui.rollDice.addEventListener('click', rollVariation);
+// a tucked-away roll opens again when it is clicked (its orb can still be grabbed straight away)
+ui.roll.addEventListener('pointerdown', (e) => {
+  if (!document.body.classList.contains('roll-min') || e.target.closest('.roll-slot')) return;
+  document.body.classList.remove('roll-min');
+}, true);
 ui.rollAdd.addEventListener('click', () => finishDraft('song'));
 ui.rollStash.addEventListener('click', () => finishDraft('stash'));
 $('rollClear').addEventListener('click', () => {
@@ -1268,7 +1440,7 @@ function neon(g, pts, color, alpha) {
     g.beginPath();
     pts.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y)));
     g.lineWidth = width;
-    g.shadowBlur = blur;
+    g.shadowBlur = lite ? 0 : blur;
     g.shadowColor = color;
     g.strokeStyle = col;
     g.globalAlpha = alpha * a;
@@ -1278,10 +1450,17 @@ function neon(g, pts, color, alpha) {
 }
 
 const rg = ui.rollCanvas.getContext('2d');
+let rollSig = '';
 function drawRoll() {
-  const dpr = window.devicePixelRatio || 1;
+  const dpr = lite ? 1 : window.devicePixelRatio || 1;
   const { w, h, cw, rh } = rollGeom();
   if (w < 10 || h < 10) return;
+  // with nothing drawn on it the roll only changes with its size, the playhead and the voice
+  // (row labels): skip redrawing an unchanged picture
+  const head = playing && repl ? Math.round(((nowCycle() % BARS) / BARS) * (w - GUTTER) * 2) : -1;
+  const sig = draft || stroke ? '' : `${w}|${h}|${dpr}|${head}`;
+  if (sig && sig === rollSig) return;
+  rollSig = sig;
   if (ui.rollCanvas.width !== Math.round(w * dpr) || ui.rollCanvas.height !== Math.round(h * dpr)) {
     ui.rollCanvas.width = Math.round(w * dpr);
     ui.rollCanvas.height = Math.round(h * dpr);
@@ -1732,7 +1911,7 @@ function saveSession() {
     variation,
     seeds: ownSeeds(),
     name: ui.presetName.value,
-    roll: rollOrb && draft ? { id: rollOrb.id, home: rollOrb.home ?? null, src: draft.src, raw: draft.raw, edited: !!draft.edited } : null,
+    roll: rollOrb && draft ? { id: rollOrb.id, home: rollOrb.home ?? null, src: draft.src, raw: draft.raw, edited: !!draft.edited, seed: draft.seed ?? null } : null,
   };
   try {
     localStorage.setItem(SESSION_KEY, JSON.stringify(data));
@@ -1768,7 +1947,7 @@ function restoreSession() {
     if (typeof s.name === 'string') ui.presetName.value = s.name;
     if (s.roll || active.size >= ROLL_AFTER) revealRoll({ animate: false });
     if (s.roll && byId[s.roll.id] && pickInstrument(s.roll.id, s.roll.home)) {
-      if (byId[s.roll.src] && Array.isArray(s.roll.raw)) draft = { src: s.roll.src, raw: [...s.roll.raw], edited: !!s.roll.edited };
+      if (byId[s.roll.src] && Array.isArray(s.roll.raw)) draft = { src: s.roll.src, raw: [...s.roll.raw], edited: !!s.roll.edited, seed: Number.isSafeInteger(s.roll.seed) ? s.roll.seed : null };
       renderRollHead();
     }
   } catch (e) {
@@ -1978,9 +2157,12 @@ addEventListener('message', (e) => {
   }
 });
 
-// the code as it would play from cycle 0, without anything only the live page hears
-function renderCode() {
+// the code as it would play from cycle 0, without anything only the live page hears;
+// `full`: the whole stem song once through, otherwise LOOP_BARS of the loop
+function renderCode(full) {
   offline = true;
+  const live = song;
+  if (!full) song = null;
   const s0 = song?.s0;
   if (song) song.s0 = 0;
   try {
@@ -1989,36 +2171,42 @@ function renderCode() {
     return { code, cycles, tempo: bpm() };
   } finally {
     offline = false;
+    song = live;
     if (song) {
-      song.s0 = s0;
+      if (full) song.s0 = s0;
       ui.code.textContent = buildCode(); // put the live code (and song bar) back
     }
   }
 }
 
-const wavBtn = $('wavBtn');
-wavBtn.addEventListener('click', async () => {
+// 💾 루프 WAV (loop mode) and 💾 스템 WAV (while the stems are open)
+const wavBtn = $('wavBtn'), wavStemBtn = $('wavStemBtn');
+const wavLabel = (b) => ot(b === wavStemBtn ? 'wavStem' : 'wav');
+wavBtn.addEventListener('click', () => saveWav(wavBtn, false));
+wavStemBtn.addEventListener('click', () => saveWav(wavStemBtn, true));
+async function saveWav(btn, full) {
   if (renderingWav) return;
+  if (full && !song?.sections) return;
   if (!layers().some((l) => l.code)) {
     ui.soloHint.textContent = ot('noSound');
     return;
   }
-  const { code, cycles, tempo } = renderCode();
+  const { code, cycles, tempo } = renderCode(full);
 
   renderingWav = true;
-  wavBtn.disabled = true;
-  wavBtn.textContent = ot('rendering', { p: 0 });
+  wavBtn.disabled = wavStemBtn.disabled = true;
+  btn.textContent = ot('rendering', { p: 0 });
   try {
     await renderer();
     const id = ++renderJob;
     const wav = await new Promise((resolve, reject) => {
-      renderJobs.set(id, { resolve, reject, progress: (p) => (wavBtn.textContent = ot('rendering', { p: Math.round(p * 100) })) });
+      renderJobs.set(id, { resolve, reject, progress: (p) => (btn.textContent = ot('rendering', { p: Math.round(p * 100) })) });
       renderFrame.contentWindow.postMessage({ type: 'render', id, code, start: 0, end: cycles, cps: tempo / 4 / 60 }, location.origin);
     });
     const name = (ui.presetName.value.trim() || layers().find((l) => l.code)?.name || 'orb').replace(/[\\/:*?"<>|]/g, '');
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([wav], { type: 'audio/wav' }));
-    a.download = `ORBRAVE - ${name} ${tempo}bpm${song ? ' (full)' : ''}.wav`;
+    a.download = `ORBRAVE - ${name} ${tempo}bpm${full ? ' (full)' : ''}.wav`;
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 10000);
   } catch (e) {
@@ -2026,10 +2214,10 @@ wavBtn.addEventListener('click', async () => {
     ui.soloHint.textContent = ot('wavFail');
   } finally {
     renderingWav = false;
-    wavBtn.disabled = false;
-    wavBtn.textContent = ot('wav');
+    wavBtn.disabled = wavStemBtn.disabled = false;
+    btn.textContent = wavLabel(btn);
   }
-});
+}
 
 // ---------- full song ----------
 // The current set becomes the centre of a whole track: an intro and build-up lead into it,
@@ -2067,7 +2255,7 @@ function songPlan() {
 // into sections), and in every block whether the instrument plays there and with which seed.
 // The stem panel shows it; the song is built from it. Leads get a new seed every block; the
 // other parts keep one seed per section. Orbs without a seed carry none (v: null), and drawn
-// (user-edited) rows are labelled CU01, CU02 … instead.
+// (user-edited) rows are labelled C01, C02 … instead.
 const BLOCK = 4;
 const isLead = (l) => role(l) === 'lead';
 const newSeed = () => 1 + Math.floor(Math.random() * 9999);
@@ -2214,11 +2402,11 @@ function renderStem() {
     );
     grid.append(h);
   });
-  let cu = 0;
+  const tags = customTags();
   for (const r of song.rows) {
     const l = byId[r.id];
     if (!l) continue;
-    const custom = l.raw ? `CU${String(++cu).padStart(2, '0')}` : null;
+    const custom = l.raw ? tags.get(r.id) ?? 'C' : null;
     const head = document.createElement('div');
     head.className = 'rh' + (r.alt ? ' alt' : '');
     head.style.setProperty('--g', tint(l));
@@ -2389,9 +2577,11 @@ let buf;
 let lastTs = performance.now();
 function frame(ts) {
   requestAnimationFrame(frame);
+  watchFrame(ts);
   const dt = Math.min(0.1, (ts - lastTs) / 1000);
   lastTs = ts;
-  const dpr = window.devicePixelRatio || 1;
+  // low-spec mode draws the full-screen canvas at 1x: at 2x / 3x scaling that is 4-9x fewer pixels
+  const dpr = lite ? 1 : window.devicePixelRatio || 1;
   const w = innerWidth, h = innerHeight;
   // rounded: at 125% / 150% scaling w * dpr is fractional and would never match, resizing every frame
   if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
@@ -2412,7 +2602,7 @@ function frame(ts) {
     (colors.length ? colors : ['#39ff9c']).concat(colors[0] ?? '#39ff9c').forEach((col, i, arr) => grad.addColorStop(i / (arr.length - 1), col));
     g.strokeStyle = grad;
     g.lineWidth = 2;
-    g.shadowBlur = 18;
+    g.shadowBlur = lite ? 0 : 18;
     g.shadowColor = colors[0] ?? '#39ff9c';
     g.beginPath();
     const n = 256, step = Math.floor(buf.length / n);
@@ -2441,9 +2631,11 @@ function frame(ts) {
     const depth = Math.sin(ang);
     const soloed = solo === a.layer.id;
     const dim = (playing && now < a.at) || muted(a.layer) || (solo && !soloed);
-    a.sat.style.transform = `translate(${x}px, ${y}px) scale(${(0.8 + depth * 0.25) * (soloed ? 1.5 : 1)})`;
-    a.sat.style.zIndex = depth > 0 ? 3 : 1;
-    a.sat.style.opacity = dim ? 0.3 : 0.7 + depth * 0.3;
+    a.sat.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) scale(${((0.8 + depth * 0.25) * (soloed ? 1.5 : 1)).toFixed(3)})`;
+    // restacking costs more than moving: only when the orb actually passes behind / in front
+    const z = depth > 0 ? 3 : 1;
+    if (a.z !== z) a.sat.style.zIndex = a.z = z;
+    a.sat.style.opacity = (dim ? 0.3 : 0.7 + depth * 0.3).toFixed(2);
     g.save();
     g.strokeStyle = tint(a.layer);
     g.globalAlpha = soloed ? 0.6 : solo ? 0.06 : 0.16;
@@ -2489,34 +2681,49 @@ function drawEq(c, cr, ts) {
     const bands = bandsOf(l.id);
     const col = tint(l);
     const dim = solo && solo !== l.id ? 0.25 : 1;
-    // the arc of bars around the player
+    // the arc of bars around the player. Bars are grouped into a few brightness steps and each
+    // group is one path, so a glowing orb costs a handful of shadowed strokes instead of 12.
     g.save();
     g.strokeStyle = col;
     g.shadowColor = col;
-    g.shadowBlur = 10;
+    g.shadowBlur = lite ? 0 : 10;
     g.lineCap = 'round';
     g.lineWidth = Math.max(2, ((span * inner) / EQ_BANDS) * 0.45);
-    bands.forEach((v, b) => {
-      const a = ts / 9000 + i * span + ((b + 0.5) / EQ_BANDS) * span * 0.86;
-      const len = 3 + v * 46;
-      g.globalAlpha = (0.35 + v * 0.65) * dim;
+    for (let k = 0; k < EQ_STEPS; k++) eqPaths[k].length = 0;
+    bands.forEach((v, b) => eqPaths[Math.min(EQ_STEPS - 1, Math.floor(v * EQ_STEPS))].push(b));
+    eqPaths.forEach((group, k) => {
+      if (!group.length) return;
+      g.globalAlpha = (0.35 + ((k + 0.5) / EQ_STEPS) * 0.65) * dim;
       g.beginPath();
-      g.moveTo(c.x + Math.cos(a) * inner, c.y + Math.sin(a) * inner);
-      g.lineTo(c.x + Math.cos(a) * (inner + len), c.y + Math.sin(a) * (inner + len));
+      for (const b of group) {
+        const a = ts / 9000 + i * span + ((b + 0.5) / EQ_BANDS) * span * 0.86;
+        const len = 3 + bands[b] * 46;
+        const cos = Math.cos(a), sin = Math.sin(a);
+        g.moveTo(c.x + cos * inner, c.y + sin * inner);
+        g.lineTo(c.x + cos * (inner + len), c.y + sin * (inner + len));
+      }
       g.stroke();
     });
     g.restore();
     // the strip's orb swells with the channel
-    const ball = ui.chips.querySelector(`.strip[data-id="${CSS.escape(l.id)}"] .mini`);
+    const ball = strips.get(l.id);
     if (!ball) return;
     const now = Math.max(...bands);
     const prev = pulse.get(l.id) ?? 0;
     const lvl = now > prev ? prev + (now - prev) * 0.6 : prev * 0.88;
     pulse.set(l.id, lvl);
-    ball.style.transform = `scale(${(1 + lvl * 0.45).toFixed(3)})`;
-    ball.style.boxShadow = `0 0 ${(8 + lvl * 26).toFixed(1)}px ${col}`;
+    const scale = `scale(${(1 + lvl * 0.45).toFixed(2)})`;
+    if (ball.style.transform !== scale) ball.style.transform = scale;
+    // a changing shadow repaints the orb every frame: low-spec mode keeps the CSS one
+    const glow = lite ? '' : `0 0 ${Math.round(8 + lvl * 26)}px ${col}`;
+    if (ball.dataset.glow !== glow) {
+      ball.dataset.glow = glow;
+      ball.style.boxShadow = glow;
+    }
   });
 }
+const EQ_STEPS = 4;
+const eqPaths = Array.from({ length: EQ_STEPS }, () => []);
 
 // ---------- toolbar ----------
 
@@ -2627,6 +2834,7 @@ $('searchBtn').addEventListener('click', () => {
 ui.searchInput.addEventListener('input', renderSearch);
 ui.searchInput.addEventListener('keydown', (e) => e.key === 'Escape' && $('searchBtn').click());
 $('clear').addEventListener('click', () => {
+  countMove(active.size);
   for (const id of [...active.keys()]) removeLayer(id, { silent: true, respawn: false });
   sync();
 });
@@ -2640,11 +2848,20 @@ function applyLangUI() {
   sb.textContent = ot(serverUp === false ? 'serverDown' : 'serverShare');
   sb.title = ot(serverUp === false ? 'serverDownTip' : 'serverShareTip');
   volRing.setAttribute('aria-label', ot('volume'));
-  if (!renderingWav) wavBtn.textContent = ot('wav');
+  if (!renderingWav) for (const b of [wavBtn, wavStemBtn]) b.textContent = wavLabel(b);
   onceLabel();
 }
 mountLicenses($('licenseBtn'));
 $('feedbackBtn').addEventListener('click', () => window.open('https://forms.gle/gvjXSkEM7W6ug6US9', '_blank', 'noopener'));
+// low-spec mode: the button flips it by hand; the frame-rate watch can also switch it on
+const liteBtn = $('liteBtn');
+liteBtn.classList.toggle('on', lite);
+liteBtn.addEventListener('click', () => setLite(!lite));
+onLite((on, auto) => {
+  liteBtn.classList.toggle('on', on);
+  rollSig = '';
+  if (auto) ui.soloHint.textContent = ot('liteAuto');
+});
 mountLangButtons($('langs'), () => {
   applyLangUI();
   renderStatus();

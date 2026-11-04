@@ -116,6 +116,8 @@ button.on { background: var(--acc); color: var(--bg); }
 .actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
 .actions button { font-size: 12px; }
 .actions button:disabled { opacity: 0.35; cursor: default; }
+/* the loop's save / share buttons, swapped for the stems' ones while the stems are open */
+body.stem-open .actions .loop-only, body:not(.stem-open) .actions .stem-only { display: none; }
 /* empty-part placeholders above the player */
 .roles { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 6px; max-width: 420px; margin-bottom: 30px; }
 .role { display: flex; flex-direction: column; align-items: center; gap: 2px; width: 50px; font-size: 10px; color: rgba(255, 255, 255, 0.28); }
@@ -202,6 +204,7 @@ body.loading .play { animation: blink 0.8s infinite alternate; }
   background: radial-gradient(circle at 35% 30%, #fff 0, var(--c) 35%, color-mix(in srgb, var(--c) 40%, #000) 100%);
   box-shadow: 0 0 14px var(--g, var(--c));
   transition: opacity 0.3s;
+  will-change: transform, opacity; /* moved every frame (orbs.js frame) */
 }
 .sat.dark { box-shadow: 0 0 0 1.5px var(--g), 0 0 14px var(--g); }
 .sat.pen { outline: 1px dashed var(--g); outline-offset: 3px; }
@@ -210,12 +213,20 @@ body.loading .play { animation: blink 0.8s infinite alternate; }
 .right { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
 .field {
   position: relative; flex: 1; min-height: 0; overflow: hidden;
-  /* optional art (public/orbs-field.webp), dimmed so the orbs stay readable, drifting with the fall */
-  background-image: linear-gradient(rgba(5, 5, 8, 0.25), rgba(5, 5, 8, 0.5)), var(--field-bg, none);
-  background-size: 100% 100%, 100% auto;
-  background-position: center, center var(--bg-y, 0px);
-  background-repeat: no-repeat, repeat-y;
+  isolation: isolate; /* the art and its dimming sit behind the orbs but above the page */
   cursor: s-resize;
+}
+/* optional art (public/orbs-field.webp), drifting with the fall: its own layer, moved by
+   transform from JS (orbs.js updateRain), so the drift never repaints the field */
+.field-art {
+  position: absolute; left: 0; right: 0; top: 0; z-index: -2;
+  background: var(--field-bg, none) center top / 100% auto repeat-y;
+  pointer-events: none; will-change: transform;
+}
+/* dimmed so the orbs stay readable */
+.field::before {
+  content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background: linear-gradient(rgba(5, 5, 8, 0.25), rgba(5, 5, 8, 0.5));
 }
 .field.rush .orb .ball { box-shadow: 0 -18px 24px -10px var(--g, var(--c)); }
 
@@ -317,7 +328,7 @@ body.loading .play { animation: blink 0.8s infinite alternate; }
 
 /* ---------- piano roll (right column only) ---------- */
 .roll {
-  flex: 0 0 20vh; min-height: 0; overflow: hidden;
+  flex: 0 0 max(13vh, 104px); min-height: 0; overflow: hidden;
   display: flex; flex-direction: column;
   background: rgba(6, 8, 12, 0.94);
   border-top: 1px solid var(--line);
@@ -325,6 +336,9 @@ body.loading .play { animation: blink 0.8s infinite alternate; }
 }
 /* with an orb in it the roll takes two thirds of the height */
 body.roll-full .roll { flex-basis: 66vh; }
+/* clicking the empty field tucks the open roll away (it keeps its orb); clicking the roll brings it back */
+body.roll-full.roll-min .roll { flex-basis: max(13vh, 104px); cursor: pointer; }
+body.roll-full.roll-min #rollCanvas { pointer-events: none; }
 /* hidden until five orbs have gone into the player, then it slides up from the bottom */
 @media (min-width: 761px) {
   body:not(.roll-ready) .roll { flex-basis: 0; border-top-width: 0; }
@@ -341,14 +355,22 @@ body.roll-full .roll { flex-basis: 66vh; }
 @keyframes rollGulp { from { box-shadow: inset 0 10px 60px var(--g); } }
 .roll.reject .roll-slot { animation: shake 0.35s; }
 @keyframes shake { 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
-.roll-head { display: flex; align-items: center; gap: 8px; padding: 8px 10px; flex-wrap: wrap; }
+.roll-head { display: flex; align-items: center; gap: 10px; padding: 10px 12px; flex-wrap: wrap; min-height: 76px; }
 .roll-slot {
-  width: 44px; height: 44px; flex: none;
+  width: 56px; height: 56px; flex: none;
   border-radius: 50%; border: 1px dashed var(--dim);
   display: grid; place-items: center;
 }
 .roll-slot.filled { border-color: transparent; }
-.roll-slot .mini { width: 38px; height: 38px; cursor: grab; touch-action: none; }
+.roll-slot .mini { width: 48px; height: 48px; cursor: grab; touch-action: none; }
+/* the orb sitting in the roll jiggles, so it reads as something to pick up and move */
+.roll-slot.filled .mini { animation: jiggle 0.42s ease-in-out infinite alternate; }
+.roll-slot.filled .mini:active { animation: none; }
+@keyframes jiggle {
+  0% { transform: translate(-1px, 0) rotate(-5deg); }
+  50% { transform: translate(1px, -1px) rotate(2deg); }
+  100% { transform: translate(0, 1px) rotate(5deg); }
+}
 .mini {
   position: relative; width: 28px; height: 28px; border-radius: 50%;
   background: radial-gradient(circle at 35% 30%, #fff 0, var(--c) 35%, color-mix(in srgb, var(--c) 40%, #000) 100%);
@@ -548,6 +570,9 @@ body.server-down .ptile .share.cloud { display: none; } /* no ☁ on tiles while
 .strip .mini { width: 36px; height: 36px; margin: 6px 0 4px; cursor: grab; touch-action: none; transition: transform 0.06s linear; will-change: transform; }
 .strip b { font-size: 11px; font-weight: 400; color: var(--g); white-space: nowrap; }
 .strip span { font-size: 9px; color: var(--dim); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* a hand-edited orb: its C01 tag stays put, ↺ goes back to the orb it came from */
+.strip span.snum.custom { color: var(--g); font-size: 9px; max-width: none; cursor: default; }
+.strip span.snum.custom:hover { text-decoration: none; }
 .strip.slow { --g: #ff4040; }
 .strip.fast { --g: #111; background: #e8e8e8; }
 .strip.fast span { color: #444; }
@@ -589,6 +614,8 @@ body.server-down .ptile .share.cloud { display: none; } /* no ☁ on tiles while
 body.stem-open .stems { flex-basis: 50vh; border-top-color: var(--line); }
 body.stem-open.roll-full .stems { flex-basis: 34vh; }
 body.stem-open.roll-full .roll { flex-basis: 40vh; }
+body.stem-open.roll-full.roll-min .stems { flex-basis: 50vh; }
+body.stem-open.roll-full.roll-min .roll { flex-basis: max(13vh, 104px); }
 .stem-head { display: flex; align-items: center; gap: 10px; padding: 6px 10px; font-size: 12px; }
 .stem-head b { color: var(--acc); letter-spacing: 0.15em; font-weight: 400; }
 .stem-hint { flex: 1; color: var(--dim); font-size: 10px; }
@@ -668,8 +695,6 @@ body.stem-open.roll-full .roll { flex-basis: 40vh; }
   .strip span { font-size: 8px; }
   .actions button { padding: 4px 10px; }
   .song-bar { height: 26px; }
-  /* 20vh is only ~130px here: keep the roll usable */
-  .roll { flex-basis: max(20vh, 150px); }
   /* leave the orb field room to grab from while the stems are open */
   body.stem-open .stems { flex-basis: 40vh; }
   .stash { padding-top: 56px; }
@@ -717,3 +742,22 @@ body.stem-open.roll-full .roll { flex-basis: 40vh; }
   pointer-events: none; transition: opacity 0.3s;
 }
 body.has-orbs .empty-hint { opacity: 0; visibility: hidden; transition: opacity 0.3s, visibility 0s 0.3s; }
+
+/* ---------- low-spec mode (body.lite, src/liteMode.js) ----------
+   Same layout and colours, minus what costs the most to draw: shadows that animate (repainted every
+   frame per orb), blurred swirls and big soft glows. The canvases also drop shadows and draw at 1x. */
+.lite .orb .ball { animation: none; box-shadow: 0 0 14px color-mix(in srgb, var(--g, var(--c)) 60%, transparent); }
+.lite .orb.dark .ball { box-shadow: 0 0 0 2px rgba(220, 220, 255, 0.85), 0 0 14px rgba(200, 200, 255, 0.6); }
+.lite .orb.major .ball { box-shadow: 0 0 0 6px rgba(255, 224, 102, 0.18); }
+.lite .field.rush .orb .ball { box-shadow: none; }
+.lite .orb .label { text-shadow: 0 1px 2px #000; }
+.lite .multi .swirl { filter: none; animation-duration: 10s; }
+.lite .orb.ejected .ball, .lite .core.gulp .ring { animation: none; }
+
+/* ---------- tools that show up later (orbs.js countMove) ----------
+   The variation / stems / save / share buttons and the strips' 🎲 stay hidden until the player has
+   put in or taken out 8 orbs by hand, then fade in once (body.tools-intro) and stay. Selected by id
+   and class rather than position: on a phone (orbsMobile.js) they are moved into other pages. */
+body:not(.tools-ready) :is(.actions, #songBtn, .m-export-btn, .seeds, .strip .seed-dice) { display: none; }
+body.tools-intro :is(.actions, #songBtn, .m-export-btn, .seeds, .strip .seed-dice) { animation: toolsIn 0.9s ease-out both; }
+@keyframes toolsIn { from { opacity: 0; transform: translateY(6px); } }
