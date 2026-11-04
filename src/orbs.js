@@ -281,6 +281,7 @@ async function sync() {
   ui.code.textContent = code;
   renderStatus();
   saveSessionSoon();
+  checkVoteSet();
   if (!playing) return;
   try {
     await evaluate(code);
@@ -318,6 +319,9 @@ ui.play.addEventListener('click', () => (playing ? stop() : play()));
 // ---------- adding / removing layers ----------
 
 const nextBar = () => (playing ? Math.ceil(nowCycle() + 0.15) : 0);
+// Orb patterns (and the MIDI pane) loop on the absolute 4-bar grid (cycle % BARS), so a song
+// has to start on a 4-bar boundary: then each section's first bar is the pane's first bar.
+const nextPhrase = () => (playing ? Math.ceil((nowCycle() + 0.15) / BARS) * BARS : 0);
 
 // how many orbs of one kind may play together; one more bounces the oldest out
 const CAPS = { lead: 3, bass: 3, perc: 3, fx: 3, tempo: 4 }; // everything else: one at a time
@@ -1648,10 +1652,20 @@ function grabPreset(e, p, tile) {
   window.addEventListener('pointercancel', up);
 }
 
-// 👍 / 👎 beside the play button for the shared preset last loaded (hidden for other sets)
+// 👍 / 👎 beside the play button for the shared preset last loaded. It stays only while the set
+// is exactly as loaded: any change (an orb in or out, a drawing, a seed, the song grid) hides it.
 const setVote = mountVote($('vote'));
+let voteSig = null; // the loaded set's signature, null while nothing votable is loaded
+const setSig = () => JSON.stringify({ ...currentPreset('', { withSong: true }), id: 0, name: 0 });
+function checkVoteSet() {
+  if (voteSig && setSig() !== voteSig) {
+    voteSig = null;
+    setVote(null);
+  }
+}
 
 async function applyPreset(p) {
+  voteSig = null; // the set is still being built: no checks until it is done
   setVote(p);
   for (const id of [...active.keys()]) removeLayer(id, { silent: true, respawn: false });
   // drawn parts are rebuilt under fresh ids so they never clash with drawings made since
@@ -1674,11 +1688,12 @@ async function applyPreset(p) {
   const grid = p.song && songFromWire(p.song, (id) => ids.get(id) ?? id);
   if (grid) {
     fillSeeds(grid);
-    song = { seed: hash(String(p.id)), s0: at, ...grid, audition: null, once: false };
+    song = { seed: hash(String(p.id)), s0: nextPhrase(), ...grid, audition: null, once: false };
     stemSig = '';
     openSong();
   }
   await sync();
+  if (!$('vote').hidden) voteSig = setSig();
 }
 
 // The wire form only keeps the seed of blocks that play; a silent block of a seeded part gets
@@ -2288,7 +2303,7 @@ $('stemOnce')?.addEventListener('click', async () => {
   song.once = true;
   if (!playing) await play(); // starts from cycle 0 with s0 = 0
   else {
-    song.s0 = nextBar();
+    song.s0 = nextPhrase();
     await sync();
   }
   onceLabel();
@@ -2320,7 +2335,7 @@ ui.songBtn.addEventListener('click', async () => {
   }
   const was = playing;
   if (!playing) await play();
-  song = { seed: Math.floor(Math.random() * 1e9), s0: was ? nextBar() : 0 };
+  song = { seed: Math.floor(Math.random() * 1e9), s0: was ? nextPhrase() : 0 };
   buildGrid();
   stemSig = '';
   openSong();
@@ -2612,7 +2627,6 @@ $('searchBtn').addEventListener('click', () => {
 ui.searchInput.addEventListener('input', renderSearch);
 ui.searchInput.addEventListener('keydown', (e) => e.key === 'Escape' && $('searchBtn').click());
 $('clear').addEventListener('click', () => {
-  setVote(null);
   for (const id of [...active.keys()]) removeLayer(id, { silent: true, respawn: false });
   sync();
 });
