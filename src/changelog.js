@@ -7,6 +7,11 @@ import './licenses.css';
 
 // [version, date, { ko: [...], en: [...], ja: [...] }]
 const NOTES = [
+  ['0.4.3', '2026-11-05', {
+    ko: ['스템: 섹션과 악기 사이에 마디 번호 줄이 생겼어요. 누르면 4박자 카운트(4 · 3 · 2 · 1) 뒤에 그 마디부터 재생돼요', '스템: 섹션 오른쪽 끝의 || 를 끌어서 길이를 마디 단위로 조절해요', '스템: 섹션마다 ＋ 로 바로 뒤에 새 섹션(인트로 · 빌드업 · 드롭 · 브레이크 · 브리지 · 아웃트로) 추가, ✕ 로 삭제', '곡 구성 랜덤화와 섹션 삭제는 한 번 더 물어봐요', '왼쪽 배경 피아노 롤의 선이 스템에서 재생 중인 위치를 따라가요', '전부 비우기를 누르면 스템도 닫혀요', '분위기는 EQ 포함 5개까지 겹치고, 킥 · 스네어 · 하이햇 · 아르페지오 · 코드는 2개까지 들어가요'],
+    en: ['Stems: a row of bar numbers under the sections; click one to play from that bar after a 4-beat count-in (4 · 3 · 2 · 1)', 'Stems: drag the || at a section\'s right edge to change its length bar by bar', 'Stems: ＋ on a section adds a new one right after it (intro, build-up, drop, break, bridge, outro); ✕ deletes it', 'Shuffling the song layout and deleting a section ask once more first', 'The piano roll behind the page follows where the stems are playing', 'Clear all also closes the stems', 'Up to 5 moods stack (EQ included); kicks, snares, hats, arpeggios and chords take 2 each'],
+    ja: ['ステム: セクションと楽器の間に小節番号の列。クリックすると 4 拍のカウント(4 · 3 · 2 · 1)のあとその小節から再生', 'ステム: セクション右端の || をドラッグして長さを小節単位で調整', 'ステム: セクションごとの ＋ で直後に新しいセクション(イントロ・ビルドアップ・ドロップ・ブレイク・ブリッジ・アウトロ)を追加、✕ で削除', '曲構成のランダム化とセクション削除はもう一度確認します', '背景のピアノロールの線がステムの再生位置についていきます', 'すべて外すでステムも閉じます', '雰囲気は EQ を含めて 5 つまで重なり、キック・スネア・ハイハット・アルペジオ・コードは 2 つまで'],
+  }],
   ['0.4.2', '2026-11-05', {
     ko: ['모두의 곡: 서버가 20곡을 골라 보내 줘요 (👍가 많은 곡과 새 곡이 더 자주 나와요). ↻를 누르면 새로 20곡', '모두의 곡 목록 스크롤이 부드러워졌어요: 타일의 색 소용돌이는 마우스를 올렸을 때만 돌아요'],
     en: ['Shared: the server picks 20 songs (well-liked and new ones more often); ↻ draws a fresh 20', 'The Shared list scrolls smoothly: a tile\'s colour swirl only turns while hovered'],

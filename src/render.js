@@ -11,10 +11,10 @@ Pattern.prototype.sect = function (a, len) {
 
 // the orb page (render.html?orbs) gates parts with .songPart() and also plays ZZFX synths
 // on top of the shared banks
-Pattern.prototype.songPart = function (s0, len, a, b) {
+Pattern.prototype.songPart = function (s0, len, a, b, from = s0) {
   return this.filterWhen((t) => {
     const p = (((t - s0) % len) + len) % len;
-    return t >= s0 && p >= a && p < b;
+    return t >= s0 && t >= from && p >= a && p < b;
   });
 };
 const orbs = new URLSearchParams(location.search).has('orbs');

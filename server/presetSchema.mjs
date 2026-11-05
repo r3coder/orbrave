@@ -63,15 +63,14 @@ const id = (v, label) => {
   return v;
 };
 
-// The stem grid: sections (4-bar blocks each) and, per instrument row, one entry per block:
+// The stem grid: sections (any whole number of bars, one block per started 4) and, per instrument row, one entry per block:
 // null = silent there, -1 = playing (no seed), n >= 0 = playing with seed n.
 // `fills` (optional): the blocks whose last bar plays as a fill.
 function cleanSong(s, layerIds) {
   if (!s || typeof s !== 'object' || Array.isArray(s)) fail('스템 데이터가 올바르지 않아요');
   const sections = list(s.sections, LIMITS.sections, '섹션').map((x) => {
     if (!x || typeof x !== 'object') fail('섹션 형식이 올바르지 않아요');
-    const len = int(x.len, 4, LIMITS.sectionBlocks * 4, '섹션 길이');
-    if (len % 4) fail('섹션 길이는 4마디 단위여야 해요');
+    const len = int(x.len, 1, LIMITS.sectionBlocks * 4, '섹션 길이');
     return {
       name: cleanText(x.name, '섹션 이름', LIMITS.sectionName, { required: true }),
       len,
@@ -80,7 +79,7 @@ function cleanSong(s, layerIds) {
     };
   });
   if (!sections.length) fail('스템에 섹션이 없어요');
-  const blocks = sections.reduce((n, x) => n + x.len / 4, 0);
+  const blocks = sections.reduce((n, x) => n + Math.ceil(x.len / 4), 0);
   const seen = new Set();
   const rows = list(s.rows, LIMITS.rows, '스템 줄').map((r) => {
     if (!r || typeof r !== 'object') fail('스템 줄 형식이 올바르지 않아요');

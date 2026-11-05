@@ -25,10 +25,11 @@ import { LIMITS, validatePreset } from '../server/presetSchema.mjs';
 
 // Gate a pattern to one window of a looping song: the song starts at cycle `s0`, is `len`
 // cycles long, and this part plays from `a` to `b` within it.
-Pattern.prototype.songPart = function (s0, len, a, b) {
+// Nothing sounds before cycle `from`: a jump into the song waits there in silence.
+Pattern.prototype.songPart = function (s0, len, a, b, from = s0) {
   return this.filterWhen((t) => {
     const p = (((t - s0) % len) + len) % len;
-    return t >= s0 && p >= a && p < b;
+    return t >= s0 && t >= from && p >= a && p < b;
   });
 };
 
@@ -272,7 +273,7 @@ const bpm = () => {
   return Math.round(Math.min(220, Math.max(40, BASE_BPM * f)));
 };
 // Mood orbs stack: every one in the song applies, in the order they went in. EQ moods and the
-// other moods are counted apart (capOf / CAPS: three each; EQ orbs on the same range also bounce each other). An auditioned one is heard
+// other moods share one count (capOf / CAPS: five in all; EQ orbs on the same range also bounce each other). An auditioned one is heard
 // on top, as if it were thrown in (bouncing the oldest of its kind when full).
 function fxOrbs() {
   const on = layers().filter((l) => l.cat === 'mood');
@@ -383,7 +384,7 @@ async function play() {
   await ensureStarted();
   // the scheduler restarts from cycle 0, so every layer may sound straight away
   for (const a of active.values()) a.at = 0;
-  if (song) song.s0 = 0;
+  if (song) Object.assign(song, { s0: 0, from: null });
   playing = true;
   document.body.classList.add('playing');
   await sync();
@@ -407,10 +408,9 @@ const nextBar = () => (playing ? Math.ceil(nowCycle() + 0.15) : 0);
 const nextPhrase = () => (playing ? Math.ceil((nowCycle() + 0.15) / BARS) * BARS : 0);
 
 // how many orbs of one kind may play together; one more bounces the oldest out
-// EQ orbs also bounce each other by range (put / eqClash): low, high and middle, so three at most
-const CAPS = { lead: 3, bass: 3, perc: 3, fx: 3, tempo: 4, mood: 3, eq: 3 }; // everything else: one at a time
-// EQ moods have their own count
-const capOf = (l) => (l.eq ? 'eq' : l.cat);
+// EQ orbs count as moods, and also bounce each other by range (put / eqClash): low, high and middle
+const CAPS = { lead: 3, bass: 3, fx: 3, perc: 2, kick: 2, snare: 2, hat: 2, arp: 2, pad: 2, tempo: 2, mood: 5 }; // everything else: one at a time
+const capOf = (l) => l.cat;
 
 // Put one layer into the mix (no evaluation), bouncing out what it pushes over the limit.
 function put(layer, at, home = null) {
@@ -2286,7 +2286,8 @@ function drawRoll() {
   if (w < 10 || h < 10) return;
   // with nothing drawn on it the roll only changes with its size, the playhead and the voice
   // (row labels): skip redrawing an unchanged picture
-  const head = playing && repl ? Math.round(((nowCycle() % BARS) / BARS) * (w - GUTTER) * 2) : -1;
+  const lp = playing && repl ? loopPos() : null;
+  const head = lp != null ? Math.round((lp / BARS) * (w - GUTTER) * 2) : -1;
   const sig = draft || stroke ? '' : `${w}|${h}|${dpr}|${head}`;
   if (sig && sig === rollSig) return;
   rollSig = sig;
@@ -2321,7 +2322,7 @@ function drawRoll() {
     g.fillRect(GUTTER + i * cw, 0, 1, h);
   }
 
-  const pos = playing && repl ? (nowCycle() % BARS) / BARS : -1;
+  const pos = lp != null ? lp / BARS : -1;
   const playStep = pos >= 0 ? Math.floor(pos * STEPS) : -1;
   if (draft) {
     const color = toneHex(tint(s));
@@ -3116,6 +3117,16 @@ async function saveWav(btn, full) {
 // then a break and a second drop in a new key (with a different variation and one or two
 // parts swapped for a sibling), and an outro back home.
 
+// the kinds of section: their usual length and which parts play in them (also what ＋ adds)
+const SECTION_KINDS = {
+  인트로: { len: 8, keep: (l) => !l.drum && !['bass', 'lead'].includes(role(l)) },
+  빌드업: { len: 8, keep: (l) => role(l) !== 'kick' && role(l) !== 'lead' },
+  드롭: { len: 16, keep: () => true },
+  브레이크: { len: 8, keep: (l) => !l.drum && role(l) !== 'bass' },
+  브리지: { len: 8, keep: (l) => l.drum || ['bass', 'texture'].includes(role(l)) },
+  아웃트로: { len: 8, keep: (l) => l.drum || ['pad', 'texture'].includes(role(l)) },
+};
+
 function songPlan() {
   const r = rng(song.seed);
   const base = layers().filter((l) => l.code);
@@ -3128,16 +3139,16 @@ function songPlan() {
   }
   const swapped = base.map((l) => swaps.get(l.id) ?? l);
   const up = r.pick([2, 3, 5, -2]);
-  const R = role;
+  const K = SECTION_KINDS;
   const plan = [
-    { name: '인트로', len: r.pick([8, 16]), from: base, keep: (l) => !l.drum && !['bass', 'lead'].includes(R(l)) },
-    { name: '빌드업', len: 8, from: base, keep: (l) => R(l) !== 'kick' && R(l) !== 'lead' },
-    { name: '드롭', len: 16, from: base, keep: () => true },
-    { name: '브레이크', len: 8, from: swapped, keep: (l) => !l.drum && R(l) !== 'bass', shift: up, v: 1 },
-    { name: '드롭 2', len: 16, from: swapped, keep: () => true, shift: up, v: 1 },
+    { name: '인트로', len: r.pick([8, 16]), from: base, keep: K.인트로.keep },
+    { name: '빌드업', len: 8, from: base, keep: K.빌드업.keep },
+    { name: '드롭', len: 16, from: base, keep: K.드롭.keep },
+    { name: '브레이크', len: 8, from: swapped, keep: K.브레이크.keep, shift: up, v: 1 },
+    { name: '드롭 2', len: 16, from: swapped, keep: K.드롭.keep, shift: up, v: 1 },
   ];
-  if (r.chance(0.5)) plan.push({ name: '브리지', len: 8, from: swapped, keep: (l) => l.drum || ['bass', 'texture'].includes(R(l)), shift: up, v: 2 });
-  plan.push({ name: '아웃트로', len: 8, from: base, keep: (l) => l.drum || ['pad', 'texture'].includes(R(l)) });
+  if (r.chance(0.5)) plan.push({ name: '브리지', len: 8, from: swapped, keep: K.브리지.keep, shift: up, v: 2 });
+  plan.push({ name: '아웃트로', len: 8, from: base, keep: K.아웃트로.keep });
   return plan.map((s) => {
     const kept = s.from.filter(s.keep);
     return { ...s, shift: s.shift ?? 0, v: s.v ?? 0, layers: kept.length ? kept : s.from };
@@ -3150,6 +3161,9 @@ function songPlan() {
 // other parts keep one seed per section. Orbs without a seed carry none (v: null), and drawn
 // (user-edited) rows are labelled C01, C02 … instead.
 const BLOCK = 4;
+// a section is any whole number of bars: one block per started 4, the last one maybe shorter
+const blocksIn = (sec) => Math.ceil(sec.len / BLOCK);
+const blockBars = (sec, j) => Math.min(BLOCK, sec.len - j * BLOCK);
 const isLead = (l) => role(l) === 'lead';
 const newSeed = () => 1 + Math.floor(Math.random() * 9999);
 // the seed of block `g` (counted through the whole song for a lead) from a section's base seed
@@ -3157,7 +3171,7 @@ const blockSeed = (l, base, g) => (!seeded(l) ? null : isLead(l) ? base + g : ba
 function cellsFor(l, on) {
   if (l.spot) return spotCells(l);
   let g = 0;
-  return song.sections.map((sec, i) => Array.from({ length: sec.len / BLOCK }, () => ({ on: on(sec, i), v: blockSeed(l, seedOf(l) + (sec.v ?? 0) * 100, g++) })));
+  return song.sections.map((sec, i) => Array.from({ length: blocksIn(sec) }, () => ({ on: on(sec, i), v: blockSeed(l, seedOf(l) + (sec.v ?? 0) * 100, g++) })));
 }
 // A block FX (spot orb) plays in one block only: a hit or down-sweep on the drop's first block,
 // a reversed sound or up-sweep on the build-up's last block, leading into the drop. Without
@@ -3167,11 +3181,11 @@ function spotCells(l) {
   const drop = secs.findIndex((s) => s.name === '드롭');
   const build = secs.findIndex((s) => s.name === '빌드업');
   let at, block;
-  if (l.spot === 'end' && build >= 0) [at, block] = [build, secs[build].len / BLOCK - 1];
+  if (l.spot === 'end' && build >= 0) [at, block] = [build, blocksIn(secs[build]) - 1];
   else if (drop >= 0) [at, block] = [drop, 0];
   else [at, block] = [Math.min(1, secs.length - 1), 0];
   let g = 0;
-  return secs.map((sec, i) => Array.from({ length: sec.len / BLOCK }, (_, j) => ({ on: i === at && j === block, v: blockSeed(l, seedOf(l) + (sec.v ?? 0) * 100, g++) })));
+  return secs.map((sec, i) => Array.from({ length: blocksIn(sec) }, (_, j) => ({ on: i === at && j === block, v: blockSeed(l, seedOf(l) + (sec.v ?? 0) * 100, g++) })));
 }
 function buildGrid() {
   const plan = songPlan();
@@ -3200,6 +3214,8 @@ function songLines() {
   const total = secs.reduce((sum, x) => sum + x.len, 0);
   // a double-clicked section head loops just that section
   const aud = !offline && song.audition != null ? song.audition : null;
+  // after a jump the song stays silent until it starts (see playFromBar)
+  const from = !offline && song.from != null ? `, ${song.from}` : '';
   const out = [];
   for (const r of song.rows) {
     const l = byId[r.id];
@@ -3216,8 +3232,12 @@ function songLines() {
         // same test as the key orbs use, so fx / texture orbs that play notes move with the section too
         const v = blocks[j].v ?? 0;
         const shift = sec.shift && pitchedCode(l, codeOf(l, v)) ? `.transpose(${sec.shift})` : '';
-        const part = (a, b) => `\n  .songPart(${song.s0}, ${aud === null ? total : sec.len}, ${base + a}, ${base + b})`;
-        const end = k * BLOCK, fx = blocks[k - 1].fill && fillFx(l);
+        // the patterns loop every 4 bars on the clock: shifted so each run starts on its first bar
+        // (a section of odd length, or a song started off the bar grid after a jump)
+        const ph = ((((song.s0 + base + j * BLOCK) % BLOCK) + BLOCK) % BLOCK);
+        const late = ph > 1e-6 ? `\n  .late(${+ph.toFixed(4)})` : '';
+        const part = (a, b) => `${late}\n  .songPart(${song.s0}, ${aud === null ? total : sec.len}, ${base + a}, ${base + b}${from})`;
+        const end = Math.min(k * BLOCK, sec.len), fx = blocks[k - 1].fill && fillFx(l);
         const line = lineFor(l, v, shift);
         if (line) out.push(line + part(j * BLOCK, fx ? end - 1 : end));
         // 💥: the run's last bar plays as a fill
@@ -3266,32 +3286,170 @@ function renderSong() {
   renderStem();
 }
 
-// a section grows or shrinks by one 4-bar block at its end
-function resizeSection(i, d) {
-  const sec = song.sections[i], n = sec.len / BLOCK + d;
-  if (n < 1 || n > 16) return;
-  sec.len = n * BLOCK;
+// Section i becomes `len` bars long (1-64), growing or shrinking at its end. Its blocks follow:
+// one per started 4 bars (the last may be shorter), a new one plays like the one before it.
+function setSectionLen(i, len) {
+  const sec = song.sections[i];
+  len = Math.max(1, Math.min(LIMITS.sectionBlocks * BLOCK, len));
+  if (len === sec.len) return false;
+  sec.len = len;
+  const n = blocksIn(sec);
   for (const r of song.rows) {
-    const blocks = song.cells[r.id][i], last = blocks.at(-1);
-    if (d < 0) blocks.pop();
-    else blocks.push({ on: last.on, v: last.v == null ? null : isLead(byId[r.id]) ? newSeed() : last.v, fill: false });
+    const blocks = song.cells[r.id][i];
+    while (blocks.length > n) blocks.pop();
+    while (blocks.length < n) {
+      const last = blocks.at(-1);
+      blocks.push({ on: last.on, v: last.v == null ? null : isLead(byId[r.id]) ? last.v + 1 : last.v, fill: false });
+    }
   }
+  return true;
+}
+
+// The || between section heads: drag it to make the section before it longer or shorter, a bar at a time
+let gripDrag = null;
+function gripDown(e, i) {
+  e.preventDefault();
+  e.stopPropagation();
+  const h = e.currentTarget.closest('.sh');
+  gripDrag = { i, x: e.clientX, len: song.sections[i].len, bar: (h.getBoundingClientRect().width + 2) / song.sections[i].len };
+  document.body.classList.add('sec-resizing');
+}
+addEventListener('pointermove', (e) => {
+  if (!gripDrag) return;
+  const len = gripDrag.len + Math.round((e.clientX - gripDrag.x) / gripDrag.bar);
+  if (setSectionLen(gripDrag.i, len)) {
+    renderSong();
+    syncSoon();
+  }
+});
+addEventListener('pointerup', () => {
+  if (!gripDrag) return;
+  gripDrag = null;
+  document.body.classList.remove('sec-resizing');
+  sync();
+});
+
+// 🗑 on a section head: the section and its column of blocks go (the song keeps at least one)
+function deleteSection(i) {
+  const secs = song.sections;
+  if (secs.length < 2) return;
+  secs.splice(i, 1);
+  for (const r of song.rows) song.cells[r.id].splice(i, 1);
+  if (song.audition === i) song.audition = null;
+  else if (song.audition > i) song.audition--;
   sync();
 }
 
+// ＋ on a section head: a new section of `kind` right after section i, in its key. Of the parts
+// playing at the end of section i it keeps the ones the kind wants (all of them if none fit);
+// a block FX stays out.
+function insertSection(i, kind) {
+  const secs = song.sections, prev = secs[i];
+  const { len, keep } = SECTION_KINDS[kind];
+  const same = secs.filter((s) => s.name.split(' ')[0] === kind).length;
+  const sec = { name: same ? `${kind} ${same + 1}` : kind, len, shift: prev.shift ?? 0, v: prev.v ?? 0 };
+  secs.splice(i + 1, 0, sec);
+  const wasOn = (r) => song.cells[r.id][i].at(-1).on && !byId[r.id]?.spot;
+  const kept = song.rows.filter((r) => wasOn(r) && keep(byId[r.id]));
+  const on = new Set((kept.length ? kept : song.rows.filter(wasOn)).map((r) => r.id));
+  for (const r of song.rows) {
+    const tail = song.cells[r.id][i].at(-1);
+    song.cells[r.id].splice(i + 1, 0, Array.from({ length: blocksIn(sec) }, (_, j) => ({
+      on: on.has(r.id),
+      v: tail.v == null ? null : isLead(byId[r.id]) ? tail.v + 1 + j : tail.v,
+      fill: false,
+    })));
+  }
+  if (song.audition > i) song.audition++;
+  sync();
+}
+
+// A button that could undo work asks first: the first click turns it into the question, which
+// takes a click only after ARM_MS (so a double-click can't answer it); it gives up after a while
+// or when anything else is pressed.
+const ARM_MS = 500;
+function askFirst(btn, ask, run) {
+  if (btn.classList.contains('arm')) {
+    if (btn.classList.contains('locked')) return;
+    disarm(btn);
+    run();
+    return;
+  }
+  btn.dataset.label = btn.textContent;
+  btn.textContent = ask;
+  btn.classList.add('arm', 'locked');
+  btn.armTimers = [setTimeout(() => btn.classList.remove('locked'), ARM_MS), setTimeout(() => disarm(btn), 4000)];
+}
+function disarm(btn) {
+  if (!btn.classList.contains('arm')) return;
+  btn.armTimers?.forEach(clearTimeout);
+  btn.textContent = btn.dataset.label;
+  btn.classList.remove('arm', 'locked');
+}
+document.addEventListener('pointerdown', (e) => {
+  for (const b of document.querySelectorAll('button.arm')) if (!b.contains(e.target)) disarm(b);
+});
+
+// ✕ on a section head: "섹션 삭제할까요?" pops up above and to its right, and deletes on a
+// click once ARM_MS has passed
+const delAsk = document.createElement('div');
+delAsk.className = 'delask';
+document.body.append(delAsk);
+function openDelAsk(anchor, i) {
+  delAsk.innerHTML = '';
+  const b = button('ghost', ot('secDelAsk'), '', () => {
+    if (b.classList.contains('locked')) return;
+    delAsk.classList.remove('open');
+    deleteSection(i);
+  });
+  b.classList.add('arm', 'locked');
+  setTimeout(() => b.classList.remove('locked'), ARM_MS);
+  delAsk.append(b);
+  delAsk.classList.add('open');
+  const r = anchor.getBoundingClientRect();
+  delAsk.style.left = `${Math.max(8, Math.min(innerWidth - delAsk.offsetWidth - 8, r.right - 6))}px`;
+  delAsk.style.top = `${Math.max(8, r.top - delAsk.offsetHeight - 2)}px`;
+}
+document.addEventListener('pointerdown', (e) => {
+  if (!e.target.closest('.delask, .secdel')) delAsk.classList.remove('open');
+});
+
+// the ＋ menu: one button per kind of section
+const secMenu = document.createElement('div');
+secMenu.className = 'secmenu';
+document.body.append(secMenu);
+function openSecMenu(anchor, i) {
+  secMenu.innerHTML = '';
+  for (const kind of Object.keys(SECTION_KINDS)) {
+    secMenu.append(button('ghost', secName(kind), ot('secAddKind', { name: secName(kind), n: SECTION_KINDS[kind].len }), () => {
+      secMenu.classList.remove('open');
+      insertSection(i, kind);
+    }));
+  }
+  const r = anchor.getBoundingClientRect();
+  secMenu.classList.add('open');
+  secMenu.style.left = `${Math.max(8, Math.min(innerWidth - secMenu.offsetWidth - 8, r.left))}px`;
+  secMenu.style.top = `${Math.min(innerHeight - secMenu.offsetHeight - 8, r.bottom + 4)}px`;
+}
+document.addEventListener('pointerdown', (e) => {
+  if (!e.target.closest('.secmenu, .secadd')) secMenu.classList.remove('open');
+});
+
+// The grid has a column per bar: a section head spans its bars, a block cell its (up to) 4.
 function renderStem() {
   const secs = song.sections, grid = ui.stemGrid;
   grid.innerHTML = '';
-  const nBlocks = secs.reduce((sum, x) => sum + x.len / BLOCK, 0);
-  grid.style.gridTemplateColumns = `170px repeat(${nBlocks}, minmax(74px, 1fr))`;
+  const nBars = secs.reduce((sum, x) => sum + x.len, 0);
+  grid.style.gridTemplateColumns = `170px repeat(${nBars}, minmax(21px, 1fr))`;
   const corner = document.createElement('div');
   corner.className = 'corner';
   corner.textContent = ot('corner');
   grid.append(corner);
+  const full = secs.length >= LIMITS.sections; // as many as a shared song may carry
   secs.forEach((sec, i) => {
     const h = document.createElement('div');
-    h.className = 'sh' + (song.audition === i ? ' aud' : '') + (sec.shift ? ' mod' : '');
-    h.style.gridColumn = `span ${sec.len / BLOCK}`;
+    h.className = 'sh' + (song.audition === i ? ' aud' : '') + (sec.shift ? ' mod' : '') + (sec.len < 8 ? ' narrow' : '') + (sec.len < 4 ? ' tiny' : '');
+    h.style.gridColumn = `span ${sec.len}`;
     h.title = ot('secTip');
     sectionClicks(h, i);
     const bars = document.createElement('small');
@@ -3300,26 +3458,39 @@ function renderStem() {
     const name = document.createElement('span');
     name.className = 'sname';
     name.textContent = (song.audition === i ? '🔁 ' : '') + (sec.shift ? `${secName(sec.name)} · ${keyName(sec.shift)}` : secName(sec.name));
-    h.append(
-      name,
-      bars,
-      Object.assign(document.createElement('i'), { className: 'prog' }),
-      button('ghost len', '−', ot('secShorter'), () => resizeSection(i, -1)),
-      button('ghost len', '+', ot('secLonger'), () => resizeSection(i, 1)),
-      button('ghost batch', '↓#', ot('secSeeds'), (e) => askSeed(e.currentTarget, variation, (v) => {
-        for (const r of song.rows) song.cells[r.id][i].forEach((b, j) => b.v != null && (b.v = isLead(byId[r.id]) ? v + j : v));
-        sync();
-      })),
-    );
+    const add = button('ghost len secadd', '+', ot(full ? 'secAddFull' : 'secAdd', { n: LIMITS.sections }), (e) => {
+      if (secMenu.classList.contains('open')) secMenu.classList.remove('open');
+      else openSecMenu(e.currentTarget, i);
+    });
+    add.disabled = full;
+    const del = button('ghost len secdel', '✕', ot('secDel'), (e) => openDelAsk(e.currentTarget, i));
+    del.disabled = secs.length < 2;
+    const grip = document.createElement('i');
+    grip.className = 'grip';
+    grip.title = ot('secGrip');
+    grip.addEventListener('pointerdown', (e) => gripDown(e, i));
+    h.append(name, bars, Object.assign(document.createElement('i'), { className: 'prog' }), add, del, grip);
     grid.append(h);
   });
+  // the bar numbers under the section heads: a click plays the song from that bar
+  const barCorner = document.createElement('div');
+  barCorner.className = 'corner barcorner';
+  grid.append(barCorner);
+  let bar = 0;
+  for (const sec of secs) {
+    for (let k = 0; k < sec.len; k++) {
+      const off = bar++;
+      const b = button('barnum' + (k % BLOCK === 0 ? ' blk' : '') + (k === 0 ? ' first' : '') + (k === sec.len - 1 ? ' last' : ''), String(off + 1), ot('barTip', { n: off + 1 }), () => playFromBar(off));
+      grid.append(b);
+    }
+  }
   const tags = customTags();
   for (const r of song.rows) {
     const l = byId[r.id];
     if (!l) continue;
     const custom = l.raw ? tags.get(r.id) ?? 'C' : null;
     const head = document.createElement('div');
-    head.className = 'rh' + (r.alt ? ' alt' : '');
+    head.className = 'rh' + (r.alt ? ' alt' : ''); // .rh starts a new grid row (column 1)
     head.style.setProperty('--g', ctint(l));
     const tag = document.createElement('b');
     tag.textContent = roleText(role(l));
@@ -3338,6 +3509,7 @@ function renderStem() {
     song.cells[r.id].forEach((blocks, i) => blocks.forEach((cell, j) => {
       const c = document.createElement('div');
       c.className = 'cell' + (cell.on ? ' on' : '') + (song.audition === i ? ' aud' : '') + (j === 0 ? ' first' : '');
+      c.style.gridColumn = `span ${blockBars(secs[i], j)}`;
       c.style.setProperty('--g', ctint(l));
       c.title = ot(cell.on ? 'cellOff' : 'cellOn');
       if (cell.on) {
@@ -3404,34 +3576,43 @@ const DBL_MS = 260;
 let secClickTimer = 0;
 function sectionClicks(h, i) {
   h.addEventListener('click', (e) => {
-    if (e.target.closest('button')) return; // − / + / ↓#
+    if (e.target.closest('button, .grip')) return; // ＋ / 🗑 / the || resize grip
     clearTimeout(secClickTimer);
     if (e.detail >= 2) {
       loopSection(i);
       return;
     }
     const r = h.getBoundingClientRect();
-    const n = song.sections[i].len / BLOCK;
+    const n = blocksIn(song.sections[i]);
     const j = Math.max(0, Math.min(n - 1, Math.floor(((e.clientX - r.left) / r.width) * n)));
     secClickTimer = setTimeout(() => playFrom(i, j), DBL_MS);
   });
 }
-// the whole song from block j of section i. With s0 set back by that many bars, the bars just
-// before it lead in until the next 4-bar boundary, where block j starts.
+// the whole song from block j of section i
 async function playFrom(i, j) {
   if (!song?.sections) return;
-  const off = song.sections.slice(0, i).reduce((sum, x) => sum + x.len, 0) + j * BLOCK;
+  await playFromBar(song.sections.slice(0, i).reduce((sum, x) => sum + x.len, 0) + j * BLOCK);
+}
+// A jump into the song waits one bar from the next beat: silent, with the stems counting in
+// (grey cursor, 4 · 3 · 2 · 1). The song then starts off the bar grid, so songLines shifts its
+// patterns to match (.late).
+const countIn = () => Math.ceil((nowCycle() + 0.05) * 4) / 4 + 1;
+// the whole song from bar `off` (0-based, counted through the song)
+async function playFromBar(off) {
+  if (!song?.sections) return;
   song.audition = null;
   if (!playing) await play();
-  song.s0 = nextPhrase() - off;
+  song.from = countIn();
+  song.s0 = song.from - off;
   await sync();
 }
-// section i on repeat, from its start at the next 4-bar boundary (its tail plays until then)
+// section i on repeat, from its start (counted in the same way)
 async function loopSection(i) {
   if (!song?.sections) return;
   song.audition = i;
   if (!playing) await play();
-  song.s0 = nextPhrase() - song.sections[i].len;
+  song.from = countIn();
+  song.s0 = song.from - song.sections[i].len;
   await sync();
 }
 
@@ -3478,7 +3659,7 @@ async function startSong(again) {
   const was = playing;
   if (!playing) await play();
   const s0 = was ? nextPhrase() : 0;
-  if (again) song = { ...lastSong, s0, audition: null };
+  if (again) song = { ...lastSong, s0, audition: null, from: null };
   else {
     song = { seed: Math.floor(Math.random() * 1e9), s0 };
     buildGrid();
@@ -3487,15 +3668,38 @@ async function startSong(again) {
   openSong();
   await sync();
 }
-ui.songBtn.addEventListener('click', () => startSong(false));
+ui.songBtn.addEventListener('click', () => askFirst(ui.songBtn, ot('otherSongAsk'), () => startSong(false)));
 $('stemReopen').addEventListener('click', () => !song && startSong(!!lastSong));
 $('songOff').addEventListener('click', closeSong);
 $('stemClose').addEventListener('click', closeSong);
 
 // where the song is now: the section and how far into it (a looped section counts on its own)
-function songPosition() {
+// Where in its 4-bar loop the music is now (0 to BARS), for the backdrop's sweep and the edit
+// roll's playhead. In a song that is counted from the start of the 4-bar block playing (blocks
+// start every 4 bars from their section's start, as songLines shifts the patterns), so a jump
+// to bar 10 shows bar 2 of its block. null while a jump counts in: nothing moves until it starts.
+function loopPos(now = nowCycle()) {
+  const abs = ((now % BARS) + BARS) % BARS;
+  if (!song?.sections) return abs;
+  if (song.from != null && now < song.from) return null;
+  const t = now - song.s0;
+  if (t < 0) return abs; // the loop still playing until a new song comes in
+  const secs = song.sections;
+  let q; // bars into the section playing
+  if (song.audition != null) q = t % secs[song.audition].len;
+  else {
+    let p = t % secs.reduce((sum, x) => sum + x.len, 0);
+    for (const sec of secs) {
+      if (p < sec.len) break;
+      p -= sec.len;
+    }
+    q = p;
+  }
+  return q % BLOCK;
+}
+
+function songPosition(t = nowCycle()) {
   const secs = song.sections, total = secs.reduce((sum, x) => sum + x.len, 0);
-  const t = nowCycle();
   if (t < song.s0) return { idx: song.audition ?? 0, frac: 0, total };
   if (song.audition != null) return { idx: song.audition, frac: ((t - song.s0) % secs[song.audition].len) / secs[song.audition].len, total };
   const p = (t - song.s0) % total;
@@ -3508,8 +3712,24 @@ function songPosition() {
 }
 
 function updateSongCursor() {
-  if (!song?.sections || !playing) return;
-  const { idx, frac } = songPosition();
+  const body = $('stemBody'), count = $('stemCount');
+  if (!song?.sections || !playing) {
+    body.classList.remove('waiting');
+    count.textContent = '';
+    return;
+  }
+  // after a jump: held grey on where it will start, counting the beats down until it does
+  const now = nowCycle(), wait = song.from != null && now < song.from;
+  body.classList.toggle('waiting', wait);
+  const left = wait ? Math.max(1, Math.min(4, Math.ceil((song.from - now) * 4 - 1e-6))) : 0; // beats
+  if (count.textContent !== String(left || '')) {
+    count.textContent = left || '';
+    // each new number pops in again
+    count.classList.remove('tick');
+    void count.offsetWidth;
+    if (left) count.classList.add('tick');
+  }
+  const { idx, frac } = songPosition(wait ? song.from : now);
   // how far each section has played: the one playing fills up, the ones before it are full
   // (a looped section counts on its own, so the others stay empty)
   const done = (i) => (i === idx ? frac : song.audition == null && idx >= 0 && i < idx ? 1 : 0);
@@ -3519,11 +3739,13 @@ function updateSongCursor() {
     h.classList.toggle('past', done(i) === 1);
     h.style.setProperty('--p', done(i).toFixed(4));
   });
-  const sc = $('stemCursor'), body = $('stemBody');
+  const sc = $('stemCursor');
   if (heads[idx]) {
     const hr = heads[idx].getBoundingClientRect(), br = body.getBoundingClientRect();
+    const x = `${hr.left - br.left + body.scrollLeft + frac * hr.width}px`;
     sc.style.display = '';
-    sc.style.left = `${hr.left - br.left + body.scrollLeft + frac * hr.width}px`;
+    sc.style.left = count.style.left = x;
+    count.style.top = `${body.scrollTop + 5}px`; // stays up on the section heads when scrolled
   } else sc.style.display = 'none';
 }
 
@@ -3640,7 +3862,9 @@ function drawBackdrop(c, dt, w, h) {
   const x0 = presetPane.getBoundingClientRect().right;
   const x1 = rightPane.getBoundingClientRect().left;
   const wide = x1 - x0 > 200;
-  drawMidiBackdrop(g, { x: wide ? x0 : 0, w: wide ? x1 - x0 : w, h, cy: c.y, now, on, parts, dark: themeNow === 'dark', ink: ink().ink, lite, dt });
+  // the sweep follows the song's own 4-bar blocks, and stays away while a jump counts in
+  const pos = on ? loopPos(now) : 0;
+  drawMidiBackdrop(g, { x: wide ? x0 : 0, w: wide ? x1 - x0 : w, h, cy: c.y, pos, on, parts, dark: themeNow === 'dark', ink: ink().ink, lite, dt });
 }
 
 // Equaliser: every sounding orb has its own analyser channel. Around the player each channel
@@ -3893,7 +4117,8 @@ ui.searchInput.addEventListener('keydown', (e) => e.key === 'Escape' && $('searc
 $('clear').addEventListener('click', () => {
   countMove(active.size);
   for (const id of [...active.keys()]) removeLayer(id, { silent: true, respawn: false });
-  sync();
+  if (song) closeSong(); // nothing left for the stems to play (closeSong syncs)
+  else sync();
 });
 $('codeToggle').addEventListener('click', () => ui.drawer.classList.toggle('open'));
 $('codeClose').addEventListener('click', () => ui.drawer.classList.remove('open'));
@@ -3976,4 +4201,4 @@ requestAnimationFrame(() => {
   leaveSlots(); // a set saved with orbs in the slots, opened where they are off: back into the fresh rain
   requestAnimationFrame(frame);
 });
-if (import.meta.env.DEV) window.__orbs = { spawnWeights, taste: taste.debug, replReady, codeOf, active, rain, stash, byId, addLayer, removeLayer, buildCode, pickForSlot, finishDraft, orbStep, heldSeed, revealRoll, slotOrbs, decorate, get rollOrb() { return rollOrb; }, get draft() { return draft; }, get song() { return song; }, get variation() { return variation; }, patternToRaw, keyMode, LAYERS };
+if (import.meta.env.DEV) window.__orbs = { spawnWeights, loopPos, nowCycle, taste: taste.debug, replReady, codeOf, active, rain, stash, byId, addLayer, removeLayer, buildCode, pickForSlot, finishDraft, orbStep, heldSeed, revealRoll, slotOrbs, decorate, get rollOrb() { return rollOrb; }, get draft() { return draft; }, get song() { return song; }, get variation() { return variation; }, patternToRaw, keyMode, LAYERS };

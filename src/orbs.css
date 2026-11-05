@@ -918,7 +918,8 @@ body.stem-open.roll-full.roll-min .roll { flex-basis: 76px; }
 .stem-head #songBtn:hover { color: var(--acc); }
 .stem-head button.loop-mode { color: var(--acc); }
 .stem-body { position: relative; flex: 1; min-height: 0; overflow: auto; }
-.stem-grid { display: grid; grid-auto-rows: 34px; gap: 2px; padding: 0 8px 8px; min-width: max-content; }
+/* row 2: the bar numbers between the section heads and the instruments */
+.stem-grid { display: grid; grid-template-rows: 34px 22px; grid-auto-rows: 34px; gap: 2px; padding: 0 8px 8px; min-width: max-content; }
 .stem-grid .corner {
   position: sticky; left: 0; top: 0; z-index: 3;
   display: flex; align-items: center; padding-left: 4px;
@@ -929,8 +930,57 @@ body.stem-open.roll-full.roll-min .roll { flex-basis: 76px; }
   position: sticky; top: 0; z-index: 2;
   display: flex; align-items: center; justify-content: space-between; gap: 2px; padding: 0 4px;
   background: var(--deep); border-bottom: 1px solid var(--line); overflow: hidden;
+  /* its buttons never widen the column: otherwise a one-block (4-bar) section stretches every
+     1fr column of the grid to fit its head */
+  contain: inline-size;
 }
-/* click a section head: play from the 4 bars under the mouse · double-click: loop the section */
+.sh.narrow .bars { display: none; }
+/* under 4 bars there is room for the name only (drag the || to widen it again) */
+.sh.tiny .len { display: none; }
+.sh .len { font-size: 11px; line-height: 1; padding: 1px 4px; color: var(--dim); flex: none; }
+.sh .secadd:not(:disabled):hover { color: var(--acc); border-color: var(--acc); }
+.sh .secdel { font-size: 10px; padding: 1px 3px; }
+.sh .secdel:not(:disabled):hover { color: var(--warn); border-color: var(--warn); }
+.sh .len:disabled { opacity: 0.3; cursor: default; }
+/* || at a section's right edge: drag it to change the section's length a bar at a time */
+.stem-grid .sh { padding-right: 10px; }
+.sh .grip {
+  position: absolute; top: 4px; bottom: 4px; right: 0; width: 7px; cursor: ew-resize;
+  border-left: 1px solid color-mix(in srgb, var(--hi) 30%, transparent);
+  border-right: 1px solid color-mix(in srgb, var(--hi) 30%, transparent);
+  margin-right: 1px;
+}
+.sh .grip:hover, body.sec-resizing .sh .grip { border-color: var(--acc); }
+body.sec-resizing, body.sec-resizing * { cursor: ew-resize !important; user-select: none; }
+.stem-grid .barcorner { top: 36px; }
+.delask { position: fixed; z-index: 20; display: none; padding: 3px; background: var(--panel); border: 1px solid var(--warn); }
+.delask.open { display: block; }
+.delask button { font-size: 11px; padding: 4px 10px; white-space: nowrap; color: var(--warn); }
+/* a question that waits ARM_MS before it takes a click: dimmed while a bar fills along its bottom */
+button.arm { position: relative; overflow: hidden; color: var(--warn) !important; border-color: var(--warn); }
+button.arm.locked { opacity: 0.55; cursor: wait; }
+button.arm::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: var(--warn);
+  transform-origin: left; animation: armFill 0.5s linear both;
+}
+@keyframes armFill { from { transform: scaleX(0); } }
+.secmenu {
+  position: fixed; z-index: 20; display: none; flex-direction: column; gap: 2px; padding: 4px;
+  background: var(--panel); border: 1px solid var(--acc);
+}
+.secmenu.open { display: flex; }
+.secmenu button { font-size: 11px; text-align: left; padding: 4px 10px; white-space: nowrap; }
+/* row 2: a number per bar; a click plays from there */
+.barnum {
+  position: sticky; top: 36px; z-index: 2; min-width: 0; padding: 0; border: 0;
+  background: var(--deep); border-bottom: 1px solid color-mix(in srgb, var(--hi) 8%, transparent);
+  font-size: 9px; color: color-mix(in srgb, var(--dim) 70%, transparent); font-variant-numeric: tabular-nums; cursor: pointer;
+  contain: inline-size; overflow: hidden;
+}
+.barnum.blk { color: var(--dim); }
+.barnum.first { color: color-mix(in srgb, var(--fg) 80%, transparent); box-shadow: inset 1px 0 color-mix(in srgb, var(--hi) 28%, transparent); }
+.barnum:hover { color: var(--acc); background: color-mix(in srgb, var(--acc) 12%, var(--deep)); }
+/* click a section head: play from the 4-bar block under the mouse · double-click: loop the section */
 .stem-grid .sh { cursor: pointer; user-select: none; }
 .sh .sname { font-size: 11px; padding: 2px 4px; color: var(--fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sh:hover .sname { color: var(--acc); }
@@ -959,6 +1009,7 @@ body.stem-open.roll-full.roll-min .roll { flex-basis: 76px; }
 .rh.alt b::after { content: ' ↺'; color: var(--gold); }
 .cell {
   display: flex; align-items: center; justify-content: center; cursor: pointer;
+  min-width: 0; overflow: hidden; contain: inline-size; /* a short last block never widens the bars */
   background: color-mix(in srgb, var(--hi) 3%, transparent); border: 1px dashed color-mix(in srgb, var(--hi) 7%, transparent);
 }
 .cell:hover { border-color: var(--g); }
@@ -978,11 +1029,24 @@ body.stem-open.roll-full.roll-min .roll { flex-basis: 76px; }
 .cellfill:hover { opacity: 0.85; }
 .cellfill.on { filter: none; opacity: 1; text-shadow: 0 0 6px #ffb347; }
 .sh .bars { font-size: 9px; color: var(--dim); white-space: nowrap; }
-.sh .len { font-size: 12px; line-height: 1; padding: 1px 5px; color: var(--dim); flex: none; }
-.sh .len:hover { color: var(--acc); border-color: var(--acc); }
 .sh .sname { flex: 1; min-width: 0; text-align: left; }
 .seedtag:hover { text-decoration: underline; }
 .stem-cursor { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--cursor); box-shadow: 0 0 10px var(--cursor); pointer-events: none; display: none; z-index: 4; }
+/* after a jump: the song holds still in grey on where it will start, and counts in 4 · 3 · 2 · 1 */
+.stem-body.waiting .stem-cursor { background: var(--dim); box-shadow: none; opacity: 0.7; }
+.stem-body.waiting .sh.now .prog,
+.stem-body.waiting .sh.mod.now .prog { background: color-mix(in srgb, var(--dim) 60%, transparent); box-shadow: none; }
+.stem-body.waiting .sh.now { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--dim) 45%, transparent); }
+.stem-count {
+  position: absolute; top: 6px; z-index: 5; pointer-events: none;
+  width: 24px; height: 24px; margin-left: -11px; border-radius: 50%;
+  display: none; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 400; color: var(--fg); font-variant-numeric: tabular-nums;
+  background: color-mix(in srgb, var(--deep) 80%, transparent); border: 1px solid var(--dim);
+}
+.stem-body.waiting .stem-count:not(:empty) { display: flex; }
+.stem-count.tick { animation: countPop 0.35s ease-out; }
+@keyframes countPop { from { transform: scale(1.5); border-color: var(--acc); color: var(--acc); } }
 
 /* a small box to type a seed */
 .seedpop { position: fixed; z-index: 20; display: none; gap: 4px; padding: 6px; background: var(--panel); border: 1px solid var(--acc); }

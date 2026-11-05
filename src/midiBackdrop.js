@@ -29,8 +29,9 @@ function notesOf(key, code) {
 
 let lo = null, hi = null, fade = 0;
 // parts: [{ key, code: () => string, color, dim }]; x / w: the loop's span; cy: the band's middle;
-// now: the scheduler cycle
-export function drawMidiBackdrop(g, { x: x0 = 0, w, h, cy, now, on, parts, dark, ink, lite, dt }) {
+// pos: where in the 4-bar loop the music is (0 to BARS), or null while nothing is moving yet
+// (a jump into the stem song counting in): then no notes light up and the sweep is hidden
+export function drawMidiBackdrop(g, { x: x0 = 0, w, h, cy, pos, on, parts, dark, ink, lite, dt }) {
   const lines = on ? parts.map((p) => ({ ...p, notes: notesOf(p.key, p.code) })).filter((p) => p.notes.length) : [];
   fade += ((lines.length ? 1 : 0) - fade) * Math.min(1, dt * 4);
   if (fade < 0.01 || !lines.length) return;
@@ -47,7 +48,6 @@ export function drawMidiBackdrop(g, { x: x0 = 0, w, h, cy, now, on, parts, dark,
   const rowH = bandH / span;
   const top = cy - bandH / 2;
   const yAt = (m) => top + (hi - m) * rowH;
-  const pos = ((now % BARS) + BARS) % BARS;
 
   g.save();
   const base = (dark ? 0.04 : 0.06) * fade;
@@ -64,7 +64,7 @@ export function drawMidiBackdrop(g, { x: x0 = 0, w, h, cy, now, on, parts, dark,
     for (const n of p.notes) {
       const x = x0 + (n.b / BARS) * w, nw = Math.max(2, ((n.e - n.b) / BARS) * w - 2);
       g.rect(x, y(n.m) - rowH / 2, nw, Math.max(2, rowH - 1));
-      if (pos >= n.b && pos < n.e) live.push([x, y(n.m) - rowH / 2, nw, Math.max(2, rowH - 1)]);
+      if (pos != null && pos >= n.b && pos < n.e) live.push([x, y(n.m) - rowH / 2, nw, Math.max(2, rowH - 1)]);
     }
     g.fill();
     // what is sounding right now: a touch brighter with a small glow
@@ -79,6 +79,10 @@ export function drawMidiBackdrop(g, { x: x0 = 0, w, h, cy, now, on, parts, dark,
     }
   });
   // the 4-bar sweep
+  if (pos == null) {
+    g.restore();
+    return;
+  }
   const sx = x0 + (pos / BARS) * w;
   const grad = g.createLinearGradient(0, top - 40, 0, top + bandH + 40);
   grad.addColorStop(0, `rgba(${ink},0)`);

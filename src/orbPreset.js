@@ -249,17 +249,18 @@ export function songFromWire(w, rename = (id) => id) {
   if (!w || !Array.isArray(w.sections) || !Array.isArray(w.rows)) return null;
   const int = (x, lo, hi, d) => (Number.isSafeInteger(x) && x >= lo && x <= hi ? x : d);
   const sections = w.sections.slice(0, 12).map((x) => ({
-    name: clip(x?.name, 12) || '섹션', len: int(x?.len, BLOCK, 64, 0), shift: int(x?.shift, -11, 11, 0), v: int(x?.v, 0, 100, 0),
+    name: clip(x?.name, 12) || '섹션', len: int(x?.len, 1, 64, 0), shift: int(x?.shift, -11, 11, 0), v: int(x?.v, 0, 100, 0),
   }));
-  if (!sections.length || sections.some((x) => !x.len || x.len % BLOCK)) return null;
-  const total = sections.reduce((n, x) => n + x.len / BLOCK, 0);
+  if (!sections.length || sections.some((x) => !x.len)) return null;
+  // a section is any number of bars: one block per started 4
+  const total = sections.reduce((n, x) => n + Math.ceil(x.len / BLOCK), 0);
   const rows = [], cells = {};
   for (const r of w.rows.slice(0, 40)) {
     const id = typeof r?.id === 'string' ? rename(r.id) : null;
     if (!id || !known(id) || cells[id] || !Array.isArray(r.cells) || r.cells.length !== total) continue;
     let k = 0;
     const fills = new Set(Array.isArray(r.fills) ? r.fills : []);
-    cells[id] = sections.map((sec) => Array.from({ length: sec.len / BLOCK }, () => {
+    cells[id] = sections.map((sec) => Array.from({ length: Math.ceil(sec.len / BLOCK) }, () => {
       const fill = fills.has(k), c = r.cells[k++];
       const cell = Number.isSafeInteger(c) && c >= 0 ? { on: true, v: c } : { on: c === -1, v: c === -1 || c === null ? null : 0 };
       return { ...cell, fill: cell.on && fill };
