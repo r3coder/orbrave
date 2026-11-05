@@ -70,7 +70,12 @@
     overflow: hidden;
   }
   .right { display: contents; }
-  .field { grid-area: main; order: 0; z-index: 0; }
+  /* the field ends above the song's row (--song-h, measured in orbsMobile.js): the orbs in the song
+     and the falling ones never share the same spot */
+  .field {
+    grid-area: main; order: 0; z-index: 0;
+    margin-bottom: var(--song-h, 0px); border-bottom: 1px dashed var(--line);
+  }
   /* the stems are for wide screens */
   .stems, #stemReopen { display: none !important; }
 
@@ -96,6 +101,7 @@
   body.roll-full:not(.roll-min) .left :is(.chips, .song) { display: none; }
   .roll {
     grid-area: main; align-self: end; z-index: 4; position: relative;
+    margin-bottom: var(--song-h, 0px); /* tucked away (roll-min) it sits on the field's bottom, above the song's row */
     height: 0; transition: height 0.45s cubic-bezier(.2, .9, .3, 1.1), box-shadow 0.2s;
     box-shadow: 0 -12px 30px color-mix(in srgb, var(--shadow) 60%, transparent);
   }

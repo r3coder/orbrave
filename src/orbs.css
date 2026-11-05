@@ -65,48 +65,62 @@
   --glow: 70%;
 }
 :root[data-theme='light'] {
+  /* minor key: rose milk tea (after Rosé Pine Dawn): rice-paper ground, lavender-grey ink
+     instead of black, dusty rose and sea-foam accents. The ink stays ≥ 4.5:1 on the ground;
+     the pastels go on fills, accents and the orbs, not on small text */
   color-scheme: light;
-  --bg: #f2f0ec;
-  --fg: #26241f;
-  --dim: #7c776f;
-  --acc: #6b5f4b;
-  --acc2: #5f6f80;
-  --panel: rgba(252, 251, 248, 0.96);
-  --line: rgba(38, 36, 31, 0.16);
-  --surface: rgba(255, 255, 255, 0.75);
-  --deep: rgba(247, 245, 241, 0.96);
-  --side: rgba(234, 231, 226, 0.7);
-  --field-in: #fff;
-  --hi: #000;
-  --shadow: #6e665a;
-  --halo: rgba(255, 255, 255, 0.9);
-  --scrim: rgba(60, 55, 45, 0.4);
-  --warn: #c23a5a;
-  --gold: #a07a10;
-  --cursor: #26241f;
-  --ink-mix: 55%;
-  --glow: 35%;
-  --wash-top: 35%;
+  --bg: #faf4ed;
+  --fg: #6e6a8e;
+  --dim: #9893a5;
+  --acc: #b4637a;
+  --acc2: #56949f;
+  --panel: rgba(255, 250, 243, 0.97);
+  --line: rgba(110, 106, 142, 0.18);
+  --surface: rgba(255, 250, 243, 0.9);
+  --deep: rgba(250, 244, 237, 0.97);
+  --side: rgba(242, 233, 225, 0.82);
+  --field-in: #fffaf3;
+  --hi: #575279;
+  --shadow: #9a8aa6;
+  --halo: rgba(255, 250, 243, 0.92);
+  --scrim: rgba(87, 82, 121, 0.3);
+  --warn: #d7827e;
+  --gold: #ea9d34;
+  --cursor: #575279;
+  --ink-mix: 42%;
+  --glow: 45%;
+  --wash-top: 32%;
   --wash-bottom: 55%;
 }
 :root[data-theme='light'][data-palette='pastel'] {
-  --bg: #faf6ff;
-  --fg: #2c2540;
-  --dim: #877e9f;
-  --acc: #2e9a78;
-  --acc2: #c9558f;
-  --panel: rgba(255, 252, 255, 0.96);
-  --line: rgba(90, 70, 150, 0.18);
-  --surface: rgba(255, 255, 255, 0.75);
-  --deep: rgba(250, 246, 255, 0.96);
-  --side: rgba(242, 235, 252, 0.7);
-  --shadow: #6a5a8e;
-  --scrim: rgba(60, 45, 90, 0.35);
-  --warn: #c93a6a;
-  --gold: #a67c00;
-  --cursor: #2c2540;
-  --ink-mix: 50%;
-  --glow: 40%;
+  /* major key: strawberry-taro milk: pink-lilac cream, plum-lavender ink, berry and mint */
+  --bg: #fbf1f6;
+  --fg: #6f5a8c;
+  --dim: #a593b5;
+  --acc: #c04f8c;
+  --acc2: #3f9a8f;
+  --panel: rgba(255, 249, 252, 0.97);
+  --line: rgba(111, 90, 140, 0.18);
+  --surface: rgba(255, 251, 253, 0.9);
+  --deep: rgba(251, 243, 248, 0.97);
+  --side: rgba(245, 230, 240, 0.82);
+  --field-in: #fffafd;
+  --hi: #5e4a78;
+  --shadow: #b08aaf;
+  --halo: rgba(255, 249, 252, 0.92);
+  --scrim: rgba(94, 74, 120, 0.28);
+  --warn: #e0708a;
+  --gold: #e6a23c;
+  --cursor: #5e4a78;
+  --ink-mix: 38%;
+  --glow: 55%;
+}
+/* light: the two accents bloom faintly from opposite corners, like syrup in milk */
+:root[data-theme='light'] body {
+  background:
+    radial-gradient(90% 60% at 0% 0%, color-mix(in srgb, var(--acc) 8%, transparent), transparent 65%),
+    radial-gradient(90% 60% at 100% 100%, color-mix(in srgb, var(--acc2) 9%, transparent), transparent 65%),
+    var(--bg);
 }
 :root:has(body.lite) { transition: none; }
 /* the volume dial's gradient follows the accents */
@@ -354,7 +368,7 @@ body.vol-demo .sat {
   pointer-events: none; will-change: transform;
 }
 /* light theme: the art inverted (hue turned back, so its colours stay), a pale sky instead of a night one */
-:root[data-theme='light'] .field-art { filter: invert(1) hue-rotate(180deg); }
+:root[data-theme='light'] .field-art { filter: invert(1) hue-rotate(180deg) saturate(0.75); }
 /* dimmed so the orbs stay readable */
 .field::before {
   content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none;
@@ -572,6 +586,19 @@ body:not(.roll-ready) .roll { flex-basis: 0 !important; border-top-width: 0; }
   color: var(--dim);
   transition: border-color 0.15s, background 0.15s, color 0.15s, opacity 0.15s, transform 0.15s, box-shadow 0.15s;
 }
+/* light: not a dark hole but a shallow well pressed into the cream: a bright middle, the slot's own
+   colour faintly tinting the rim, a soft shade only along the top inner edge and a highlight at the
+   bottom. :where keeps this at .orb-slot.open / .hot / .filled's weight, so those (below) still win */
+:root[data-theme='light'] :where(.orb-slot) {
+  border-color: color-mix(in srgb, var(--g) 40%, transparent);
+  background: radial-gradient(circle at 50% 40%,
+    color-mix(in srgb, #fff 88%, var(--g)) 0,
+    color-mix(in srgb, var(--g) 10%, var(--bg)) 62%,
+    color-mix(in srgb, var(--g) 22%, var(--bg)) 100%);
+  box-shadow: inset 0 4px 9px -2px color-mix(in srgb, var(--shadow) 30%, transparent),
+    inset 0 -3px 6px -2px rgba(255, 255, 255, 0.9);
+  color: color-mix(in srgb, var(--g), var(--fg) 70%);
+}
 .slot-label {
   display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 0 8px;
   max-width: 100%; font-size: 11px; line-height: 1.15; text-align: center; word-break: keep-all; overflow-wrap: anywhere;
@@ -585,6 +612,7 @@ body:not(.roll-ready) .roll { flex-basis: 0 !important; border-top-width: 0; }
 #slotCopy { --g: color-mix(in srgb, #7dffb0 var(--orb-keep), var(--orb-mix)); }
 /* 편집 with its tab open */
 .orb-slot.open { color: color-mix(in srgb, var(--g), var(--fg) var(--ink-mix)); border-style: solid; border-color: var(--g); box-shadow: inset 0 0 18px color-mix(in srgb, var(--shadow) 70%, transparent), 0 0 18px color-mix(in srgb, var(--g) 45%, transparent); }
+:root[data-theme='light'] .orb-slot.open { box-shadow: inset 0 4px 9px -2px color-mix(in srgb, var(--shadow) 30%, transparent), 0 0 18px color-mix(in srgb, var(--g) 45%, transparent); }
 .orb-slot.open i, .orb-slot.hot i { filter: none; }
 .orb-slot.hot { color: color-mix(in srgb, var(--g), var(--fg) var(--ink-mix)); border-style: solid; border-color: var(--g); background: color-mix(in srgb, var(--g) 18%, transparent); transform: scale(1.1); box-shadow: 0 0 26px color-mix(in srgb, var(--g) 55%, transparent); }
 .orb-slot.off { opacity: 0.3; }
@@ -940,6 +968,9 @@ body.stem-open.roll-full.roll-min .roll { flex-basis: 76px; }
 .sh .len { font-size: 11px; line-height: 1; padding: 1px 4px; color: var(--dim); flex: none; }
 .sh .secadd:not(:disabled):hover { color: var(--acc); border-color: var(--acc); }
 .sh .secdel { font-size: 10px; padding: 1px 3px; }
+.sh .secsub { font-size: 10px; padding: 1px 3px; }
+.sh .secsub.on { color: var(--gold); border-color: color-mix(in srgb, var(--gold) 60%, transparent); }
+.sh .secsub:hover { color: var(--gold); border-color: var(--gold); }
 .sh .secdel:not(:disabled):hover { color: var(--warn); border-color: var(--warn); }
 .sh .len:disabled { opacity: 0.3; cursor: default; }
 /* || at a section's right edge: drag it to change the section's length a bar at a time */

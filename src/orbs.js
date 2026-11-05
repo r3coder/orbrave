@@ -1643,6 +1643,14 @@ function startDrag(e, el, home, anchor) {
     const old = trail.find((p) => now - p.t < 110) ?? trail[0];
     const dt = (now - old.t) / 1000;
     const vx = dt > 0.012 ? (x - old.x) / dt : 0, vy = dt > 0.012 ? (y - old.y) / dt : 0;
+    if (home.kind === 'active') {
+      // taken out of the song: it stays where it was let go; only a hard flick to the right
+      // (towards the stash) sends it straight into the stash
+      if (vx > 900 && vx > Math.abs(vy) * 1.2 && storeInStash(el, home)) return;
+      return settle(el, home, x, y);
+    }
+    // thrown upwards out of a slot under the field: a short hop up into the field, never into the song
+    if (home.kind === 'slot' && vy < -450 && -vy > Math.abs(vx)) return hopUp(el, home, x, y, vx, vy);
     if (Math.hypot(vx, vy) > 450) fling(el, home, x, y, vx, vy);
     else settle(el, home, x, y);
   };
@@ -1741,6 +1749,34 @@ function goHome(el, home) {
       const fr = ui.field.getBoundingClientRect();
       rainAdd(id, tx - fr.left, ty - fr.top, { el });
     }
+  }, 360);
+}
+
+// An orb thrown up out of a slot: it lands a little above where it was let go (further for a
+// harder throw), inside the field and clear of the player's drop zone, then falls from there.
+function hopUp(el, home, x, y, vx, vy) {
+  const fr = ui.field.getBoundingClientRect();
+  const pad = 30;
+  let tx = x + Math.max(-120, Math.min(120, vx * 0.12));
+  let ty = y - Math.min(260, 120 + (-vy - 450) * 0.08);
+  tx = Math.max(fr.left + pad, Math.min(fr.right - pad, tx));
+  ty = Math.max(fr.top + pad, Math.min(fr.bottom - pad, ty));
+  // pushed out of the player's drop zone, sideways (it falls down from there, past the player)
+  const c = coreCenter();
+  const clear = c.drop + 40;
+  if (Math.hypot(tx - c.x, ty - c.y) < clear) {
+    const side = tx >= c.x ? 1 : -1;
+    const dy = Math.min(Math.abs(ty - c.y), clear - 1);
+    tx = c.x + side * Math.sqrt(clear * clear - dy * dy);
+    if (tx < fr.left + pad || tx > fr.right - pad) tx = c.x - side * Math.sqrt(clear * clear - dy * dy);
+    tx = Math.max(fr.left + pad, Math.min(fr.right - pad, tx));
+  }
+  el.classList.add('flying');
+  el.style.left = tx + 'px';
+  el.style.top = ty + 'px';
+  setTimeout(() => {
+    el.classList.remove('flying');
+    rainAdd(el.dataset.id, tx - fr.left, ty - fr.top, { el });
   }, 360);
 }
 
@@ -2265,7 +2301,7 @@ function neon(g, pts, color, alpha) {
   if (pts.length < 2) return;
   g.save();
   g.lineCap = g.lineJoin = 'round';
-  for (const [width, blur, col, a] of [[9, 26, color, 0.35], [4, 12, color, 0.9], [1.5, 0, ink().ink === '0,0,0' ? ink().fg : '#fff', 0.9]]) {
+  for (const [width, blur, col, a] of [[9, 26, color, 0.35], [4, 12, color, 0.9], [1.5, 0, ink().ink !== '255,255,255' ? ink().fg : '#fff', 0.9]]) {
     g.beginPath();
     pts.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y)));
     g.lineWidth = width;
@@ -3414,6 +3450,21 @@ document.addEventListener('pointerdown', (e) => {
   if (!e.target.closest('.delask, .secdel')) delAsk.classList.remove('open');
 });
 
+// ♯ on a section head: the section plays in the song's sub key, or back in the home key. The sub
+// key is the one the other modulated sections use, else the one last switched off, else one
+// picked from the song's seed (as the plan picks it).
+function subShift() {
+  return song.sections.find((s) => s.shift)?.shift ?? song.sub ?? rng(song.seed ?? 0).pick([2, 3, 5, -2]);
+}
+function toggleSub(i) {
+  const sec = song.sections[i];
+  if (sec.shift) {
+    song.sub = sec.shift;
+    sec.shift = 0;
+  } else sec.shift = subShift();
+  sync();
+}
+
 // the ＋ menu: one button per kind of section
 const secMenu = document.createElement('div');
 secMenu.className = 'secmenu';
@@ -3463,13 +3514,14 @@ function renderStem() {
       else openSecMenu(e.currentTarget, i);
     });
     add.disabled = full;
+    const sub = button('ghost len secsub' + (sec.shift ? ' on' : ''), '♯', ot(sec.shift ? 'secSubOff' : 'secSubOn', { key: keyName(sec.shift || subShift()) }), () => toggleSub(i));
     const del = button('ghost len secdel', '✕', ot('secDel'), (e) => openDelAsk(e.currentTarget, i));
     del.disabled = secs.length < 2;
     const grip = document.createElement('i');
     grip.className = 'grip';
     grip.title = ot('secGrip');
     grip.addEventListener('pointerdown', (e) => gripDown(e, i));
-    h.append(name, bars, Object.assign(document.createElement('i'), { className: 'prog' }), add, del, grip);
+    h.append(name, bars, Object.assign(document.createElement('i'), { className: 'prog' }), sub, add, del, grip);
     grid.append(h);
   });
   // the bar numbers under the section heads: a click plays the song from that bar

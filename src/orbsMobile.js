@@ -23,6 +23,24 @@ new ResizeObserver(() => {
   document.documentElement.style.setProperty('--top-h', top.offsetHeight + 'px');
 }).observe(top);
 
+// the song's row under the player (status, the song's orbs, ↩ 루프 모드로) gets its own band: the
+// field (and the orbs falling in it) stops above it, so a touch there never picks up an orb falling
+// behind, and an orb taken out of the song and let go there goes back in instead of into the rain
+const left = document.querySelector('.left');
+const songParts = [$('status'), $('chips'), $('song')];
+function songBand() {
+  const chips = $('chips');
+  let hgt = 0;
+  if (isPhone.matches && chips.offsetParent) {
+    hgt = Math.max(0, Math.ceil(left.getBoundingClientRect().bottom - $('status').getBoundingClientRect().top + 6));
+  }
+  document.documentElement.style.setProperty('--song-h', hgt + 'px');
+}
+const bandRO = new ResizeObserver(songBand);
+for (const el of [left, ...songParts]) bandRO.observe(el);
+new MutationObserver(songBand).observe(body, { attributes: true, attributeFilter: ['class'] });
+isPhone.addEventListener('change', songBand);
+
 // phones held sideways get a notice instead of a squeezed layout (orbsMobile.css decides when)
 body.append(h(`<div class="m-rotate"><p data-i18n="mRotate">${ot('mRotate')}</p></div>`));
 

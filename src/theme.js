@@ -18,15 +18,15 @@ const root = document.documentElement;
 const TONES = {
   'dark neutral': [58, '#8a8782'],
   'dark pastel': [60, '#ffffff'],
-  'light neutral': [64, '#9f9a92'],
-  'light pastel': [56, '#ffffff'],
+  'light neutral': [72, '#efe3e6'],
+  'light pastel': [66, '#fff2f8'],
 };
 // what the canvases draw with (the same values as orbs.css): accent, text, faint ink
 const INK = {
   'dark neutral': { acc: '#d6c6a5', fg: '#ece9e4', ink: '255,255,255' },
   'dark pastel': { acc: '#9fe3c9', fg: '#f6f1ff', ink: '255,255,255' },
-  'light neutral': { acc: '#6b5f4b', fg: '#26241f', ink: '0,0,0' },
-  'light pastel': { acc: '#2e9a78', fg: '#2c2540', ink: '0,0,0' },
+  'light neutral': { acc: '#b4637a', fg: '#6e6a8e', ink: '87,82,121' },
+  'light pastel': { acc: '#c04f8c', fg: '#6f5a8c', ink: '94,74,120' },
 };
 
 let saved = null;

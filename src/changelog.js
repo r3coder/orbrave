@@ -7,6 +7,11 @@ import './licenses.css';
 
 // [version, date, { ko: [...], en: [...], ja: [...] }]
 const NOTES = [
+  ['0.4.4', '2026-11-06', {
+    ko: ['스템: 섹션마다 ♯ 버튼으로 그 섹션만 서브 조성으로 바꾸거나 원래 조로 되돌려요', '곡에서 꺼낸 오브는 놓은 자리에 머물러요. 오른쪽으로 세게 던지면 보관함으로 들어가요', '슬롯에서 위로 던진 오브는 필드로 살짝 튀어 올랐다가 떨어져요', '밝은 테마의 색을 새로 칠했어요: 단조는 로즈 밀크티, 장조는 딸기 타로 밀크', '폰: 곡 줄 위로 필드가 끝나서, 떨어지는 오브와 곡의 오브가 겹치지 않아요'],
+    en: ['Stems: ♯ on a section plays just that section in the sub key, or back in the home key', 'An orb taken out of the song stays where you let go; a hard flick to the right puts it in the stash', 'An orb thrown upwards out of a slot hops up into the field and falls from there', 'New light-theme colours: rose milk tea in minor, strawberry-taro milk in major', 'Phones: the field ends above the song\'s row, so falling orbs and the song\'s orbs no longer overlap'],
+    ja: ['ステム: セクションごとの ♯ でそのセクションだけサブ調に、または元の調に戻します', '曲から取り出したオーブは離した場所にとどまります。右へ強く投げるとストックへ', 'スロットから上へ投げたオーブはフィールドへ軽く跳ねてから落ちます', 'ライトテーマの色を一新: マイナーはローズミルクティー、メジャーはいちごタロミルク', 'スマホ: フィールドが曲の列の上で終わるので、落ちてくるオーブと曲のオーブが重なりません'],
+  }],
   ['0.4.3', '2026-11-05', {
     ko: ['스템: 섹션과 악기 사이에 마디 번호 줄이 생겼어요. 누르면 4박자 카운트(4 · 3 · 2 · 1) 뒤에 그 마디부터 재생돼요', '스템: 섹션 오른쪽 끝의 || 를 끌어서 길이를 마디 단위로 조절해요', '스템: 섹션마다 ＋ 로 바로 뒤에 새 섹션(인트로 · 빌드업 · 드롭 · 브레이크 · 브리지 · 아웃트로) 추가, ✕ 로 삭제', '곡 구성 랜덤화와 섹션 삭제는 한 번 더 물어봐요', '왼쪽 배경 피아노 롤의 선이 스템에서 재생 중인 위치를 따라가요', '전부 비우기를 누르면 스템도 닫혀요', '분위기는 EQ 포함 5개까지 겹치고, 킥 · 스네어 · 하이햇 · 아르페지오 · 코드는 2개까지 들어가요'],
     en: ['Stems: a row of bar numbers under the sections; click one to play from that bar after a 4-beat count-in (4 · 3 · 2 · 1)', 'Stems: drag the || at a section\'s right edge to change its length bar by bar', 'Stems: ＋ on a section adds a new one right after it (intro, build-up, drop, break, bridge, outro); ✕ deletes it', 'Shuffling the song layout and deleting a section ask once more first', 'The piano roll behind the page follows where the stems are playing', 'Clear all also closes the stems', 'Up to 5 moods stack (EQ included); kicks, snares, hats, arpeggios and chords take 2 each'],
