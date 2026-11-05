@@ -58,6 +58,8 @@ async function serveStatic(req, res) {
     'Content-Type': TYPES[extname(file).toLowerCase()] ?? 'application/octet-stream',
     'Content-Length': st.size,
     'X-Content-Type-Options': 'nosniff',
+    // the CC0 sample bank, for sets opened on strudel.cc (their page fetches it from here)
+    ...(path.startsWith('/samples/') && { 'Access-Control-Allow-Origin': '*' }),
     'Cache-Control': path.startsWith('/assets/') ? 'public, max-age=31536000, immutable' : 'no-cache',
   });
   if (req.method === 'HEAD') return res.end();

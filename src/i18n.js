@@ -35,17 +35,22 @@ function initialLang() {
     const saved = localStorage.getItem('lang');
     if (STR[saved]) return saved;
   } catch {}
-  const nav = (navigator.language || 'en').slice(0, 2);
-  return STR[nav] ? nav : 'en';
+  const prefs = navigator.languages?.length ? navigator.languages : [navigator.language || 'en'];
+  for (const p of prefs) {
+    const code = String(p).slice(0, 2).toLowerCase();
+    if (STR[code]) return code;
+  }
+  return 'en';
 }
 
 let lang = initialLang();
 export const getLang = () => lang;
-export function setLang(l) {
+// save=false: apply without pinning, so first-visit auto-detect keeps following the browser
+export function setLang(l, save = true) {
   if (!STR[l]) return;
   lang = l;
   document.documentElement.lang = l;
-  try {
+  if (save) try {
     localStorage.setItem('lang', l);
   } catch {}
 }

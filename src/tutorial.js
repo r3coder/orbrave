@@ -12,9 +12,10 @@ let current = null;
 // Dim the screen except `target` (an element, or a function returning one, so a target moved by
 // the phone layout is looked up when it shows) and put `text` next to it. Spotlights queue up.
 // `wait`: ms to let the target finish sliding in before it is measured. `onDone` runs once it has
-// gone (or was skipped).
-export function spotlight(target, text, { wait = 0, onDone = null } = {}) {
-  queue.push({ target, text, wait, onDone });
+// gone (or was skipped). A null `text` dims without a note; `lift` (elements) stay bright above
+// the dimming while it is up, e.g. the banner that already says what to do.
+export function spotlight(target, text, { wait = 0, onDone = null, lift = [] } = {}) {
+  queue.push({ target, text, wait, onDone, lift });
   if (!current) next();
 }
 
@@ -40,8 +41,11 @@ function show(item) {
   const tip = document.createElement('div');
   tip.className = 'tut-tip';
   tip.setAttribute('role', 'status');
-  tip.textContent = item.text;
+  tip.textContent = item.text ?? '';
+  if (item.text == null) tip.hidden = true;
   document.body.append(hole, tip);
+  const lifted = item.lift.map((x) => (typeof x === 'function' ? x() : x)).filter(Boolean);
+  lifted.forEach((x) => x.classList.add('tut-lift'));
 
   // follow the target while it is up (layouts move: slots slide in, the window is resized)
   let raf = 0;
@@ -80,6 +84,7 @@ function show(item) {
     hole.classList.remove('on');
     tip.classList.remove('on');
     setTimeout(() => {
+      lifted.forEach((x) => x.classList.remove('tut-lift'));
       cancelAnimationFrame(raf);
       hole.remove();
       tip.remove();
@@ -112,4 +117,5 @@ export function banner(text) {
     requestAnimationFrame(() => bannerEl?.classList.add('on'));
   }
   bannerEl.textContent = text;
+  return bannerEl;
 }

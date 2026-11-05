@@ -11,7 +11,7 @@ const STR = {
     volume: '음량',
     import: '📋 코드 붙여넣기', importTip: '공유받은 코드를 붙여 넣어 불러오기',
     search: '🔍 오브 검색', searchTip: '이름 · 종류 · 템포 · 조성으로 오브 찾기',
-    code: '</> 코드', licenses: 'ⓘ 라이선스', feedback: '🐞 버그/의견 제출',
+    code: '</> 코드', codeOpen: '(직접수정) strudel.cc ↗', codeOpenTip: '지금 곡을 Strudel 코드 그대로 strudel.cc 에서 열어요. 거기서 고치고 실행해 볼 수 있어요', codeMadeWith: 'ORBRAVE로 만든 곡 · 제작 R3C0D3r', codeSounds: '소리: 아래에 출처가 적힌 것 외에는 모두 CC0', codeCredit: '출처', licenses: 'ⓘ 라이선스', feedback: '🐞 버그/의견 제출',
     tutorialAgain: '↺ 튜토리얼 재실행', tutorialAgainTip: '처음 접속한 것처럼 안내를 다시 봐요 (지금 곡은 비워지고, 저장한 프리셋은 그대로예요)',
     themeLight: '☀ 라이트 모드', themeDark: '☾ 다크 모드', themeTip: '밝은 화면 / 어두운 화면 전환 · 색 톤은 조성을 따라가요 (단조: 뉴트럴, 장조: 파스텔)',
     lite: '⚡ 저사양 모드', liteTip: '빛 번짐 같은 효과를 줄여 가볍게 (소리는 그대로) · 화면이 계속 버벅이면 저절로 켜져요',
@@ -121,6 +121,8 @@ const STR = {
     tutPreset: '마음에 드는 소리가 나왔다면, 프리셋으로 저장이 가능합니다.',
     tutPresetPhone: '마음에 드는 소리가 나왔다면, 위의 📁 에서 프리셋으로 저장이 가능합니다.',
     tutShare: '여기서 이 루프의 음악 파일을 다운로드 받거나, 루프 코드를 다른 사람에게 공유하거나, 서버에 올려 다른 사람이 볼 수 있도록 할 수 있습니다.',
+    tutCode: '지금 들리는 소리는 전부 Strudel 코드예요. 여기서 코드를 보거나, strudel.cc 에서 열어 직접 고쳐 볼 수 있어요',
+    tutCodePhone: '지금 들리는 소리는 전부 Strudel 코드예요. ⋯ 메뉴에서 코드를 보거나, strudel.cc 에서 열어 직접 고쳐 볼 수 있어요',
     tutSong: '스템 열기가 생겼어요. 지금 루프를 중심으로 인트로부터 아웃트로까지 이어지는 한 곡(스템)을 만들 수 있어요',
     mStashHint: '누르면 곡에 넣기', mRotate: '📱 세로 화면으로 돌려 주세요',
     mEmptyHint: '오브를 잡아 재생 버튼으로 던져 보세요. 저장해 둔 곡은 위의 📁 에 있어요',
@@ -137,7 +139,7 @@ const STR = {
     volume: 'Volume',
     import: '📋 Paste code', importTip: 'Paste a share code you received',
     search: '🔍 Find orbs', searchTip: 'Find orbs by name, kind, tempo or key',
-    code: '</> Code', licenses: 'ⓘ Licenses', feedback: '🐞 Bug / Feedback',
+    code: '</> Code', codeOpen: '(edit) strudel.cc ↗', codeOpenTip: 'Open the current set as plain Strudel code on strudel.cc, where you can change and run it', codeMadeWith: 'made with ORBRAVE by R3C0D3r', codeSounds: 'sounds: CC0 unless credited below', codeCredit: 'credit', licenses: 'ⓘ Licenses', feedback: '🐞 Bug / Feedback',
     tutorialAgain: '↺ Replay tutorial', tutorialAgainTip: 'See the guide again as on a first visit (the current song is cleared; saved presets stay)',
     themeLight: '☀ Light mode', themeDark: '☾ Dark mode', themeTip: 'Switch between a light and a dark screen · the colour tone follows the key (minor: neutral, major: pastel)',
     lite: '⚡ Low-spec mode', liteTip: 'Fewer glow effects for slower machines (the sound stays the same) · turns on by itself if the screen keeps stuttering',
@@ -238,6 +240,8 @@ const STR = {
     tutPreset: 'Like how it sounds? You can save it as a preset.',
     tutPresetPhone: 'Like how it sounds? You can save it as a preset under 📁 at the top.',
     tutShare: 'From here you can download this loop as a music file, share the loop’s code with someone, or upload it to the server for others to see.',
+    tutCode: 'Everything you hear is Strudel code. See it here, or open it on strudel.cc and edit it yourself',
+    tutCodePhone: 'Everything you hear is Strudel code. In the ⋯ menu you can see it, or open it on strudel.cc and edit it yourself',
     tutSong: 'Open stems is unlocked. Build a whole track, intro to outro, around your current loop',
     mStashHint: 'Tap to add to the song', mRotate: '📱 Please turn your phone upright',
     mEmptyHint: 'Grab an orb and throw it at the play button. Saved songs are under 📁 at the top',
@@ -253,7 +257,7 @@ const STR = {
     volume: '音量',
     import: '📋 コード貼り付け', importTip: '共有されたコードを貼り付けて読み込む',
     search: '🔍 オーブ検索', searchTip: '名前・種類・テンポ・調でオーブを探す',
-    code: '</> コード', licenses: 'ⓘ ライセンス', feedback: '🐞 バグ・ご意見',
+    code: '</> コード', codeOpen: '(直接編集) strudel.cc ↗', codeOpenTip: '今の曲を Strudel のコードのまま strudel.cc で開きます。そこで書き換えて再生できます', codeMadeWith: 'ORBRAVE で作成 · 制作 R3C0D3r', codeSounds: '音源: 下にクレジットのあるもの以外はすべて CC0', codeCredit: 'クレジット', licenses: 'ⓘ ライセンス', feedback: '🐞 バグ・ご意見',
     tutorialAgain: '↺ チュートリアル再実行', tutorialAgainTip: '初めて来たときのように案内をもう一度見ます(今の曲は空になり、保存したプリセットはそのままです)',
     themeLight: '☀ ライトモード', themeDark: '☾ ダークモード', themeTip: '明るい画面 / 暗い画面の切り替え · 色合いは調に合わせて変わります (短調: ニュートラル、長調: パステル)',
     lite: '⚡ 軽量モード', liteTip: '光のにじみなどの効果を減らして軽く (音はそのまま) · 画面がカクつき続けると自動でオン',
@@ -354,6 +358,8 @@ const STR = {
     tutPreset: '気に入った音ができたら、プリセットとして保存できます。',
     tutPresetPhone: '気に入った音ができたら、上の 📁 からプリセットとして保存できます。',
     tutShare: 'ここからこのループの音楽ファイルをダウンロードしたり、ループのコードを他の人に共有したり、サーバーにアップして他の人が見られるようにできます。',
+    tutCode: '今聞こえている音はすべて Strudel のコードです。ここでコードを見たり、strudel.cc で開いて直接書き換えたりできます',
+    tutCodePhone: '今聞こえている音はすべて Strudel のコードです。⋯ メニューからコードを見たり、strudel.cc で開いて直接書き換えたりできます',
     tutSong: 'ステムを開くが使えるようになりました。今のループを中心に、イントロからアウトロまで続く一曲(ステム)を作れます',
     mStashHint: 'タップで曲に追加', mRotate: '📱 縦向きにしてください',
     mEmptyHint: 'オーブをつかんで再生ボタンへ投げてみてください。保存した曲は上の 📁 にあります',
@@ -409,7 +415,7 @@ export function mountLangButtons(box, onChange) {
     };
     box.append(b);
   }
-  setLang(getLang()); // sets <html lang>
+  setLang(getLang(), false); // sets <html lang>
   mark();
   applyStatic();
 }

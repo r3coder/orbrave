@@ -20,7 +20,7 @@
   <canvas id="viz"></canvas>
 
   <header class="top">
-    <div class="logo">● ORBRAVE<span class="by">-made by <a href="https://sites.google.com/view/r3c0d3r/home_ura" target="_blank" rel="noopener">R3C0D3r</a></span><a class="nav-btn" href="play.html" data-i18n="toPlayer" data-i18n-title="toPlayerTip">∞ 무한 재생</a><button type="button" class="ver-btn" id="verBtn"></button></div>
+    <div class="logo">● ORBRAVE<a class="nav-btn" href="play.html" data-i18n="toPlayer" data-i18n-title="toPlayerTip">∞ 무한 재생</a><button type="button" class="ver-btn" id="verBtn"></button></div>
     <div class="tools">
       <button id="themeBtn">☀ 라이트 모드</button>
       <button id="liteBtn" data-i18n="lite" data-i18n-title="liteTip">⚡ 저사양 모드</button>
@@ -212,11 +212,13 @@
   <footer class="powered">
     <div class="foot-links" id="footLinks">
       <button type="button" id="codeToggle" data-i18n="code">&lt;/&gt; 코드</button>
+      <button type="button" id="strudelBtn" data-i18n="codeOpen" data-i18n-title="codeOpenTip">(직접수정) strudel.cc ↗</button>
       <button type="button" id="licenseBtn" data-i18n="licenses">ⓘ 라이선스</button>
       <button type="button" id="feedbackBtn" data-i18n="feedback">🐞 버그/의견 제출</button>
       <button type="button" id="tutorialBtn" data-i18n="tutorialAgain" data-i18n-title="tutorialAgainTip">↺ 튜토리얼 재실행</button>
     </div>
-    Powered by <a href="https://strudel.cc/" target="_blank" rel="noopener">strudel</a> · <a href="https://github.com/r3coder/orbrave" target="_blank" rel="noopener">source (AGPL-3.0)</a></footer>
+    <div class="foot-credit">Made by <a href="https://sites.google.com/view/r3c0d3r/home_ura" target="_blank" rel="noopener">R3C0D3r</a> · Powered by <a href="https://strudel.cc/" target="_blank" rel="noopener">strudel.cc</a> · <a href="https://github.com/r3coder/orbrave" target="_blank" rel="noopener">source (AGPL-3.0)</a></div>
+  </footer>
 
   <script type="module" src="/src/orbs.js"></script>
   <script type="module" src="/src/orbsMobile.js"></script>

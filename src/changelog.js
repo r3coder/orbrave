@@ -7,6 +7,11 @@ import './licenses.css';
 
 // [version, date, { ko: [...], en: [...], ja: [...] }]
 const NOTES = [
+  ['0.4.5', '2026-11-06', {
+    ko: ['(직접수정) strudel.cc ↗: 지금 곡을 Strudel 코드 그대로 strudel.cc 에서 열어 직접 고치고 실행해 볼 수 있어요 (샘플과 출처 포함)', '튜토리얼에 코드 안내가 생겼고, 프리셋 안내 때는 프리셋 줄만 밝게 보여요', '음량을 돌리는 동안 다이얼만 밝고 나머지는 어두워져요', '처음 떨어지는 오브는 로딩 화면에서 미리 받은 소리만 써서, 잡자마자 바로 소리가 나요', '언어는 브라우저가 고른 언어 순서를 따라가요', '왼쪽 아래 링크가 커지고 줄바꿈되며, 오브가 많아도 재생기와 저장 · 공유 버튼이 화면에 남아요'],
+    en: ['(edit) strudel.cc ↗: open the current set as plain Strudel code on strudel.cc and change and run it there (samples and credits included)', 'The guide now points out the code, and the preset tip lights up just the preset bar', 'While the volume is turned, everything but the dial dims', 'The first orbs to fall only use sounds loaded on the boot screen, so they play the moment they go in', 'The page language follows your browser\'s list of preferred languages', 'The bottom-left links are larger and wrap; with many orbs in, the player and save / share buttons stay on screen'],
+    ja: ['(直接編集) strudel.cc ↗: 今の曲を Strudel のコードのまま strudel.cc で開いて、書き換えて再生できます(サンプルとクレジット付き)', 'ガイドにコードの案内が加わり、プリセットの案内ではプリセットの列だけが明るくなります', '音量を回している間はダイヤル以外が暗くなります', '最初に落ちてくるオーブはロード画面で読み込んだ音だけを使うので、入れた瞬間に鳴ります', '表示言語はブラウザの優先言語の順に従います', '左下のリンクが大きくなり折り返します。オーブが多くてもプレイヤーと保存・共有ボタンが画面に残ります'],
+  }],
   ['0.4.4', '2026-11-06', {
     ko: ['스템: 섹션마다 ♯ 버튼으로 그 섹션만 서브 조성으로 바꾸거나 원래 조로 되돌려요', '곡에서 꺼낸 오브는 놓은 자리에 머물러요. 오른쪽으로 세게 던지면 보관함으로 들어가요', '슬롯에서 위로 던진 오브는 필드로 살짝 튀어 올랐다가 떨어져요', '밝은 테마의 색을 새로 칠했어요: 단조는 로즈 밀크티, 장조는 딸기 타로 밀크', '폰: 곡 줄 위로 필드가 끝나서, 떨어지는 오브와 곡의 오브가 겹치지 않아요'],
     en: ['Stems: ♯ on a section plays just that section in the sub key, or back in the home key', 'An orb taken out of the song stays where you let go; a hard flick to the right puts it in the stash', 'An orb thrown upwards out of a slot hops up into the field and falls from there', 'New light-theme colours: rose milk tea in minor, strawberry-taro milk in major', 'Phones: the field ends above the song\'s row, so falling orbs and the song\'s orbs no longer overlap'],

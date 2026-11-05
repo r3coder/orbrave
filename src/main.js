@@ -587,7 +587,7 @@ for (const [code, name] of Object.entries(LANGS)) {
 }
 mountLicenses($('licenseBtn'));
 $('feedbackBtn').addEventListener('click', () => window.open('https://forms.gle/gvjXSkEM7W6ug6US9', '_blank', 'noopener'));
-setLang(getLang());
+setLang(getLang(), false);
 applyLang();
 
 ui.play.onclick = () => (playing ? stop() : play().catch((e) => console.error(e)));

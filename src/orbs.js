@@ -2,7 +2,7 @@ import {
   initStrudel, evaluate, hush, registerZZFXSounds, getAudioContext, getSuperdoughAudioController, Pattern,
   transpiler, noteToMidi, getAnalyserById,
 } from '@strudel/web';
-import { loadSampleBanks, preloadSamples, preloadDrums } from './samples.js';
+import { loadSampleBanks, preloadSamples, preloadDrums, samplePrelude, isBooted } from './samples.js';
 import './orbs.css';
 import {
   LAYERS, CAT_SHARE, BASE_BPM, KEYS, BAR_CHORDS, snap, rng, hash, byId, role, ROLE_TEXT, setMode, keyLabel, MOOD_SUBS,
@@ -58,12 +58,17 @@ const replReady = initStrudel({
 });
 // Boot screen: hold the page until the sample maps are registered and every drum one-shot is
 // decoded (see samples.js), so the first bars never drop hits while files are still downloading.
+// The boot set starts with the drum hits of the band-part orbs (FIRST_CATS), so the opening rain
+// (see pickCandidate) has kicks, snares and hats to drop next to the synth orbs.
+// what may fall before the first orb ever goes in: 리드 · 아르페지오 · 베이스 · 코드 · 킥 · 스네어 · 하이햇
+const FIRST_CATS = new Set(['lead', 'arp', 'bass', 'pad', 'kick', 'snare', 'hat']);
+const bootFirst = LAYERS.filter((l) => FIRST_CATS.has(l.cat) && !l.combo).flatMap((l) => l.samples ?? []);
 const bootBar = document.getElementById('bootBar'), bootCount = document.getElementById('bootCount');
 const drumsReady = preloadDrums((n, total) => {
   bootBar.style.width = `${(100 * n) / total}%`;
   bootCount.textContent = `${n} / ${total}`;
-}).catch((e) => console.warn('drum preload failed', e));
-Promise.all([replReady, drumsReady])
+}, bootFirst).catch((e) => console.warn('drum preload failed', e));
+const booted = Promise.all([replReady, drumsReady])
   .catch((e) => console.warn('preload failed, starting anyway', e))
   .finally(() => document.body.classList.add('booted'));
 let repl;
@@ -179,10 +184,27 @@ function volFromPointer(e) {
   if (rel > VSWEEP) rel = rel > VSWEEP + 45 ? 0 : VSWEEP;
   return rel / VSWEEP;
 }
+// while the volume is being turned, everything but the dial dims (a round hole whose huge shadow
+// is the dimming; it takes no clicks). Dragging keeps it up; wheel / keys let it linger a moment.
+const volDim = document.createElement('div');
+volDim.className = 'vol-dim';
+document.body.append(volDim);
+let volDimTimer = 0;
+function volFocus(linger) {
+  clearTimeout(volDimTimer);
+  const r = volRing.getBoundingClientRect();
+  const pad = 6;
+  Object.assign(volDim.style, {
+    left: `${r.left - pad}px`, top: `${r.top - pad}px`, width: `${r.width + pad * 2}px`, height: `${r.height + pad * 2}px`,
+  });
+  volDim.classList.add('on');
+  if (linger) volDimTimer = setTimeout(() => volDim.classList.remove('on'), linger);
+}
 let volDrag = false;
 volRing.addEventListener('pointerdown', (e) => {
   e.stopPropagation();
   volDrag = true;
+  volFocus(0);
   volRing.classList.add('drag');
   volRing.setPointerCapture(e.pointerId);
   setVolume(volFromPointer(e));
@@ -195,18 +217,21 @@ volRing.addEventListener('pointermove', (e) => {
 const volUp = () => {
   volDrag = false;
   volRing.classList.remove('drag');
+  volFocus(450);
 };
 volRing.addEventListener('pointerup', volUp);
 volRing.addEventListener('pointercancel', volUp);
 document.getElementById('core').addEventListener('wheel', (e) => {
   e.preventDefault();
   setVolume(volValue - Math.sign(e.deltaY) * 0.04);
+  volFocus(900);
 }, { passive: false });
 volRing.addEventListener('keydown', (e) => {
   const d = { ArrowUp: 0.05, ArrowRight: 0.05, ArrowDown: -0.05, ArrowLeft: -0.05 }[e.key];
   if (d) {
     e.preventDefault();
     setVolume(volValue + d);
+    volFocus(900);
   }
 });
 setVolume(volValue);
@@ -421,6 +446,7 @@ function put(layer, at, home = null) {
   for (const a of same.slice(0, Math.max(0, same.length - (CAPS[capOf(layer)] ?? 1) + 1))) removeLayer(a.layer.id, { silent: true });
   warm([layer]);
   heldSeed.delete(layer.id);
+  opening = false;
   active.set(layer.id, { layer, at, home, sat: makeSat(layer) });
 }
 
@@ -439,7 +465,7 @@ function put(layer, at, home = null) {
 //                                    📂 스템 열기 (full-song stems)                              (.song-ready)
 // The progress is remembered across reloads; the volume-knob tip after the first orb is separate.
 const TUT_KEY = 'orbTutorial';
-const IDLE_MS = 60_000, SONG_AFTER_MS = 60_000;
+const IDLE_MS = 60_000, SONG_AFTER_MS = 60_000, CODE_AFTER_MS = 30_000;
 // steps 2–4 also come by themselves this long after the step before
 const STEP_AFTER_MS = 60_000;
 const stepTimeUp = () => Date.now() - tut.at >= STEP_AFTER_MS;
@@ -472,7 +498,7 @@ function explainCombo(o) {
 }
 function dropCombo(size) {
   const shown = new Set([...active.keys(), ...rain.map((q) => q.id), ...stash, ...slotIds()]);
-  const pool = LAYERS.filter((l) => l.combo && !shown.has(l.id) && !l.combo.every((c) => active.has(c)));
+  const pool = LAYERS.filter((l) => l.combo && !shown.has(l.id) && !l.combo.every((c) => active.has(c)) && (!opening || instant(l)));
   if (!pool.length) return null;
   const id = pool[Math.floor(Math.random() * pool.length)].id;
   forget(id);
@@ -487,6 +513,15 @@ const saveTut = () => {
 let lastChange = Date.now(); // the last orb put in or taken out (this visit)
 // the ⇪ button on a phone (one of two, whichever shows), else the loop's save / share row
 const shareTarget = () => [...document.querySelectorAll('.m-export-btn')].find((b) => b.getBoundingClientRect().width) ?? $('wavBtn').parentElement;
+// 코드 · (직접수정) strudel.cc · 라이선스 as one target: the spotlight only reads its box
+const codeLinks = {
+  getBoundingClientRect() {
+    const rs = ['codeToggle', 'strudelBtn', 'licenseBtn'].map((id) => $(id).getBoundingClientRect()).filter((r) => r.width);
+    if (!rs.length) return new DOMRect();
+    const l = Math.min(...rs.map((r) => r.left)), t = Math.min(...rs.map((r) => r.top));
+    return new DOMRect(l, t, Math.max(...rs.map((r) => r.right)) - l, Math.max(...rs.map((r) => r.bottom)) - t);
+  },
+};
 const TUT = [
   null,
   { when: () => tut.combo, show: () => spotlight(ui.stash, ot(isPhone.matches ? 'tutStashPhone' : 'tutStash'), { wait: 300 }) },
@@ -516,12 +551,22 @@ const TUT = [
     show: () => {
       tut.banner = true;
       tut.bannerMoves = tut.moves;
-      banner(ot(isPhone.matches ? 'tutPresetPhone' : 'tutPreset'));
+      const el = banner(ot(isPhone.matches ? 'tutPresetPhone' : 'tutPreset'));
+      // dim everything but the preset bar (📁 on a phone) for a moment, banner kept lit
+      spotlight(() => (isPhone.matches ? document.querySelector('.m-presets-btn') : $('presetbar')), null, { wait: 400, lift: [el] });
     },
   },
   {
     when: () => tut.used || tut.moves >= 15 || Date.now() - Math.max(lastChange, tut.at) >= IDLE_MS, cls: 'share-ready',
     show: () => spotlight(shareTarget, ot('tutShare'), { wait: 500 }),
+  },
+  {
+    // the set is Strudel code underneath: where to see it, and to take it to strudel.cc
+    // (on a phone those links sit in the ⋯ menu, so the note points at that)
+    when: () => tut.used || tut.thrown >= tut.thrownAt + 3 || Date.now() - tut.at >= CODE_AFTER_MS,
+    show: () => isPhone.matches
+      ? spotlight(() => document.querySelector('.m-menu-btn'), ot('tutCodePhone'), { wait: 500 })
+      : spotlight(codeLinks, ot('tutCode'), { wait: 500 }),
   },
   {
     when: () => tut.used || tut.thrown >= tut.thrownAt + 5 || Date.now() - tut.at >= SONG_AFTER_MS, cls: 'song-ready',
@@ -530,6 +575,13 @@ const TUT = [
   },
 ];
 const TUT_LAST = TUT.length - 1;
+// v2 put the Strudel-code note (6) before the stems (now 7): progress saved before that moves up
+// one past 6, so the stems button a returning visitor already had stays out
+if (!tut.v) {
+  if (tut.step >= 6) tut.step++;
+  tut.v = 2;
+  saveTut();
+}
 for (let i = 1; i <= tut.step && i <= TUT_LAST; i++) if (TUT[i].cls) document.body.classList.add(TUT[i].cls);
 function tutCheck() {
   // the preset note goes once a preset is saved or after four more moves
@@ -547,9 +599,10 @@ function tutCheck() {
   s.show();
   tutCheck(); // the banner may go with this step
 }
-// what the steps wait for besides orbs: a preset saved (step 5), a save / share button used (step 6)
+// what the steps wait for besides orbs: a preset saved (step 5), a save / share button used
+// (step 6), the code opened (step 7)
 function tutEvent(name) {
-  if ((name === 'preset' && tut.step === 4) || (name === 'share' && tut.step === 5)) {
+  if ((name === 'preset' && tut.step === 4) || (name === 'share' && tut.step === 5) || (name === 'code' && tut.step === 6)) {
     tut.used = true;
     tutCheck();
   }
@@ -1178,8 +1231,12 @@ const ONLY = import.meta.env.DEV ? new URLSearchParams(location.search).get('onl
 const ONLY_SETS = { new: (l) => l.spot || !!l.tag, fx: (l) => l.spot, dub: (l) => l.tag === 'dubtechno', inst: (l) => l.tag === 'instruments', scale: (l) => l.tag === 'scales', var: (l) => l.tag === 'variations', ac: (l) => l.tag === 'acoustic', vibe: (l) => l.tag === 'vibes' };
 const onlyIds = ONLY && new Set(ONLY_SETS[ONLY] ? LAYERS.filter(ONLY_SETS[ONLY]).map((l) => l.id) : ONLY.split(','));
 
-// what may fall before the first orb ever goes in: 리드 · 아르페지오 · 베이스 · 코드 · 킥 · 스네어 · 하이햇
-const FIRST_CATS = new Set(['lead', 'arp', 'bass', 'pad', 'kick', 'snare', 'hat']);
+// The opening rain: until an orb goes into the song (put), only orbs that play at once fall, i.e.
+// every sound is a synth or a drum hit decoded on the boot screen (samples.js). VCSL, piano,
+// the sampled basses and the like load on first use, so they wait. Nothing falls before boot ends.
+let opening = true;
+let bootDone = false;
+const instant = (l) => (l.combo ? l.combo.map((c) => byId[c]) : [l]).every((x) => x && (x.samples ?? []).every(isBooted));
 // Pick a layer to drop in, favouring parts the song doesn't have yet and orbs not already shown.
 function pickCandidate() {
   const shown = new Set([...active.keys(), ...rain.map((o) => o.id), ...stash, ...slotIds()]);
@@ -1188,7 +1245,8 @@ function pickCandidate() {
   const from = onlyIds ? LAYERS.filter((l) => onlyIds.has(l.id)) : LAYERS;
   // before the very first orb goes in, only the plain band parts fall (no fx, moods, combos …)
   const first = !firstOrbDone;
-  const allowed = (l) => onlyIds || (!(early && noSound(l)) && !(l.combo && comboHeld()) && (!first || FIRST_CATS.has(l.cat)));
+  if (opening && !bootDone && !onlyIds) return null;
+  const allowed = (l) => onlyIds || (!(early && noSound(l)) && !(l.combo && comboHeld()) && (!first || FIRST_CATS.has(l.cat)) && (!opening || instant(l)));
   let pool = from.filter((l) => allowed(l) && !shown.has(l.id) && !(l.combo && l.combo.every((c) => active.has(c))));
   if (!pool.length && !onlyIds) pool = from.filter((l) => allowed(l) && !active.has(l.id));
   if (!pool.length) return null;
@@ -4172,8 +4230,46 @@ $('clear').addEventListener('click', () => {
   if (song) closeSong(); // nothing left for the stems to play (closeSong syncs)
   else sync();
 });
-$('codeToggle').addEventListener('click', () => ui.drawer.classList.toggle('open'));
+$('codeToggle').addEventListener('click', () => {
+  ui.drawer.classList.toggle('open');
+  tutEvent('code');
+});
 $('codeClose').addEventListener('click', () => ui.drawer.classList.remove('open'));
+
+// the bottom-left links wrap on a narrow column: .left keeps that much room under its content
+{
+  const foot = document.querySelector('.powered');
+  new ResizeObserver(() => document.documentElement.style.setProperty('--foot-h', `${foot.offsetHeight}px`)).observe(foot);
+}
+
+// (직접수정) strudel.cc: the set as plain Strudel code (what the WAV render plays: no
+// previews, solo dips, analysers or bar gates), with the sample banks loaded at the top and the
+// CC-BY credits of the sounds it uses, opened in the Strudel REPL through its #<base64> share hash
+// (read in the browser, never sent to their server).
+function strudelExport() {
+  const { code } = renderCode(!!song);
+  const credits = attributionsFor(setSampleNames());
+  return [
+    // comments in the page language (the orb-name comments already follow it through l.name)
+    `// ${ot('codeMadeWith')} — https://github.com/r3coder/orbrave (AGPL-3.0)`,
+    `// ${ot('codeSounds')}`,
+    ...credits.map((c) => `// ${ot('codeCredit')}: ${c.text}`),
+    ...samplePrelude(code),
+    '',
+    code,
+  ].join('\n');
+}
+// Strudel's code2hash, in chunks: its String.fromCharCode(...bytes) overflows on a long song
+function strudelHash(code) {
+  const bytes = new TextEncoder().encode(code);
+  let bin = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return encodeURIComponent(btoa(bin));
+}
+$('strudelBtn').addEventListener('click', () => {
+  window.open(`https://strudel.cc/#${strudelHash(strudelExport())}`, '_blank', 'noopener');
+  tutEvent('code');
+});
 
 // Text built in script, redrawn when KR / EN / JP is switched (static text is handled by orbsI18n.js).
 function applyLangUI() {
@@ -4248,9 +4344,12 @@ refreshShared();
 renderRollHead();
 renderStatus();
 ui.code.textContent = buildCode();
-requestAnimationFrame(() => {
+// the first rain waits for the boot screen (it covers the page until then), so it can pick from
+// the sounds decoded there (see opening)
+booted.then(() => requestAnimationFrame(() => {
+  bootDone = true;
   seedRain();
   leaveSlots(); // a set saved with orbs in the slots, opened where they are off: back into the fresh rain
   requestAnimationFrame(frame);
-});
+}));
 if (import.meta.env.DEV) window.__orbs = { spawnWeights, loopPos, nowCycle, taste: taste.debug, replReady, codeOf, active, rain, stash, byId, addLayer, removeLayer, buildCode, pickForSlot, finishDraft, orbStep, heldSeed, revealRoll, slotOrbs, decorate, get rollOrb() { return rollOrb; }, get draft() { return draft; }, get song() { return song; }, get variation() { return variation; }, patternToRaw, keyMode, LAYERS };

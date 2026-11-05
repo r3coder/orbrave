@@ -64,7 +64,7 @@ const headBtns = h(`<div class="m-head-btns"></div>`);
 const presetsBtn = toggler('m-sheet-open', `<button type="button" class="m-presets-btn" data-i18n-title="mPresets" title="${ot('mPresets')}" aria-label="presets">📁</button>`);
 const menuBtn = toggler('m-menu-open', `<button type="button" class="m-menu-btn" data-i18n-title="mMenu" title="${ot('mMenu')}" aria-label="menu">⋯</button>`);
 const credit = h(`<div class="m-credit"></div>`);
-credit.append(...[...document.querySelectorAll('.logo .by a, .powered a')].map((a) => a.cloneNode(true)));
+credit.append(...[...document.querySelectorAll('.powered a')].map((a) => a.cloneNode(true)));
 
 // presets sheet: my presets and the shared ones
 const sheet = h(`<div class="m-sheet"><button type="button" class="ghost m-sheet-close" data-i18n="mClose">${ot('mClose')}</button></div>`);

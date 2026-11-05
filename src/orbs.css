@@ -170,14 +170,17 @@ button.on { background: var(--acc); color: var(--bg); }
 /* bottom-left credit */
 .powered {
   position: fixed; left: 8px; bottom: 6px; z-index: 4;
-  font-size: 10px; letter-spacing: 0.05em; color: var(--dim); white-space: nowrap;
+  font-size: 12px; letter-spacing: 0.05em; color: var(--dim);
+  /* stays inside the player column (92px presets + minmax(280px, 36%)); wraps when narrower */
+  max-width: max(260px, calc(36vw - 24px));
 }
 .powered a { color: var(--fg); text-decoration: none; }
 .powered a:hover { color: var(--acc); }
-/* 코드 · 라이선스 · 버그/의견: plain text links on the line above "Powered by" */
-.powered .foot-links { display: flex; gap: 12px; margin-bottom: 3px; }
+/* strudel 코드 · strudel.cc · 라이선스 · 버그/의견: plain text links on the line above "Made by" */
+.powered .foot-links { display: flex; flex-wrap: wrap; gap: 3px 14px; margin-bottom: 4px; }
 .powered .foot-links button {
-  border: 0; background: none; padding: 0; font: inherit; font-size: 11px; letter-spacing: 0.03em;
+  white-space: nowrap;
+  border: 0; background: none; padding: 0; font: inherit; font-size: 12px; letter-spacing: 0.03em;
   color: var(--dim); cursor: pointer;
 }
 .powered .foot-links button:hover { color: var(--acc); background: none; }
@@ -309,6 +312,13 @@ button.loop-mode:hover { background: color-mix(in srgb, var(--acc) 24%, var(--de
 .volring .knob { fill: var(--cursor); }
 .volring #volTicks line { stroke: color-mix(in srgb, var(--fg) 18%, transparent); stroke-width: 1.5; }
 .volring #volTicks line.lit { stroke: color-mix(in srgb, var(--acc) 75%, transparent); }
+/* while the volume is turned: everything but the dial dims (orbs.js volFocus) */
+.vol-dim {
+  position: fixed; z-index: 59; pointer-events: none; border-radius: 50%;
+  box-shadow: 0 0 0 200vmax var(--scrim);
+  opacity: 0; transition: opacity 0.3s;
+}
+.vol-dim.on { opacity: 1; transition-duration: 0.15s; }
 .volring:focus-visible .track { stroke: color-mix(in srgb, var(--acc) 30%, transparent); }
 @keyframes gulp {
   0% { transform: scale(1.15); box-shadow: 0 0 60px var(--gulp, var(--acc)); }
@@ -1122,6 +1132,16 @@ button.arm::after {
   .left:has(.song.on) .clear-all { margin-bottom: 36px; }
 }
 
+/* the links / credit fixed at the bottom-left sit over this column: keep its content above them
+   (--foot-h is their measured height, set in orbs.js), which also lifts the centred column a bit */
+@media (min-width: 761px) {
+  .left { padding-bottom: calc(var(--foot-h, 44px) + 14px); }
+  /* many orbs in on a short / narrow window: the orb list gives up height first and scrolls in
+     place, so the player and the save / share buttons stay on screen */
+  .left > * { flex-shrink: 0; }
+  .left > .chips { flex-shrink: 1; min-height: 76px; overflow-y: auto; overscroll-behavior: contain; }
+}
+
 @media (max-width: 760px) {
   .left .clear-all { pointer-events: auto; }
   body.stem-open .stems { flex-basis: auto; }
@@ -1230,6 +1250,8 @@ body.share-ready :is(#wavBtn, #shareBtn, #serverShareBtn, .m-export-btn), body.s
 @keyframes tutGlow { to { box-shadow: 0 0 26px color-mix(in srgb, var(--acc) 50%, transparent); } }
 @media (max-width: 760px) { .tut-banner { left: 16px; max-width: calc(100vw - 32px); } }
 .lite .tut-banner { animation: none; }
+/* kept bright above a spotlight's dimming (tutorial.js `lift`) */
+.tut-banner.tut-lift { z-index: 62; }
 
 /* ---------- scrollbars: thin neon rails in the page's colours ---------- */
 ::-webkit-scrollbar { width: 10px; height: 10px; }
