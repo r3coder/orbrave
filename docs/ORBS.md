@@ -1,0 +1,191 @@
+# Orb catalogue
+
+What the orb page (`index.html`, `src/orbs.js`) offers, as built by `src/orbCatalog.js`. Counts are
+from the catalogue as of 2026-11-05 (523 orbs). To refresh them, see [Recounting](#recounting).
+
+## The musical frame
+
+Every orb plugs into one frame, so any set of orbs plays together:
+
+- **124 BPM**, 4/4, one cycle = one bar. Patterns loop on a **4-bar grid** (bar 1 of the loop is cycle 0, 4, 8 …).
+- **A natural minor** (Strudel `minor` = aeolian), progression **Am9 – Fmaj7 – Cmaj7 – G6**, one chord per bar.
+- Key orbs switch it to **A major** (Amaj7 – F#m7 – Dmaj7 – E7) and/or another root; tempo orbs change the BPM.
+- Delays use `__DT__`, a dotted eighth at the current tempo.
+
+## Totals
+
+| | Orbs |
+|---|---|
+| Sound orbs (play a part) | **371** |
+| Combos (several orbs at once) | 91 |
+| Moods (effect on every part, or mutes) | 50 |
+| Keys (12 roots × minor / major) | 24 |
+| Tempos | 20 |
+| **All** | **556** |
+
+225 sound orbs play samples; the rest are synthesised (superdough synths, ZZFX chip sounds, noise).
+
+## Sound orbs by category and family
+
+A *family* is the machine or instrument an orb is played on (`familyOf` in `src/orbCatalog.js`).
+Families decide how often an orb falls (see [Spawn balance](#spawn-balance)).
+
+| Category | TR909 | TR808 | TR707 | TR606 | TR727 | RD6 | Kit | kitbreak | Bass guitar | Upright | Wurlitzer | Piano | Sampled (VCSL …) | Synth | ZZFX | Block FX | Other scales | **Total** |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| kick | 8 | 2 | 2 | 1 | – | 6 | 6 | – | – | – | – | – | 4 | – | – | – | – | **29** |
+| snare | 5 | 4 | 4 | 2 | – | 3 | 8 | – | – | – | – | – | 4 | – | – | – | – | **30** |
+| hat | 5 | 4 | 4 | 4 | 4 | 3 | 3 | – | – | – | – | – | 5 | – | – | – | – | **32** |
+| perc | 2 | 5 | 6 | 4 | 2 | 1 | 4 | 1 | – | – | – | – | 14 | – | – | – | – | **39** |
+| bass | – | – | – | – | – | – | – | – | 3 | 2 | – | – | – | 31 | 4 | – | 24 | **64** |
+| pad | – | – | – | – | – | – | – | – | – | – | 3 | 2 | 7 | 13 | 3 | – | – | **28** |
+| arp | – | – | – | – | – | – | – | – | – | – | 1 | – | 19 | 9 | – | – | 22 | **51** |
+| lead | – | – | – | – | – | – | – | – | – | – | 1 | – | 15 | 11 | 3 | – | 20 | **50** |
+| fx | 1 | 1 | 1 | 1 | 3 | 1 | 1 | – | – | – | – | – | 2 | 8 | 8 | 6 | – | **33** |
+| texture | 1 | 2 | – | – | 1 | – | – | – | – | – | – | – | 4 | 6 | 1 | – | – | **15** |
+| **Total** | 22 | 18 | 17 | 12 | 10 | 14 | 22 | 1 | 3 | 2 | 5 | 2 | 74 | 78 | 19 | 6 | 66 | **371** |
+
+Families: drum machines are the self-hosted CC0 bank (TR-8 models of the 909/808/707/606/727 and an
+RD-6), **Kit** the Big Rusty Drums acoustic kit, **kitbreak** an original break played on it.
+**Sampled** covers VCSL instruments and other one-off samples; **Bass guitar**,
+**Upright**, **Wurlitzer** and **Piano** are pitched instruments with a sample per note
+(`public/samples/SOURCES.md`, `src/licenses.js`). **Other scales** groups the orbs that play a
+five- or six-note scale (see below), whatever instrument they use, so the set can be tuned as one.
+
+## Pitch: what scale each orb uses
+
+| Category | Scale `A?:minor` | Other scale | Chord progression | Sample `speed` only | No pitch | Total |
+|---|---|---|---|---|---|---|
+| bass | **40** | **24** | – | – | – | 64 |
+| arp | **29** | **22** | – | – | – | 51 |
+| lead | **30** | **20** | – | – | – | 50 |
+| pad | – | – | **28** | – | – | 28 |
+| fx | 11 | – | – | – | 22 | 33 |
+| texture | 1 | – | 1 | – | 13 | 15 |
+| kick | – | – | – | 7 | 22 | 29 |
+| snare | – | – | – | 6 | 24 | 30 |
+| hat | – | – | – | – | 32 | 32 |
+| perc | – | – | – | 19 | 20 | 39 |
+| **Total** | **111** | **66** | **29** | **32** | **133** | **371** |
+
+- **Scale** — notes are scale degrees, `n("0 2 4 …").scale("A2:minor")`. The root is always **A**, only the
+  octave differs: A1–A2 bass, A3 arps, A4–A5 melodies and pitched effects (laser, coin …).
+- **Other scale** — five- and six-note scales whose notes all sit inside the frame's scale, so they
+  never clash with the progression; each has a major partner it switches to under a major key orb:
+
+  | Family | Under minor | Under major | Orbs (bass / arp / lead) | Character |
+  |---|---|---|---|---|
+  | pentatonic | minor pentatonic (A C D E G) | major pentatonic (A B C# E F#) | 5 / 5 / 4 | open, no half steps |
+  | blues | minor blues (adds E♭) | major blues (adds C) | 5 / 4 / 4 | the blue note only on weak steps, as a passing tone |
+  | japanese | hirajoshi (A B C E F) | ionian pentatonic (A C# D E G#) | 4 / 5 / 3 | half steps, koto-like |
+  | suspended | egyptian (A B D E G) | ritusen (A B D E F#) | 4 / 3 / 4 | no third, floating |
+  | malkos | malkos raga (A C D F G) | major pentatonic | 3 / 3 / 2 | minor sixth, no fifth: dark, heavy |
+  | vietnamese | vietnamese 1 (A C D E F) | major pentatonic | 3 / 2 / 3 | minor sixth over the fifth: lyrical |
+
+  Their lines are built bar by bar in that scale: on-beat notes are chord tones of the bar that the
+  scale has, off-beat notes move along the scale (checked: every on-beat note of all 66 orbs, seeds 1–3,
+  is a chord tone in both minor and major).
+- **Chord progression** — `chord("<Am9 F^7 C^7 G6>").voicing()`; every pad works this way. All its notes
+  are in A natural minor, so pads and scale orbs always agree.
+- **Sample `speed`** — a kick, tom or snare sample played slightly higher or lower (`.speed(0.8–1.2)`).
+  It colours the sound and is not tied to the key.
+- **No pitch** — drums, noise and samples played as recorded.
+- A **key orb** rewrites every `:minor"` to `:major"` and swaps the progression, or moves everything to
+  another root. So the frame is always natural minor or major; the other-scale orbs pick notes from inside it.
+  Modes that would change the frame (dorian, phrygian …) only appear in the song generator (`docs/GENRES.md`).
+
+## Kinds of sound in each category
+
+The `kind` label on each orb, grouped (counts in brackets where more than one).
+
+| Category | Kinds |
+|---|---|
+| kick | 909 (5), RD6 (6 incl. a long one), Kit (6 incl. soft ones), concert bass drum (4), 808 (2), 707 (2), 606, dub (soft, low-passed) |
+| snare | Kit (7), clap (6), 808 (4), 707 (4), RD6 (2), 606 (2), 909 (3), dub rim with echo |
+| hat | 16th / 8th hats on every machine, cabasa (3), open hat, rides (909, 707, Kit), swung 16ths (dub techno) |
+| perc | toms on every machine (incl. 606/Kit toms and tom fills ×5), 707/808/909 percussion, conga, bongo, darbuka, cajon, frame drum, timpani, anvil, brake drum, guiro, the chopped break |
+| bass | other scales: pentatonic, blues, japanese, suspended, malkos, vietnamese (24, on saw, sine, square, triangle, FM, chip triangle, bass guitars, upright incl. a walking line); synth: saw (5), fm (4), dirty (4), square (3), triangle (3), sine (2), acid (3), wub/wobble (3), supersaw, sub; chip (ZZFX) (4); sampled: finger, finger long, staccato, upright, upright walk; dub sub |
+| pad | chords on saw/supersaw (8), marimba (3), chip (3), Rhodes-like FM piano (2), piano (3), vibraphone, square, triangle; dub chord (2); Wurlitzer stabs / tremolo / lofi |
+| arp | other scales (22: balafon, dan tranh, harp, vibraphone, handchimes, marimba, glockenspiel, clavisynth, FM piano, strumstick, tubular bells, kalimba-like FM, Wurlitzer, synths); xylophone (5), harp (4), sawtooth (3), balafon, vibraphone, sine, square (2 each), tubular bells (2), marimba, belltree, handchimes, strumstick, FM bells, Wurlitzer |
+| lead | other scales (20: sax, saxello, recorders, dan tranh tremolo, xylophone, chip square / triangle, synths, Wurlitzer); recorder (7), sax (3), saxello (2), sawtooth (3), sine, triangle, xylophone (2 each), chip square / triangle / sawtooth, dan tranh, supersaw, square, whistle, Wurlitzer |
+| fx | risers and a downlifter, crashes on each machine (6), chip effects (laser, coin, jump, zap ×2, invaders, bleep, space), boom, hoover, rave stab, whistle (2), quijada, flexatone, vibraslap, glitch; block FX: impact, sub drop, reverse crash, reverse snare, sweep up, sweep down |
+| texture | vinyl crackle, dust, rain, clicks, bubbles, tinks, glass, bells, shimmer, hum, drone, didgeridoo, maracas, hat flicks, tape hiss |
+
+## Helper orbs
+
+| Kind | Count | What it does |
+|---|---|---|
+| Combo | 91 | Adds several orbs at once. Sizes: 2 (5), 3 (32), 4 (20), 5 (30), 6 (4). Includes one set per drum machine, key-themed sets, a drop (reverse crash + impact + sweep down), a dub techno groove (6) and two instrument sets (house, late-night jazz) |
+| Mood | 50 | An effect appended to every part — four hand-made scenes (underwater, broken radio, cave, dizzy echo) and generated ones: muffled, thin, broken, crushed, talking (formant), wide, spinning (auto-pan), echo, breathing (filter LFO), swing, holes, 8-bit, and two-effect mixes — or a mute: drums only, no drums, no bass, no melody |
+| Key | 24 | Every root A … G#, minor and major |
+| Tempo | 20 | 70, 74, 78, 82, 86, 90, 96, 100, 104, 108 BPM (darker orbs) and 128, 132, 136, 140, 144, 148, 152, 160, 168, 174 BPM (paler orbs) |
+
+How many of one kind can play at once: up to 3 leads, basses, percussion or FX, up to 4 tempo orbs,
+one of everything else (adding another replaces the oldest).
+
+## How the catalogue is built
+
+`LAYERS` is assembled in batches, each with its own random seed and appended after the previous ones,
+so adding a batch never changes an existing orb's id, name or sound (saved presets refer to orbs by id).
+
+| Batch | Function | What it adds |
+|---|---|---|
+| Hand-made | `HANDMADE` | 30 orbs: 19 core sounds (kick, clap, hats, bass lines, pad, piano, arp, lead, riser, crackle …), 2 tempos, 4 combos and 5 moods (underwater, broken radio, cave, dizzy echo, a drums-off breather) |
+| 1st | `generateOrbs` | Drums on every machine, synth basses/pads/arps/leads, FX, textures, moods, tempos, combos |
+| 2nd | `generateMore` | VCSL instruments, ZZFX chip sounds, more FX and textures |
+| 3rd | `MODE_ORBS`, `generateModeCombos` | The 24 key orbs and key-themed combos |
+| 4th | `generateMachines` | Rides, crashes, tom fills and the 707 kit; one combo per machine |
+| 5th | `generateBlockFx` | 6 block FX + a drop combo (tag `spot`) |
+| 6th | `generateDubTechno` | 7 dub techno parts + a combo (tag `dubtechno`) |
+| 7th | `generateInstruments` | 5 sampled basses, 5 Wurlitzer orbs, 2 combos (tag `instruments`) |
+| 8th | `generateScales` | 33 other-scale basses, arps and leads (tag `scales`, family `other scales`) |
+| 9th | `generateScales(…, ALT_ORBS_2, 2619)` | 33 more: the malkos and vietnamese scales, and new instruments in the four older scale families (same tag and family) |
+
+**Block FX** (`spot`) are accents: in the stem grid they get a single block (impacts and down-sweeps on
+the drop's first block, reversed sounds and up-sweeps on the build-up's last block) and they fall rarely.
+
+## Spawn balance
+
+Falling orbs are picked in two steps (`spawnWeights` in `src/orbs.js`):
+
+1. **Category**, by a fixed share (`CAT_SHARE`: kick 28, snare 29, hat 31, perc 39, bass 34, pad 23,
+   arp 28, lead 29, fx 27, texture 14, combo 87, mood 50, key 24, tempo 20). A category the song is
+   missing counts 4×; combos, moods, keys and tempos count ¼×. Adding orbs to a category does **not**
+   make it fall more often.
+2. **Family** inside the category, weighted by **√(orbs in the family)**, then evenly inside the family.
+   A big new family comes up somewhat more often but cannot crowd out the others (20 brush hats would
+   take about 22% of hat drops, not 38%). Block FX fall at 0.15× their family weight. The other-scale
+   orbs are one family per category held at a fixed **30%** of it (`SCALE_SHARE`), however many there are.
+
+## Levels
+
+Each sound orb is matched to the **median loudness of its category** (K-weighted LUFS, rendered alone for
+4 bars with variation seeds 1–3); `TRIM` in `src/orbCatalog.js` holds the corrections. Category medians:
+
+| kick | snare | hat | perc | bass | pad | arp | lead | fx | texture |
+|---|---|---|---|---|---|---|---|---|---|
+| −17.6 | −27.6 | −26.0 | −25.8 | −25.2 | −27.9 | −32.4 | −31.6 | −35.0 | −45.1 |
+
+Block FX follow the kick instead (impact and sub drop −3 dB, reversed sounds −8 dB, sweeps −10 dB).
+All orbs (the other-scale batch included) sit within ±2 dB except three very quiet recordings (two concert bass drums and the guiro),
+which the ×20 cap on corrections leaves a few dB under.
+
+## Adding orbs
+
+1. Add a batch in `src/orbCatalog.js` after the last one, with its own `rng` seed (`generateX(existing)`).
+   New samples go in `public/samples` (see `tools/samples/`) and in `public/samples/SOURCES.md` and
+   `src/licenses.js`.
+2. Make sure `familyOf` puts the new orbs in a sensible family (add a sampled instrument to
+   `INSTRUMENT_FAMILY`).
+3. Open `/tools/orb-levels.html?run` on the dev server and paste the printed `TRIM` entries.
+4. Listen with the test mode: `/?only=new` (or `?only=fx`, `?only=dub`, `?only=inst`, `?only=scale`, `?only=id1,id2`)
+   drops only those orbs. Give new orbs a `tag` so they show up there.
+
+## Recounting
+
+On the dev server's orb page, in the browser console:
+
+```js
+const o = __orbs, sound = o.LAYERS.filter((l) => l.code && !['combo', 'mood', 'mode', 'tempo'].includes(l.cat));
+console.table(Object.groupBy(sound, (l) => l.cat)); // per category
+console.table(sound.reduce((t, l) => ((t[l.cat] ??= {})[l.family] = (t[l.cat][l.family] ?? 0) + 1, t), {})); // category × family
+```

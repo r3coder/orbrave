@@ -2,12 +2,12 @@
 .lic {
   width: min(560px, calc(100vw - 32px)); max-height: min(80vh, 720px);
   padding: 0; display: none; flex-direction: column;
-  color: var(--fg); background: rgba(10, 16, 13, 0.97); border: 1px solid var(--line);
+  color: var(--fg); background: var(--panel, rgba(10, 16, 13, 0.97)); border: 1px solid var(--line);
   font: inherit; font-size: 13px; line-height: 1.6;
   user-select: text; -webkit-user-select: text;
 }
 .lic[open] { display: flex; }
-.lic::backdrop { background: rgba(0, 0, 0, 0.6); }
+.lic::backdrop { background: var(--scrim, rgba(0, 0, 0, 0.6)); }
 .lic-head {
   display: flex; justify-content: space-between; align-items: center;
   padding: 10px 12px 10px 16px; border-bottom: 1px solid var(--line);
@@ -34,10 +34,16 @@
 .copybox { width: min(480px, calc(100vw - 32px)); }
 .cb-text {
   display: block; box-sizing: border-box; width: 100%; resize: vertical;
-  padding: 8px; color: var(--fg); background: rgba(0, 0, 0, 0.4); border: 1px solid var(--line);
+  padding: 8px; color: var(--fg); background: var(--field-in, rgba(0, 0, 0, 0.4)); border: 1px solid var(--line);
   font: 12px/1.5 ui-monospace, monospace; white-space: pre-wrap; word-break: break-all;
   user-select: text; -webkit-user-select: text;
 }
 .cb-row { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
 .cb-row button { padding: 8px 16px; }
 .cb-copy { color: var(--acc); border-color: var(--acc); }
+
+/* Save popup for in-app browsers (src/saveFile.js) */
+.savebox .sf-hint { margin-top: 10px; }
+.sf-col { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.sf-col button { min-height: 42px; padding: 8px 16px; text-align: left; }
+.sf-col button[hidden] { display: none; }

@@ -113,43 +113,43 @@ export const melodic = (root, sound, snapTo = 'tones') => ({ ctrl: 'n', root, le
 export const drum = (sound, ctrl = 'speed', map = speedOf) => ({ ctrl, map, sound });
 
 const HANDMADE = [
-  { id: 'kick', cat: 'kick', kind: 'kick', name: '심장 뛰는 쿵쿵', color: '#ff4d6d',
+  { id: 'kick', cat: 'kick', kind: 'kick', name: '심장 뛰는 쿵쿵', color: '#f03a47',
     samples: ['TR909_bd'],
     code: (r) => `s("${r.pick(['bd*4', 'bd*4', 'bd bd bd [bd ~ ~ bd]', 'bd bd bd <bd [~ bd]>'])}").bank("TR909").gain(.62)`,
     voice: drum(`.s("bd").bank("TR909").gain(.6)`) },
-  { id: 'kickBroken', cat: 'kick', kind: 'kick', name: '비틀거리는 발걸음', color: '#ff7a45',
+  { id: 'kickBroken', cat: 'kick', kind: 'kick', name: '비틀거리는 발걸음', color: '#ff5a3c',
     samples: ['TR909_bd'],
     code: (r) => `s("bd").struct("${r.pick(['x ~ ~ x ~ ~ x ~ ~ ~ x ~ ~ x ~ ~', 'x ~ ~ ~ ~ ~ x ~ ~ ~ x ~ ~ ~ ~ ~', 'x ~ ~ x ~ ~ ~ ~ x ~ x ~ ~ ~ ~ ~', 'x ~ x ~ ~ ~ x ~ ~ x ~ ~ ~ ~ x ~'])}").bank("TR909").gain(.62)`,
     voice: drum(`.s("bd").bank("TR909").lpf(2500).gain(.6)`) },
-  { id: 'clap', cat: 'snare', kind: 'clap', name: '찰싹! 손뼉 파티', color: '#ffd23f',
+  { id: 'clap', cat: 'snare', kind: 'clap', name: '찰싹! 손뼉 파티', color: '#ff8a3d',
     samples: ['TR909_cp'],
     code: (r) => `s("${r.pick(['~ cp ~ cp', '~ cp ~ [cp ~ ~ cp]', '~ cp ~ <cp [cp cp]>'])}").bank("TR909").gain(.42).room(.2)`,
     voice: drum(`.s("cp").bank("TR909").room(.2).gain(.4)`) },
-  { id: 'lofiSnare', cat: 'snare', kind: 'snare', name: '먼지 낀 낮잠', color: '#c9a66b',
+  { id: 'lofiSnare', cat: 'snare', kind: 'snare', name: '먼지 낀 낮잠', color: '#d9773a',
     samples: ['Kit_sd:5'],
     code: (r) => `s("${r.pick(['~ Kit_sd:5 ~ [Kit_sd:5 ~ ~ Kit_sd:5?]', '~ Kit_sd:5 ~ Kit_sd:5', '~ Kit_sd:5 [~ Kit_sd:5?] Kit_sd:5'])}").gain(.38).lpf(3200).room(.35)`,
     voice: drum(`.s("Kit_sd:5").lpf(3200).room(.35).gain(.38)`) },
-  { id: 'hats', cat: 'hat', kind: 'hihat', name: '잘게 부서진 반짝이', color: '#d8f3ff',
+  { id: 'hats', cat: 'hat', kind: 'hihat', name: '잘게 부서진 반짝이', color: '#ffe45c',
     samples: ['TR909_hh'],
     code: (r) => `s("${r.pick(['hh*16', 'hh*8', '[hh hh ~ hh]*4', '[~ hh]*8'])}").bank("TR909").gain(perlin.range(.18,.42)).hpf(5000).pan(sine.range(.35,.65).slow(4))`,
     voice: drum(`.s("hh").bank("TR909").hpf(5000).gain(.34)`) },
-  { id: 'openHat', cat: 'hat', kind: 'open hat', name: '들썩이는 어깨', color: '#9be7ff',
+  { id: 'openHat', cat: 'hat', kind: 'open hat', name: '들썩이는 어깨', color: '#ffd23f',
     samples: ['TR909_oh'],
     code: `s("~ oh ~ oh ~ oh ~ oh").bank("TR909").gain(.24).hpf(4000)`,
     voice: drum(`.s("oh").bank("TR909").hpf(4000).gain(.24)`) },
-  { id: 'tabla', cat: 'perc', kind: 'percussion', name: '정글의 수다쟁이', color: '#7bd389',
+  { id: 'tabla', cat: 'perc', kind: 'percussion', name: '정글의 수다쟁이', color: '#e8a33a',
     samples: Array.from({ length: 7 }, (_, i) => `TR727_perc:${i}`),
     code: (r) => `s("TR727_perc").struct("x(${r.int(3, 7)},16,${r.int(0, 4)})").n(irand(7)).pan(rand).gain(.34).room(.25)`,
     voice: drum(`.s("TR727_perc").room(.25).gain(.34)`, 'n', (d) => d % 15) },
-  { id: 'amen', cat: 'perc', kind: 'breakbeat', name: '폭주하는 드럼통', color: '#e85d04',
+  { id: 'amen', cat: 'perc', kind: 'breakbeat', name: '폭주하는 드럼통', color: '#d9822b',
     samples: Array.from({ length: 32 }, (_, i) => `kitbreak:${i}`),
     code: (r) => `n("${Array.from({ length: 16 }, (_, i) => (r.chance(0.3) ? r.int(0, 31) : r.chance(0.12) ? `[${i} ${i}]` : i)).join(' ')}").s("kitbreak").cut(1).hpf(180).gain(.38)`,
     voice: drum(`.s("kitbreak").cut(1).hpf(180).gain(.38)`, 'n', (d) => d * 2) },
-  { id: 'rollBass', cat: 'bass', kind: 'bass', name: '꿈틀대는 지렁이', color: '#b5179e',
+  { id: 'rollBass', cat: 'bass', kind: 'bass', name: '꿈틀대는 지렁이', color: '#5a4fe0',
     code: (r) => `n(${bassLine(r, ['0111011101110111', '1011101110111011', '0101010101010101', '0111010101110101'], [0, 0, 0, 0, 7, 4])}).scale("A1:minor")
   .s("sawtooth").lpf(650).lpenv(2).lpd(.1).decay(.15).sustain(0).gain(.34)`,
     voice: melodic('A1', `.s("sawtooth").lpf(800).lpenv(2).lpd(.1).decay(.2).sustain(.4).release(.05).gain(.32)`, 'triad') },
-  { id: 'acid', cat: 'bass', kind: 'acid', name: '격렬한 바나나', color: '#f9e900',
+  { id: 'acid', cat: 'bass', kind: 'acid', name: '격렬한 바나나', color: '#6c5cff',
     code: (r) => `n(${bassLine(r, ['1111111111111111', '1101111011011110', '1011101110111011', '1111011111110110'], [0, 0, 0, 7, 7, 4, 2])}).scale("A1:minor")
   .s("sawtooth").lpf(sine.range(300,3000).slow(8)).lpq(15).lpenv(3).lpd(.12)
   .decay(.18).sustain(.15).shape(.35).gain(.26)`,
@@ -158,20 +158,20 @@ const HANDMADE = [
     code: (r) => `n(${bassLine(r, ['1000001000100000', '1000000010000000', '1000001000000010', '1001000000100000'], [0])}).scale("A1:minor")
   .s("sine").decay(.6).sustain(.6).release(.2).lpf(220).gain(.6)`,
     voice: melodic('A1', `.s("sine").lpf(240).sustain(.9).release(.15).gain(.55)`, 'triad') },
-  { id: 'pad', cat: 'pad', kind: 'pad', name: '구름 위 솜사탕', color: '#ffafcc',
+  { id: 'pad', cat: 'pad', kind: 'pad', name: '구름 위 솜사탕', color: '#6fa8ff',
     code: (r) => r.chance(0.5)
       ? `chord("${PROG}").voicing().s("supersaw").attack(.5).release(1.5).lpf(1500).room(.8).roomsize(6).gain(.1)`
       : `chord("${PROG}").voicing().struct("${r.pick(['x ~ ~ x ~ ~ x ~', 'x ~ x ~', '[~ x]*2'])}").s("supersaw").attack(.05).release(.6).lpf(1700).room(.7).roomsize(5).gain(.1)`,
     voice: melodic('A3', `.s("supersaw").attack(.06).release(.8).lpf(1800).room(.6).roomsize(5).gain(.11)`) },
-  { id: 'piano', cat: 'pad', kind: 'piano', name: '새벽 세 시의 고백', color: '#f1faee',
+  { id: 'piano', cat: 'pad', kind: 'piano', name: '새벽 세 시의 고백', color: '#9cc2ff',
     samples: ['piano'],
     code: (r) => `chord("${PROG}").voicing().struct("${r.pick(['~ x ~ [x ~ ~ x]', 'x ~ ~ x ~ ~ x ~', '[~ x]*4', 'x ~ [~ x] ~', '~ [x x] ~ x'])}").s("piano").clip(1).room(.5).gain(.34)`,
     voice: melodic('A3', `.s("piano").clip(1).room(.45).gain(.4)`) },
-  { id: 'arp', cat: 'arp', kind: 'arpeggio', name: '빙글빙글 회전목마', color: '#4cc9f0',
+  { id: 'arp', cat: 'arp', kind: 'arpeggio', name: '빙글빙글 회전목마', color: '#a66bff',
     code: (r) => `n(${arpLine(r, 0, 14)}).scale("A3:minor").s("square").decay(.12).sustain(0)
   .lpf(sine.range(900,3500).slow(8)).delay(.3).delaytime(__DT__).pan(sine.fast(2)).gain(.1)`,
     voice: melodic('A3', `.s("square").decay(.15).sustain(.25).lpf(2800).delay(.25).delaytime(__DT__).gain(.11)`) },
-  { id: 'bells', cat: 'arp', kind: 'fm bells', name: '유리구슬 빗방울', color: '#a0c4ff',
+  { id: 'bells', cat: 'arp', kind: 'fm bells', name: '유리구슬 빗방울', color: '#c39bff',
     code: (r) => `n(${melody(r, { slots: 8, density: 0.4, lo: 0, hi: 9 })}).scale("A4:minor").s("sine").fm(4).fmh(2.01)
   .decay(.3).sustain(0).delay(.4).delaytime(__DT__).delayfeedback(.5).room(.5).pan(rand).gain(.17)`,
     voice: melodic('A4', `.s("sine").fm(4).fmh(2.01).decay(.4).sustain(.1).delay(.3).delaytime(__DT__).room(.4).gain(.17)`) },
@@ -179,14 +179,14 @@ const HANDMADE = [
     code: (r) => `n(${melody(r, { slots: 8, density: 0.55, lo: 0, hi: 9, hold: 0.3 })}).scale("A4:minor")
   .s("sawtooth").lpf(2400).decay(.2).sustain(.4).release(.3).room(.4).delay(.3).delaytime(__DT__).gain(.12)`,
     voice: melodic('A4', `.s("sawtooth").lpf(2600).decay(.2).sustain(.5).release(.2).room(.3).delay(.25).delaytime(__DT__).gain(.12)`) },
-  { id: 'ghost', cat: 'lead', kind: 'whistle', name: '휘파람 부는 유령', color: '#cdb4db',
+  { id: 'ghost', cat: 'lead', kind: 'whistle', name: '휘파람 부는 유령', color: '#7fe0c4',
     code: (r) => `n(${melody(r, { slots: 4, density: 0.75, lo: 2, hi: 9, hold: 0.6 })}).scale("A4:minor")
   .s("triangle").attack(.08).release(.8).vib(5).vibmod(.25).room(.7).roomsize(5).gain(.16)`,
     voice: melodic('A4', `.s("triangle").attack(.04).release(.4).vib(5).vibmod(.25).room(.6).gain(.18)`) },
-  { id: 'riser', cat: 'fx', kind: 'riser', name: '우주행 엘리베이터', color: '#f72585',
+  { id: 'riser', cat: 'fx', kind: 'riser', name: '우주행 엘리베이터', color: '#a3aab8',
     code: `s("white*16").decay(.08).sustain(0).gain(saw.range(.04,.2).slow(8)).hpf(saw.range(400,9000).slow(8))`,
     voice: drum(`.s("white").decay(.07).sustain(0).gain(.12)`, 'hpf', (d) => Math.round(300 * 2 ** (d / 3))) },
-  { id: 'crackle', cat: 'texture', kind: 'texture', name: '낡은 레코드의 한숨', color: '#8d99ae',
+  { id: 'crackle', cat: 'texture', kind: 'texture', name: '낡은 레코드의 한숨', color: '#8d95a3',
     code: `s("white*16").degradeBy(.6).decay(.02).sustain(0).hpf(3000).gain(rand.range(.02,.09))`,
     voice: drum(`.s("white").decay(.02).sustain(0).gain(.1)`, 'hpf', (d) => Math.round(500 * 2 ** (d / 4))) },
 
@@ -460,8 +460,9 @@ const COMBO_TEMPLATES = [
 
 // [hue from, hue to, saturation, lightness] per category
 const HUES = {
-  kick: [340, 20, 70, 55], snare: [38, 62, 90, 60], hat: [175, 215, 70, 82], perc: [85, 150, 55, 55], bass: [265, 320, 70, 50],
-  pad: [315, 350, 80, 80], arp: [190, 232, 80, 65], lead: [150, 178, 75, 50], fx: [320, 345, 85, 58], texture: [200, 230, 12, 60],
+  // drums red → yellow, bass / chords / arpeggio blue → violet, lead teal-green, effects grey
+  kick: [350, 8, 80, 55], snare: [14, 30, 85, 58], hat: [44, 58, 90, 64], perc: [28, 44, 70, 50], bass: [252, 272, 70, 52],
+  pad: [212, 236, 72, 64], arp: [276, 300, 72, 66], lead: [150, 178, 75, 50], fx: [200, 240, 10, 62], texture: [200, 240, 10, 62],
 };
 
 function generateOrbs(existing) {
@@ -576,8 +577,10 @@ const moreBankSrc = (r, snd) => {
   const b = r.pick(MORE_BANKS.filter((x) => x.has.includes(snd)));
   return { s: snd, bank: b.name, label: b.label, samples: [`${b.name}_${snd}`] };
 };
-// mridangam strokes (yaxu/mrid, loaded by the orb page from dough-samples' mridangam.json)
-const MRIDANGAM = { ta: 9, ki: 7, na: 12, thom: 7, dhin: 8, dhi: 7, tha: 7, gumki: 14, chaapu: 13, nam: 8, ka: 12 };
+// VCSL hand percussion, one indexed pick each. These 11 slots used to be mridangam strokes
+// (CC BY-SA); keeping 11 one-draw sources keeps the rng stream, so no other orb changes.
+// (clave and woodblock sat here first but measured too quiet to trim, so those slots got drums)
+const HAND_PERC = [['bongo', 28], ['conga', 34], ['darbuka', 20], ['cajon', 18], ['framedrum', 18], ['slitdrum', 6], ['cajon', 18], ['darbuka', 20], ['agogo', 5], ['tambourine', 7], ['cowbell', 13]];
 
 const MORE_DRUMS = {
   kick: { ...KICK, sources: [(r) => moreBankSrc(r, 'bd'), (r) => moreBankSrc(r, 'bd'), () => plainSrc('Kit_bd:6', 'kit soft'), () => plainSrc('RD6_bd:5', 'RD6 long')] },
@@ -593,7 +596,7 @@ const MORE_DRUMS = {
       indexed('TR808_ht', 3, 'tom'), indexed('TR808_lt', 4, 'tom'), indexed('TR707_lt', 2, 'tom'), indexed('TR707_ht', 2, 'tom'), indexed('TR606_ht', 2, 'tom'), indexed('TR808_cb', 2, 'cowbell'),
       indexed('tom_mallet', 8, 'tom'), indexed('tom2_stick', 8, 'tom'), indexed('timpani', 30), indexed('anvil', 9), indexed('brakedrum', 17, 'brake'),
       indexed('guiro', 5), indexed('slapstick', 5), indexed('ratchet', 8),
-      ...Object.entries(MRIDANGAM).map(([k, n]) => indexed(k, n, 'mridangam'))],
+      ...HAND_PERC.map(([k, n]) => indexed(k, n))],
   },
 };
 
@@ -901,20 +904,441 @@ function generateMachines(existing) {
   return out;
 }
 
+// ---------- fifth batch: block FX (public/samples/fx, built by tools/samples/build_fx.py) ----------
+// One-shots placed on the 4-bar grid: hits on a block's first bar, reversed sounds and the
+// up-sweep on its last bar. The reversed and swept ones are one bar (or half a bar) long at
+// 124 BPM and play with .fit(), so they end exactly on the next downbeat at any tempo.
+// `level` is their loudness target for tools/orb-levels.html: accents are matched to the kick, not
+// to the quieter FX loops. `spot` marks them as one-off accents: they fall rarely, and the stem grid puts each one in a
+// single block (start = the drop's first block, end = the build-up's last block), not everywhere.
+// Own seed and appended last, so every older id stays the same.
+const BLOCK_FX = [
+  { snd: 'impact', n: 3, kind: 'impact', spot: 'start', level: ['kick', -3], gain: 0.3, structs: ['<x ~ ~ ~>', '<x ~ x ~>'], tone: ['', '.room(.2)'] },
+  { snd: 'subdrop', n: 2, kind: 'sub drop', spot: 'start', level: ['kick', -3], gain: 0.4, structs: ['<x ~ ~ ~>', '<~ ~ x ~>'], tone: [''] },
+  { snd: 'revcr', n: 4, kind: 'reverse crash', spot: 'end', level: ['kick', -8], gain: 0.32, fit: true, structs: ['<~ ~ ~ x>', '<~ x ~ x>'], tone: ['', '.pan(sine.slow(4))'] },
+  { snd: 'revsd', n: 3, kind: 'reverse snare', spot: 'end', level: ['kick', -8], gain: 0.34, fit: true, structs: ['<~ ~ ~ [~ x]>', '<~ [~ x] ~ [~ x]>'], tone: ['', '.hpf(300)'] },
+  { snd: 'upsweep', n: 2, kind: 'sweep up', spot: 'end', level: ['kick', -10], gain: 0.24, fit: true, structs: ['<~ ~ ~ x>', '<~ x ~ x>'], tone: ['', '.pan(sine.slow(2))'] },
+  { snd: 'downsweep', n: 2, kind: 'sweep down', spot: 'start', level: ['kick', -10], gain: 0.24, fit: true, structs: ['<x ~ ~ ~>', '<x ~ x ~>'], tone: ['', '.pan(sine.slow(2))'] },
+];
+
+function generateBlockFx(existing) {
+  const r = rng(2615);
+  const used = new Set(existing.map((l) => l.name));
+  const name = (cat) => {
+    const nouns = NOUNS[cat].split(' ');
+    for (let k = 0; k < 500; k++) {
+      const n = `${r.pick(ADJ)} ${r.pick(nouns)}`;
+      if (!used.has(n)) {
+        used.add(n);
+        return n;
+      }
+    }
+    return `${r.pick(ADJ)} ${r.pick(nouns)} ${used.size}`;
+  };
+  const color = (cat) => {
+    const [h0, h1, sat, l] = HUES[cat];
+    return hex((h0 + r() * ((h1 - h0 + 360) % 360)) % 360, sat + r.int(-10, 10), l + r.int(-8, 8));
+  };
+  const next = {};
+  const nextId = (cat) => {
+    next[cat] ??= Math.max(0, ...existing.map((l) => (l.cat === cat && /\d+$/.exec(l.id)?.[0]) || 0).map(Number));
+    return `${cat}${++next[cat]}`;
+  };
+  const out = [];
+  const ids = {};
+  for (const f of BLOCK_FX) {
+    const s = `fx_${f.snd}`, fit = f.fit ? '.fit()' : '', cut = choke(), tone = r.pick(f.tone);
+    const l = {
+      id: nextId('fx'), cat: 'fx', name: name('fx'), color: color('fx'), kind: f.kind, spot: f.spot, level: f.level, samples: range(s, f.n),
+      code: (v) => `s("${s}").n(${v.int(0, f.n - 1)}).struct("${v.pick(f.structs)}")${fit}${tone}${cut}.gain(${f.gain})`,
+      voice: drum(`.s("${s}")${tone}${cut}.gain(${f.gain})`),
+    };
+    out.push(l);
+    ids[f.snd] = l.id;
+  }
+  // a drop: the crash swells into the downbeat, the hit lands, the sweep falls away
+  out.push({ id: nextId('combo'), cat: 'combo', kind: 'combo · drop 3', name: name('combo'), spot: true, combo: [ids.revcr, ids.impact, ids.downsweep] });
+  return out;
+}
+
+// ---------- sixth batch: dub techno (docs/GENRES.md, dubtechno) ----------
+// The song generator's dub techno, cut into orbs: a soft kick, a rim with an echo, swung 16th
+// hats, an offbeat sub, the stab-into-echoes chord on the frame's progression, and hiss.
+// Own seed and appended last, so every older id stays the same.
+const DUB_SWING = '.swingBy(.18, 8)';
+const DUB_ORBS = [
+  { cat: 'kick', kind: 'kick · dub', samples: ['TR909_bd:3', 'TR808_bd:1'],
+    code: (v) => `s("${v.pick(['TR909_bd:3', 'TR808_bd:1'])}*4").lpf(${v.pick([1600, 2200])}).gain(.6)`,
+    voice: drum(`.s("TR909_bd:3").lpf(2000).gain(.6)`) },
+  { cat: 'snare', kind: 'rim · dub', samples: ['TR909_rim:0', 'TR808_rim:0'],
+    code: (v) => `s("${v.pick(['TR909_rim:0', 'TR808_rim:0'])}").struct("${v.pick(['~ x ~ x', '~ x ~ [x ~ ~ x?]', '~ x ~ <x [~ x]>'])}").room(.4).delay(.35).delaytime(__DT__).delayfeedback(.45)${DUB_SWING}.gain(.63)`,
+    voice: drum(`.s("TR909_rim:0").room(.4).delay(.3).delaytime(__DT__).gain(.63)`) },
+  { cat: 'hat', kind: 'hihat · swung', samples: ['TR808_hh:1', 'TR909_hh:0'],
+    code: (v) => `s("${v.pick(['TR808_hh:1', 'TR909_hh:0'])}*16").gain("${v.pick(['[.32 .48 .7 .48]*4', '[.4 .6 .6 .6]*4'])}").hpf(5000).pan(sine.range(.4,.6).slow(2))${DUB_SWING}`,
+    voice: drum(`.s("TR808_hh:1").hpf(5000).gain(.6)`) },
+  { cat: 'bass', kind: 'bass · dub sub',
+    code: (v) => `n(${bassLine(v, ['0010001000100010', '0010000000100010', '1000001000100000', '0010001000000010'], [0, 0, 7])}).scale("A1:minor")
+  .s("sine").decay(.22).sustain(.3).release(.1).lpf(220).shape(.2).gain(.55)`,
+    voice: melodic('A1', `.s("sine").decay(.3).sustain(.5).release(.1).lpf(240).shape(.2).gain(.5)`, 'triad') },
+  { cat: 'pad', kind: 'dub chord',
+    code: (v) => `chord("${PROG}").voicing().struct("${v.pick(['~ x ~ ~ ~ x ~ ~', '~ ~ x ~ ~ ~ ~ ~', '~ x ~ ~ ~ ~ x ~', '~ ~ ~ x ~ ~ ~ ~'])}")
+  .s("sawtooth").decay(.15).sustain(0).lpf(sine.range(700,1800).slow(16)).room(.6).delay(.5).delaytime(__DT__).delayfeedback(.65).gain(.38)`,
+    voice: melodic('A3', `.s("sawtooth").decay(.15).sustain(0).lpf(1400).room(.6).delay(.5).delaytime(__DT__).delayfeedback(.6).gain(.38)`) },
+  { cat: 'pad', kind: 'dub chord · wide',
+    code: (v) => `chord("${PROG}").voicing().struct("${v.pick(['~ x ~ ~ ~ x ~ ~', '~ x ~ ~ ~ ~ x ~', '~ ~ x ~ ~ x ~ ~'])}")
+  .s("sawtooth").decay(.22).sustain(0).lpf(sine.range(500,1600).slow(8)).lpq(4).room(.7).roomsize(4).delay(.55).delaytime(__DT__).delayfeedback(.7).pan(sine.slow(8)).gain(.37)`,
+    voice: melodic('A3', `.s("sawtooth").decay(.2).sustain(0).lpf(1300).lpq(4).room(.7).delay(.5).delaytime(__DT__).gain(.37)`) },
+  { cat: 'texture', kind: 'tape hiss',
+    code: (v) => `s("crackle").density(${v.pick(['.02', '.04'])}).sustain(1).hpf(1500).gain(.78)`,
+    voice: drum(`.s("white").decay(.03).sustain(0).hpf(3000).gain(.08)`, 'hpf', (d) => Math.round(500 * 2 ** (d / 4))) },
+];
+
+function generateDubTechno(existing) {
+  const r = rng(2616);
+  const used = new Set(existing.map((l) => l.name));
+  const name = (cat) => {
+    const nouns = NOUNS[cat].split(' ');
+    for (let k = 0; k < 500; k++) {
+      const n = `${r.pick(ADJ)} ${r.pick(nouns)}`;
+      if (!used.has(n)) {
+        used.add(n);
+        return n;
+      }
+    }
+    return `${r.pick(ADJ)} ${r.pick(nouns)} ${used.size}`;
+  };
+  const color = (cat) => {
+    const [h0, h1, sat, l] = HUES[cat];
+    return hex((h0 + r() * ((h1 - h0 + 360) % 360)) % 360, sat + r.int(-10, 10), l + r.int(-8, 8));
+  };
+  const next = {};
+  const nextId = (cat) => {
+    next[cat] ??= Math.max(0, ...existing.map((l) => (l.cat === cat && /\d+$/.exec(l.id)?.[0]) || 0).map(Number));
+    return `${cat}${++next[cat]}`;
+  };
+  const out = [];
+  for (const def of DUB_ORBS) {
+    const cut = def.samples ? choke() : '';
+    const code = cut ? (v) => def.code(v) + cut : def.code;
+    const voice = cut ? { ...def.voice, sound: def.voice.sound + cut } : def.voice;
+    out.push({ id: nextId(def.cat), cat: def.cat, name: name(def.cat), color: color(def.cat), tag: 'dubtechno', ...def, code, voice });
+  }
+  // the whole groove at once (one orb per part)
+  const pick = (cat) => out.find((l) => l.cat === cat).id;
+  out.push({ id: nextId('combo'), cat: 'combo', kind: 'combo · dub techno 6', name: name('combo'), tag: 'dubtechno',
+    combo: ['kick', 'snare', 'hat', 'bass', 'pad', 'texture'].map(pick) });
+  return out;
+}
+
+// ---------- seventh batch: sampled basses and a Wurlitzer (tools/samples/build_pitched.py) ----------
+// Until now every bass orb was a synth and the only played keyboard was the piano. These use
+// recorded instruments: two bass guitars and an upright (Karoryfer / D. Smolken, CC0) and Greg
+// Sullivan's Wurlitzer EP200 (CC BY 3.0). Own seed and appended last, so older ids stay put.
+const INST_ORBS = [
+  { cat: 'bass', kind: 'bass · finger', s: 'swagbass', tone: '.clip(1).lpf(2000)', gain: 0.68,
+    rhythms: ['1000101000101000', '1001001000100100', '1010001010100010', '1000100110001001'], offsets: [0, 0, 4, 7] },
+  { cat: 'bass', kind: 'bass · finger long', s: 'swagbass', tone: '.clip(1.6).lpf(1400)', gain: 0.78,
+    rhythms: ['1000000010000000', '1000001000100000', '1000000000100000'], offsets: [0, 0, 4] },
+  { cat: 'bass', kind: 'bass · staccato', s: 'growlybass', tone: '.lpf(2600)', gain: 0.44,
+    rhythms: ['1010101010101010', '1011101110111011', '1010001010100010', '1110111011101110'], offsets: [0, 0, 0, 7] },
+  { cat: 'bass', kind: 'bass · upright walk', s: 'uprightbass', tone: '.clip(1).room(.2)', gain: 0.47,
+    rhythms: ['1000100010001000', '1000100010001010', '1000100010101000'], offsets: [0, 2, 4, 5, 7] },
+  { cat: 'bass', kind: 'bass · upright', s: 'uprightbass', tone: '.room(.3)', gain: 0.6,
+    rhythms: ['1000001000000000', '1000000010000010', '1000001000100000'], offsets: [0, 0, 4] },
+];
+const WURLI = (tone, gain) => `.s("wurli").clip(1)${tone}.gain(${gain})`;
+const WURLI_ORBS = [
+  { cat: 'pad', kind: 'e-piano · stabs',
+    code: (v) => `chord("${PROG}").voicing().struct("${v.pick(['~ x ~ x ~ x ~ x', '~ x ~ ~ ~ x ~ ~', '[~ x]*4', '~ x ~ [x ~ ~ x]'])}")${WURLI('.room(.3)', 0.082)}`,
+    voice: melodic('A3', WURLI('.room(.3)', 0.082)) },
+  { cat: 'pad', kind: 'e-piano · tremolo',
+    code: (v) => `chord("${PROG}").voicing().struct("${v.pick(['x ~ ~ ~', 'x ~ ~ x ~ ~ x ~', 'x ~ x ~'])}")${WURLI('.pan(sine.fast(4)).room(.4)', 0.17)}`,
+    voice: melodic('A3', WURLI('.pan(sine.fast(4)).room(.4)', 0.17)) },
+  { cat: 'pad', kind: 'e-piano · lofi',
+    code: (v) => `chord("${PROG}").voicing().struct("${v.pick(['~ x ~ [x ~ ~ x]', 'x ~ ~ x ~ ~ x ~', '~ [x x] ~ x'])}")${WURLI('.lpf(2200).room(.45).delay(.25).delaytime(__DT__).swingBy(1/6, 4)', 0.075)}`,
+    voice: melodic('A3', WURLI('.lpf(2200).room(.45)', 0.075)) },
+  { cat: 'arp', kind: 'arp · e-piano',
+    code: (v) => `n(${arpLine(v, 0, 14)}).scale("A3:minor")${WURLI('.delay(.3).delaytime(__DT__).pan(sine.slow(4))', 0.054)}`,
+    voice: melodic('A3', WURLI('.delay(.3).delaytime(__DT__)', 0.054)) },
+  { cat: 'lead', kind: 'lead · e-piano',
+    code: (v) => `n(${melody(v, { slots: 8, density: 0.5, lo: 0, hi: 9, hold: 0.3 })}).scale("A4:minor")${WURLI('.room(.4)', 0.072)}`,
+    voice: melodic('A4', WURLI('.room(.4)', 0.072)) },
+];
+
+function generateInstruments(existing) {
+  const r = rng(2617);
+  const used = new Set(existing.map((l) => l.name));
+  const name = (cat) => {
+    const nouns = NOUNS[cat].split(' ');
+    for (let k = 0; k < 500; k++) {
+      const n = `${r.pick(ADJ)} ${r.pick(nouns)}`;
+      if (!used.has(n)) {
+        used.add(n);
+        return n;
+      }
+    }
+    return `${r.pick(ADJ)} ${r.pick(nouns)} ${used.size}`;
+  };
+  const color = (cat) => {
+    const [h0, h1, sat, l] = HUES[cat];
+    return hex((h0 + r() * ((h1 - h0 + 360) % 360)) % 360, sat + r.int(-10, 10), l + r.int(-8, 8));
+  };
+  const next = {};
+  const nextId = (cat) => {
+    next[cat] ??= Math.max(0, ...existing.map((l) => (l.cat === cat && /\d+$/.exec(l.id)?.[0]) || 0).map(Number));
+    return `${cat}${++next[cat]}`;
+  };
+  const out = [];
+  const add = (def) => {
+    const l = { id: nextId(def.cat), cat: def.cat, name: name(def.cat), ...(def.cat !== 'combo' && { color: color(def.cat) }), tag: 'instruments', ...def };
+    out.push(l);
+    return l.id;
+  };
+  const ids = {};
+  for (const b of INST_ORBS) {
+    const snd = `.s("${b.s}")${b.tone}.gain(${b.gain})`;
+    ids[b.kind] = add({ cat: b.cat, kind: b.kind, samples: [b.s],
+      code: (v) => `n(${bassLine(v, b.rhythms, b.offsets)}).scale("A1:minor")${snd}`,
+      voice: melodic('A1', `.s("${b.s}")${b.tone}.gain(${b.gain})`, 'triad') });
+  }
+  for (const w of WURLI_ORBS) ids[w.kind] = add({ samples: ['wurli'], ...w });
+  // a house groove on the new bass and keys, and a late-night jazz corner
+  add({ cat: 'combo', kind: 'combo · 4', combo: ['kick', 'hats', ids['bass · finger'], ids['e-piano · stabs']] });
+  add({ cat: 'combo', kind: 'combo · 4', combo: ['lofiSnare', 'crackle', ids['bass · upright walk'], ids['e-piano · lofi']] });
+  return out;
+}
+
+// ---------- eighth batch: other scales that fit the frame ----------
+// Every scale orb so far plays A natural minor (or A major under a key orb). These play five- and
+// six-note scales whose notes all sit inside that scale, so they colour the line without clashing
+// with the progression: pentatonic, blues (its blue note only on weak steps), Japanese (hirajoshi)
+// and suspended (egyptian). Under a major key orb each switches to its major partner. Degrees are
+// counted in the five/six-note scale, so the lines are built here bar by bar: strong steps land on
+// the bar's chord tones that the scale has, weak steps move along the scale.
+// Own seed and appended last, so every older id stays the same.
+const ALT_SCALES = {
+  pentatonic: { minor: ['minor:pentatonic', [0, 3, 5, 7, 10]], major: ['major:pentatonic', [0, 2, 4, 7, 9]] },
+  blues: { minor: ['minor:blues', [0, 3, 5, 6, 7, 10]], major: ['major:blues', [0, 2, 3, 4, 7, 9]] },
+  japanese: { minor: ['hirajoshi', [0, 2, 3, 7, 8]], major: ['ionian:pentatonic', [0, 4, 5, 7, 11]] },
+  suspended: { minor: ['egyptian', [0, 2, 5, 7, 10]], major: ['ritusen', [0, 2, 5, 7, 9]] },
+  // ninth batch: two more minor-sixth pentatonics; under a major key both fall back to major pentatonic
+  malkos: { minor: ['malkos:raga', [0, 3, 5, 8, 10]], major: ['major:pentatonic', [0, 2, 4, 7, 9]] },
+  vietnamese: { minor: ['vietnamese:1', [0, 3, 5, 7, 8]], major: ['major:pentatonic', [0, 2, 4, 7, 9]] },
+};
+const MODE_STEPS = { minor: [0, 2, 3, 5, 7, 8, 10], major: [0, 2, 4, 5, 7, 9, 11] };
+const pcMod = (x) => ((x % 12) + 12) % 12;
+// the scale as it stands under the current mode, and how its degrees meet a bar's chord
+function altFrame(fam) {
+  const [name, steps] = ALT_SCALES[fam][MODE] ?? ALT_SCALES[fam].minor;
+  const k = steps.length;
+  const semi = (d) => 12 * Math.floor(d / k) + steps[((d % k) + k) % k];
+  const chordPcs = (c) => c.tones.map((t) => MODE_STEPS[MODE][mod7(t)]);
+  const inChord = (d, c) => chordPcs(c).includes(pcMod(semi(d)));
+  // the degree nearest to `d` that is a chord tone (ties go down)
+  const snapTo = (d, c) => {
+    for (let s = 0; s <= k; s++) for (const x of [d - s, d + s]) if (inChord(x, c)) return x;
+    return d;
+  };
+  // the bar's anchor at or above `lo`: its root if the scale has it, else the nearest chord tone
+  const anchor = (c, lo) => {
+    const root = MODE_STEPS[MODE][mod7(c.root)];
+    for (let d = lo; d < lo + k; d++) if (pcMod(semi(d)) === root) return d;
+    return snapTo(lo, c);
+  };
+  return { name, k, inChord, snapTo, anchor };
+}
+const altBass = (r, fam, rhythms) => {
+  const motif = [...r.pick(rhythms)].map((x) => x === '1');
+  const offs = motif.map((on, i) => (i === 0 ? 0 : r.pick([0, 0, 1, -1, 2, 'oct'])));
+  return bars((c) => {
+    const f = altFrame(fam), a = f.anchor(c, -2);
+    return motif.map((on, i) => {
+      if (!on) return '~';
+      const d = offs[i] === 'oct' ? a + f.k : a + offs[i];
+      return i % 4 === 0 ? f.snapTo(d, c) : d;
+    });
+  });
+};
+const altArp = (r, fam) => {
+  const shape = r.pick(ARP_SHAPES), len = r.pick([8, 8, 16]);
+  return bars((c) => {
+    const f = altFrame(fam);
+    const ds = Array.from({ length: 2 * f.k + 1 }, (_, i) => i).filter((d) => f.inChord(d, c));
+    return Array.from({ length: len }, (_, i) => ds[Math.min(ds.length - 1, shape[i % shape.length])]);
+  });
+};
+const altMelody = (r, fam, { slots, density, hold }) => {
+  const rhythm = Array.from({ length: slots }, (_, i) => i === 0 || r.chance(density));
+  const steps = rhythm.map(() => r.pick([-2, -1, -1, 0, 1, 1, 2]));
+  let d = 3;
+  return bars((c) => {
+    const f = altFrame(fam), lo = 0, hi = 2 * f.k;
+    return rhythm.map((on, i) => {
+      if (!on) return i > 0 && r.chance(hold) ? '_' : '~';
+      d = Math.max(lo, Math.min(hi, d + steps[i]));
+      if ((i * 8) % slots === 0 && ((i * 8) / slots) % 2 === 0) d = f.snapTo(d, c); // on the beat: a chord tone
+      return d;
+    });
+  });
+};
+// scale names carry the mode, so they are rebuilt per call (codeOf sets the mode first)
+const altScale = (fam, root) => `.scale("${root}:${(ALT_SCALES[fam][MODE] ?? ALT_SCALES[fam].minor)[0]}")`;
+const ALT_ORBS = [
+  // bass (13)
+  ...[['pentatonic', 'sawtooth', '.lpf(900).decay(.2).sustain(.3)', 0.32], ['pentatonic', 'swagbass', '.clip(1).lpf(2000)', 0.4, ['swagbass']],
+    ['pentatonic', 'sine', '.decay(.4).sustain(.6).lpf(300)', 0.5], ['pentatonic', 'square', '.lpf(700).decay(.15).sustain(.2)', 0.24],
+    ['blues', 'uprightbass', '.clip(1).room(.2)', 0.3, ['uprightbass']], ['blues', 'sawtooth', '.lpf(1200).lpq(6).decay(.18).sustain(.2)', 0.28],
+    ['blues', 'growlybass', '.lpf(2600)', 0.24, ['growlybass']],
+    ['japanese', 'triangle', '.decay(.3).sustain(.5).lpf(800)', 0.45], ['japanese', 'uprightbass', '.room(.3)', 0.3, ['uprightbass']],
+    ['japanese', 'sawtooth', '.lpf(600).decay(.25).sustain(.3).room(.2)', 0.3],
+    ['suspended', 'sine', '.fm(1).fmh(2).decay(.3).sustain(.4).lpf(500)', 0.4], ['suspended', 'swagbass', '.clip(1.4).lpf(1400)', 0.4, ['swagbass']],
+    ['suspended', 'square', '.lpf(900).decay(.12).sustain(.2)', 0.22]]
+    .map(([fam, s, tone, g, samples]) => ({ cat: 'bass', fam, s, tone, g, samples })),
+  // arp (10)
+  ...[['pentatonic', 'balafon', '', 0.36, ['balafon']], ['pentatonic', 'square', '.decay(.12).sustain(0).lpf(sine.range(900,3500).slow(8))', 0.1],
+    ['pentatonic', 'wurli', '.clip(1).delay(.3).delaytime(__DT__)', 0.06, ['wurli']],
+    ['japanese', 'dantranh', '.room(.4)', 0.36, ['dantranh']], ['japanese', 'harp', '.room(.5)', 0.38, ['harp']],
+    ['japanese', 'triangle', '.decay(.2).sustain(0).delay(.4).delaytime(__DT__).delayfeedback(.5)', 0.2],
+    ['suspended', 'vibraphone', '.room(.4)', 0.36, ['vibraphone']], ['suspended', 'handchimes', '.room(.5)', 0.3, ['handchimes']],
+    ['blues', 'sawtooth', '.decay(.1).sustain(0).lpf(2200)', 0.12], ['blues', 'vibraphone', '.room(.3).delay(.25).delaytime(__DT__)', 0.34, ['vibraphone']]]
+    .map(([fam, s, tone, g, samples]) => ({ cat: 'arp', fam, s, tone, g, samples })),
+  // lead (10)
+  ...[['blues', 'sax', '.room(.3)', 0.36, ['sax']], ['blues', 'sawtooth', '.lpf(2200).decay(.2).sustain(.4).release(.3)', 0.12],
+    ['blues', 'wurli', '.clip(1).room(.4)', 0.07, ['wurli']],
+    ['pentatonic', 'z_square', '.decay(.12).sustain(.4).release(.05)', 0.12], ['pentatonic', 'triangle', '.attack(.04).release(.4).vib(5).vibmod(.25)', 0.18],
+    ['pentatonic', 'saxello_vib', '.room(.3)', 0.36, ['saxello_vib']],
+    ['japanese', 'recorder_alto_vib', '.room(.5)', 0.36, ['recorder_alto_vib']], ['japanese', 'sine', '.attack(.06).release(.6).vib(5).vibmod(.2).room(.5)', 0.2],
+    ['suspended', 'recorder_tenor_vib', '.room(.4)', 0.36, ['recorder_tenor_vib']], ['suspended', 'supersaw', '.lpf(3000).decay(.25).sustain(.5).release(.3)', 0.09]]
+    .map(([fam, s, tone, g, samples]) => ({ cat: 'lead', fam, s, tone, g, samples })),
+];
+
+// ninth batch: the same scale families twice as big. New scales (malkos, vietnamese) and, in the
+// four older families, instruments they did not use yet. Entries may name their own root and bass rhythms.
+const ALT_ORBS_2 = [
+  // bass (11)
+  ...[['malkos', 'sawtooth', '.lpf(700).lpq(4).decay(.25).sustain(.3)', 0.3], ['malkos', 'uprightbass', '.room(.2)', 0.3, ['uprightbass']],
+    ['malkos', 'sine', '.decay(.4).sustain(.6).lpf(250).shape(.2)', 0.45],
+    ['vietnamese', 'triangle', '.decay(.3).sustain(.5).lpf(700)', 0.45], ['vietnamese', 'swagbass', '.clip(1).lpf(1800).room(.15)', 0.4, ['swagbass']],
+    ['vietnamese', 'square', '.lpf(600).decay(.2).sustain(.3)', 0.22],
+    ['pentatonic', 'uprightbass', '.room(.15)', 0.3, ['uprightbass'], { walk: true }], ['blues', 'swagbass', '.clip(1).lpf(1600)', 0.4, ['swagbass']],
+    ['blues', 'z_triangle', '.decay(.2).sustain(.3)', 0.3], ['japanese', 'sine', '.fm(2).fmh(1).decay(.25).sustain(.3).lpf(600)', 0.4],
+    ['suspended', 'growlybass', '.lpf(2000)', 0.24, ['growlybass']]]
+    .map(([fam, s, tone, g, samples, more]) => ({ cat: 'bass', fam, s, tone, g, samples, ...more })),
+  // arp (12)
+  ...[['malkos', 'harp', '.room(.5)', 0.38, ['harp']], ['malkos', 'triangle', '.decay(.2).sustain(0).delay(.35).delaytime(__DT__)', 0.2],
+    ['malkos', 'tubularbells2', '.room(.4)', 0.3, ['tubularbells2']],
+    ['vietnamese', 'dantranh', '.room(.4)', 0.36, ['dantranh']], ['vietnamese', 'balafon_soft', '', 0.4, ['balafon_soft']],
+    ['pentatonic', 'marimba', '', 0.4, ['marimba']], ['pentatonic', 'glockenspiel', '', 0.3, ['glockenspiel'], { root: 'A4' }],
+    ['blues', 'clavisynth', '.room(.3)', 0.3, ['clavisynth']], ['blues', 'fmpiano', '.room(.3)', 0.3, ['fmpiano']],
+    ['japanese', 'sine', '.fm(5).fmh(3.01).decay(.25).sustain(0).room(.4)', 0.16], ['japanese', 'strumstick', '', 0.36, ['strumstick']],
+    ['suspended', 'tubularbells', '.room(.4)', 0.3, ['tubularbells']]]
+    .map(([fam, s, tone, g, samples, more]) => ({ cat: 'arp', fam, s, tone, g, samples, ...more })),
+  // lead (10)
+  ...[['malkos', 'sawtooth', '.lpf(1400).attack(.03).decay(.3).sustain(.4).release(.4).room(.4)', 0.12], ['malkos', 'saxello_vib', '.room(.4)', 0.36, ['saxello_vib']],
+    ['vietnamese', 'recorder_alto_vib', '.room(.5)', 0.36, ['recorder_alto_vib']], ['vietnamese', 'sine', '.attack(.05).release(.5).vib(6).vibmod(.3).room(.4)', 0.2],
+    ['vietnamese', 'wurli', '.clip(1).room(.4)', 0.07, ['wurli']],
+    ['pentatonic', 'recorder_soprano_stacc', '.room(.4)', 0.34, ['recorder_soprano_stacc']], ['blues', 'sax_stacc', '.room(.3)', 0.36, ['sax_stacc']],
+    ['japanese', 'dantranh_tremolo', '.room(.3)', 0.34, ['dantranh_tremolo']], ['suspended', 'z_triangle', '.decay(.15).sustain(.5).tremolo(.3)', 0.2],
+    ['suspended', 'xylophone_soft_ff', '.room(.3)', 0.34, ['xylophone_soft_ff']]]
+    .map(([fam, s, tone, g, samples, more]) => ({ cat: 'lead', fam, s, tone, g, samples, ...more })),
+];
+
+function generateScales(existing, orbs = ALT_ORBS, seed = 2618) {
+  const r = rng(seed);
+  const used = new Set(existing.map((l) => l.name));
+  const name = (cat) => {
+    const nouns = NOUNS[cat].split(' ');
+    for (let k = 0; k < 500; k++) {
+      const n = `${r.pick(ADJ)} ${r.pick(nouns)}`;
+      if (!used.has(n)) {
+        used.add(n);
+        return n;
+      }
+    }
+    return `${r.pick(ADJ)} ${r.pick(nouns)} ${used.size}`;
+  };
+  const color = (cat) => {
+    const [h0, h1, sat, l] = HUES[cat];
+    return hex((h0 + r() * ((h1 - h0 + 360) % 360)) % 360, sat + r.int(-10, 10), l + r.int(-8, 8));
+  };
+  const next = {};
+  const nextId = (cat) => {
+    next[cat] ??= Math.max(0, ...existing.map((l) => (l.cat === cat && /\d+$/.exec(l.id)?.[0]) || 0).map(Number));
+    return `${cat}${++next[cat]}`;
+  };
+  const BASS_RHYTHMS = ['1000101000101000', '1000001000100000', '1010001010100010', '1001001000100100', '1000100010001000'];
+  // quarter notes with a pickup now and then: a walking line
+  const WALK_RHYTHMS = ['1000100010001000', '1000100010001010', '1000100010101000'];
+  return orbs.map((o) => {
+    const snd = `.s("${o.s}")${o.tone}.gain(${o.g})`;
+    const root = o.root ?? (o.cat === 'bass' ? 'A1' : o.cat === 'arp' ? 'A3' : 'A4');
+    const shape = r.pick(LEAD_SHAPES);
+    const line = {
+      bass: (v) => altBass(v, o.fam, o.walk ? WALK_RHYTHMS : BASS_RHYTHMS),
+      arp: (v) => altArp(v, o.fam),
+      lead: (v) => altMelody(v, o.fam, shape),
+    }[o.cat];
+    return {
+      id: nextId(o.cat), cat: o.cat, name: name(o.cat), color: color(o.cat), tag: 'scales', scaleFamily: o.fam,
+      kind: `${o.cat} · ${o.fam}`, ...(o.samples && { samples: o.samples }),
+      code: (v) => `n(${line(v)})${altScale(o.fam, root)}${snd}`,
+      voice: melodic(root, snd, o.cat === 'bass' ? 'triad' : 'tones'),
+    };
+  });
+}
+
 const FIRST = [...HANDMADE, ...generateOrbs(HANDMADE)];
 const SECOND = [...FIRST, ...generateMore(FIRST)];
 const THIRD = [...SECOND, ...MODE_ORBS, ...generateModeCombos(SECOND)];
-export const LAYERS = [...THIRD, ...generateMachines(THIRD)];
+const FOURTH = [...THIRD, ...generateMachines(THIRD)];
+const FIFTH = [...FOURTH, ...generateBlockFx(FOURTH)];
+const SIXTH = [...FIFTH, ...generateDubTechno(FIFTH)];
+const SEVENTH = [...SIXTH, ...generateInstruments(SIXTH)];
+const EIGHTH = [...SEVENTH, ...generateScales(SEVENTH)];
+export const LAYERS = [...EIGHTH, ...generateScales(EIGHTH, ALT_ORBS_2, 2619)];
 
-// Level trims, measured in the browser: each orb played alone, peak level compared with the
-// median of its category. Orbs far quieter (some were next to silent) or far louder than their
-// neighbours are scaled toward it; nothing ends up below an audible floor. Re-measure after
-// changing sounds or the generator seed.
-const TRIM = {
-  crackle: 1.35, kick1: 5, kick8: 5, hat17: 5, perc16: 1.95, perc17: 3.65, perc18: 4.94, pad11: 3.33,
-  pad12: 5, arp9: 1.43, arp10: 0.59, arp15: 1.35, arp17: 1.17, lead4: 1.21, lead5: 1.37, lead6: 1.27, lead9: 1.56, lead10: 1.63,
-  lead11: 1.19, fx1: 1.72, texture1: 3.18, texture2: 4.38, texture4: 1.4, texture5: 0.4, texture6: 0.4, texture7: 2.92,
-  texture8: 2.19, texture9: 2,
+// Level trims from tools/orb-levels.html: every sound orb rendered alone (4 bars at 124 BPM,
+// variation seeds 1-3) and its K-weighted loudness (LUFS) matched to the median of its category,
+// or to the target it names with `level` (block FX follow the kick). Orbs within 2 dB are left as
+// they are; corrections are capped at x20 / x0.1, so a few very quiet recordings (marimba, guiro,
+// concert bass drum) stay a little under the median. Rerun the tool after changing sounds, the
+// generator seeds or adding orbs, and paste what it prints.
+export const TRIM = {
+  kick: 0.73, tabla: 1.35, amen: 2.35, rollBass: 1.45, acid: 0.7, sub: 0.53, piano: 0.64, arp: 2.24,
+  lead: 1.84, ghost: 0.59, riser: 1.58, crackle: 1.35, kick1: 12.21, kick2: 0.39, kick3: 0.55, kick5: 20,
+  kick6: 0.29, kick7: 14.13, kick8: 20, kick9: 0.67, kick10: 0.68, kick12: 1.5, kick14: 1.58, kick15: 0.79,
+  kick18: 1.54, snare1: 0.55, snare2: 1.64, snare3: 0.58, snare5: 1.88, snare8: 1.49, snare9: 0.61,
+  snare12: 0.64, snare13: 2.03, snare14: 1.58, snare15: 2.08, hat1: 0.65, hat2: 16.05, hat5: 0.67,
+  hat7: 1.94, hat8: 0.63, hat9: 15.13, hat10: 0.48, hat11: 1.31, hat12: 11.71, hat13: 1.67, hat15: 0.74,
+  hat16: 12.28, hat17: 16.26, hat18: 0.51, perc2: 4.5, perc3: 0.77, perc4: 1.47, perc7: 3.77, perc8: 0.65,
+  perc10: 13.02, perc11: 1.34, perc12: 0.69, perc14: 0.78, perc15: 1.46, perc16: 0.96, perc17: 3.65,
+  perc18: 0.5, bass3: 1.49, bass4: 2.21, bass6: 1.41, bass7: 2.21, bass10: 0.32, bass12: 0.48, bass13: 0.43,
+  bass14: 1.59, bass15: 2.27, bass18: 0.72, bass19: 1.35, bass21: 1.55, bass23: 0.66, bass24: 0.55,
+  bass26: 0.52, bass27: 0.63, pad2: 20, pad3: 0.62, pad5: 16.83, pad8: 0.49, pad10: 1.59, pad11: 20,
+  pad12: 1.46, pad13: 0.52, pad16: 1.4, pad17: 0.35, arp1: 1.6, arp3: 0.32, arp4: 1.45, arp5: 0.46,
+  arp6: 0.74, arp8: 19.91, arp9: 2.47, arp10: 0.31, arp11: 0.46, arp12: 1.35, arp13: 0.45, arp14: 2.3,
+  arp15: 1.35, arp17: 2.89, arp18: 0.49, lead1: 0.56, lead4: 2.73, lead5: 1.99, lead6: 0.83, lead7: 1.47,
+  lead9: 0.91, lead10: 0.62, lead11: 2.43, lead12: 0.61, lead14: 0.64, lead16: 0.63, lead17: 1.33, fx1: 1.11,
+  fx2: 1.5, fx3: 1.37, fx4: 0.27, fx5: 2.11, fx8: 1.51, fx9: 0.28, texture1: 4.23, texture2: 4.38,
+  texture3: 0.28, texture4: 2.05, texture5: 0.68, texture6: 0.19, texture7: 0.93, texture8: 0.13,
+  texture9: 2.92, kick20: 1.81, kick22: 1.49, kick23: 0.44, kick24: 1.79, snare20: 0.74, snare21: 0.34,
+  hat19: 0.57, hat20: 1.32, hat21: 0.51, perc19: 2.1, perc23: 12.97, perc21: 1.37, perc22: 8.08, perc25: 7.91,
+  perc27: 13.58, perc28: 8.89, perc29: 20, perc30: 1.23, perc31: 1.4, perc32: 6.65, bass28: 1.65,
+  bass29: 0.75, bass30: 3.37, bass31: 3.13, pad20: 2.79, pad21: 2.3, arp19: 5.27, arp20: 0.33, arp21: 0.39,
+  arp25: 0.31, arp26: 19.99, lead20: 0.69, lead22: 4.07, lead26: 3.09, lead27: 3.99, fx10: 1.92, fx13: 0.71,
+  fx14: 2.45, fx15: 1.69, fx16: 2.45, fx17: 0.13, fx18: 0.27, fx19: 3.04, fx20: 8.67, fx21: 8.35,
+  texture10: 0.52, texture11: 6.03, texture12: 0.25, texture13: 0.35, snare27: 1.47, hat26: 0.72,
+  hat27: 0.75, hat29: 2.75, perc34: 0.77, perc35: 0.63, perc36: 0.75, perc37: 0.44, fx23: 0.34, fx24: 0.71,
+  fx25: 0.27, fx26: 1.28, fx28: 0.38, fx31: 1.35, kick27: 0.73, bass32: 0.52, bass33: 0.58, bass34: 0.61,
+  bass35: 0.53, bass36: 0.64, bass37: 0.51, pad24: 0.74, pad25: 0.64, pad26: 0.74,
+  // other-scale batch
+  bass38: 1.83, bass40: 0.7, bass41: 1.6, bass43: 2.06, bass44: 1.54, bass47: 2.11, bass50: 2.14, arp28: 1.83, arp29: 1.49,
+  arp30: 0.76, arp31: 3.35, arp34: 0.18, arp35: 0.46, arp36: 2.58, arp37: 0.26, lead29: 0.25, lead30: 1.89, lead31: 0.76,
+  lead33: 0.79, lead34: 0.18, lead35: 0.12, lead36: 0.45, lead37: 0.16, lead38: 2.29,
+  // second other-scale batch
+  bass51: 1.75, bass52: 0.73, bass53: 0.49, bass56: 1.62, bass57: 0.74, bass59: 1.93, arp40: 0.3, arp41: 4.11, arp42: 1.47,
+  arp43: 16.96, arp44: 8.45, arp46: 0.51, arp47: 0.59, arp48: 0.65, arp49: 3.19, lead39: 1.49, lead40: 0.13, lead41: 0.18,
+  lead42: 0.4, lead43: 0.78, lead44: 2.02, lead46: 0.24, lead47: 2.96, lead48: 1.27,
 };
 // scale the last plain .gain(n) of a line; lines whose gain is a pattern get a velocity instead
 const scaleGain = (code, t) => {
@@ -930,11 +1354,47 @@ for (const l of LAYERS) {
 }
 
 
+// ---------- spawn balance ----------
+// Falling orbs are drawn in two steps so the catalogue can keep growing without tipping the mix:
+// 1. a category, by a fixed share (CAT_SHARE: the category sizes before the catalogue started
+//    growing again), so adding orbs to one category never makes it fall more often;
+// 2. inside it, a sound family (the machine or instrument an orb is played on), each weighted by
+//    the square root of its size: a family with more orbs comes up somewhat more often, but a
+//    big new set can't crowd out the others. Inside a family every orb is equally likely.
+export const CAT_SHARE = {
+  kick: 28, snare: 29, hat: 31, perc: 39, bass: 34, pad: 23, arp: 28, lead: 29, fx: 27, texture: 14,
+  combo: 87, mood: 50, mode: 24, tempo: 20,
+};
+// sampled pitched instruments that count as one family each, by sample name
+const INSTRUMENT_FAMILY = {
+  swagbass: 'bass guitar', growlybass: 'bass guitar', uprightbass: 'upright bass', wurli: 'wurlitzer', piano: 'piano',
+};
+const MACHINES = ['TR909', 'TR808', 'TR707', 'TR606', 'TR727', 'RD6'];
+function familyOf(l) {
+  if (!DRUM_CATS.includes(l.cat) && !PITCHED_CATS.includes(l.cat) && !['fx', 'texture'].includes(l.cat)) return l.cat;
+  if (l.spot) return 'block fx';
+  // the other-scale orbs fall as one family per category, whatever they are played on; spawnWeights
+  // (src/orbs.js) holds that family at 30% of its category however many are added
+  if (l.scaleFamily) return 'other scales';
+  const code = typeof l.code === 'function' ? l.code(rng(1)) : l.code ?? '';
+  const text = `${(l.samples ?? []).join(' ')} ${code}`;
+  const machine = MACHINES.find((m) => text.includes(m));
+  if (machine) return machine;
+  if (text.includes('kitbreak')) return 'kitbreak';
+  if (/Kit_|bank\("Kit"\)/.test(text)) return 'kit';
+  const inst = Object.keys(INSTRUMENT_FAMILY).find((k) => new RegExp(`s\\("${k}"|^${k}\\b`).test(code) || (l.samples ?? []).includes(k));
+  if (inst) return INSTRUMENT_FAMILY[inst];
+  if (/\bz_\w+/.test(text)) return 'zzfx';
+  if (l.samples?.length) return 'sampled';
+  return 'synth';
+}
+
 export const byId = Object.fromEntries(LAYERS.map((l) => [l.id, l]));
 for (const l of LAYERS) {
   if (l.combo) l.colors = l.combo.map((id) => byId[id].color ?? byId[id].colors[0]);
   l.drum = DRUM_CATS.includes(l.cat);
   l.pitched = PITCHED_CATS.includes(l.cat);
+  l.family = familyOf(l);
 }
 // Names are made in Korean and stay the orb's real name (nameKo, kindKo); `name` and `kind`
 // read back in the language the page is set to (src/orbNames.js has the translations).
@@ -953,6 +1413,6 @@ LAYERS.forEach(localizeNames);
 export const role = (l) => l.role ?? l.cat;
 export const ROLE_TEXT = {
   kick: '킥 드럼', snare: '스네어/클랩', hat: '하이햇', perc: '퍼커션', bass: '베이스', pad: '코드 반주',
-  arp: '아르페지오', lead: '멜로디', fx: '효과음', texture: '질감', tempo: '템포', mood: '전체 분위기',
+  arp: '아르페지오', lead: '멜로디', fx: '효과음', texture: '효과음', tempo: '템포', mood: '전체 분위기',
 };
 

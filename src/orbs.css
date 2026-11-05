@@ -4,15 +4,114 @@
   src: url('/fonts/dalmoori.woff2') format('woff2'), url('/fonts/dalmoori.woff') format('woff');
   font-display: swap;
 }
+/* ---------- colours: theme (dark / light, the ☀ button) × palette (neutral in a minor key,
+   pastel in a major one) — src/theme.js sets data-theme / data-palette on <html> ----------
+   --surface buttons and chips · --deep the solid bottom panels · --side the sidebars ·
+   --field-in text inputs · --hi faint lines and fills (white on dark, black on light) ·
+   --shadow drop shadows and the inner shading of the orbs · --halo text shadows · --cursor playheads, knobs and the rims of key / mood orbs ·
+   --ink-mix how much of the text colour orb-coloured text takes, so it stays readable on light ·
+   --glow how strongly the orbs glow · --orb-keep / --orb-mix the orb toning (set by theme.js;
+   the canvases mirror the accent and ink in theme.js INK) */
+@property --bg { syntax: '<color>'; inherits: true; initial-value: #0c0c0d; }
+@property --fg { syntax: '<color>'; inherits: true; initial-value: #ece9e4; }
+@property --dim { syntax: '<color>'; inherits: true; initial-value: #85817b; }
+@property --acc { syntax: '<color>'; inherits: true; initial-value: #d6c6a5; }
+@property --acc2 { syntax: '<color>'; inherits: true; initial-value: #9aa6b2; }
+@property --orb-mix { syntax: '<color>'; inherits: true; initial-value: #8a8782; }
+@property --orb-keep { syntax: '<percentage>'; inherits: true; initial-value: 58%; }
 :root {
-  --bg: #050508;
-  --fg: #e6fff2;
-  --dim: #6b7d74;
-  --acc: #39ff9c;
-  --acc2: #ff3bd4;
-  --panel: rgba(10, 16, 13, 0.92);
-  --line: rgba(57, 255, 156, 0.2);
+  color-scheme: dark;
+  --bg: #0c0c0d;
+  --fg: #ece9e4;
+  --dim: #85817b;
+  --acc: #d6c6a5;
+  --acc2: #9aa6b2;
+  --panel: rgba(22, 22, 24, 0.94);
+  --line: rgba(236, 233, 228, 0.16);
+  --surface: rgba(30, 30, 32, 0.72);
+  --deep: rgba(14, 14, 15, 0.94);
+  --side: rgba(14, 14, 15, 0.6);
+  --field-in: #060606;
+  --hi: #fff;
+  --shadow: #000;
+  --halo: #000;
+  --scrim: rgba(0, 0, 0, 0.62);
+  --warn: #e88a8a;
+  --gold: #e0c068;
+  --cursor: #fff;
+  --ink-mix: 0%;
+  --glow: 55%;
+  --wash-top: 25%; /* how much the field art is faded toward the page colour */
+  --wash-bottom: 50%;
+  --orb-keep: 58%;
+  --orb-mix: #8a8782;
+  /* a palette or theme change fades over, rather than snapping (the registered colours above) */
+  transition: --bg 0.6s, --fg 0.6s, --dim 0.6s, --acc 0.6s, --acc2 0.6s, --orb-mix 0.6s, --orb-keep 0.6s;
 }
+:root[data-palette='pastel'] {
+  --bg: #13111b;
+  --fg: #f6f1ff;
+  --dim: #958dab;
+  --acc: #9fe3c9;
+  --acc2: #f7b2d6;
+  --panel: rgba(28, 24, 40, 0.94);
+  --line: rgba(205, 185, 255, 0.2);
+  --surface: rgba(38, 32, 54, 0.72);
+  --deep: rgba(20, 17, 29, 0.94);
+  --side: rgba(20, 17, 29, 0.6);
+  --field-in: #0b0912;
+  --warn: #ff9bb3;
+  --gold: #ffe29a;
+  --glow: 70%;
+}
+:root[data-theme='light'] {
+  color-scheme: light;
+  --bg: #f2f0ec;
+  --fg: #26241f;
+  --dim: #7c776f;
+  --acc: #6b5f4b;
+  --acc2: #5f6f80;
+  --panel: rgba(252, 251, 248, 0.96);
+  --line: rgba(38, 36, 31, 0.16);
+  --surface: rgba(255, 255, 255, 0.75);
+  --deep: rgba(247, 245, 241, 0.96);
+  --side: rgba(234, 231, 226, 0.7);
+  --field-in: #fff;
+  --hi: #000;
+  --shadow: #6e665a;
+  --halo: rgba(255, 255, 255, 0.9);
+  --scrim: rgba(60, 55, 45, 0.4);
+  --warn: #c23a5a;
+  --gold: #a07a10;
+  --cursor: #26241f;
+  --ink-mix: 55%;
+  --glow: 35%;
+  --wash-top: 35%;
+  --wash-bottom: 55%;
+}
+:root[data-theme='light'][data-palette='pastel'] {
+  --bg: #faf6ff;
+  --fg: #2c2540;
+  --dim: #877e9f;
+  --acc: #2e9a78;
+  --acc2: #c9558f;
+  --panel: rgba(255, 252, 255, 0.96);
+  --line: rgba(90, 70, 150, 0.18);
+  --surface: rgba(255, 255, 255, 0.75);
+  --deep: rgba(250, 246, 255, 0.96);
+  --side: rgba(242, 235, 252, 0.7);
+  --shadow: #6a5a8e;
+  --scrim: rgba(60, 45, 90, 0.35);
+  --warn: #c93a6a;
+  --gold: #a67c00;
+  --cursor: #2c2540;
+  --ink-mix: 50%;
+  --glow: 40%;
+}
+:root:has(body.lite) { transition: none; }
+/* the volume dial's gradient follows the accents */
+#volGrad stop:first-child { stop-color: var(--acc); }
+#volGrad stop:last-child { stop-color: var(--acc2); }
 * { box-sizing: border-box; }
 html, body { height: 100%; }
 body {
@@ -29,7 +128,7 @@ body {
 button {
   font: inherit;
   color: var(--fg);
-  background: rgba(15, 26, 20, 0.7);
+  background: var(--surface);
   border: 1px solid var(--line);
   padding: 6px 12px;
   cursor: pointer;
@@ -61,18 +160,31 @@ button.on { background: var(--acc); color: var(--bg); }
 }
 .powered a { color: var(--fg); text-decoration: none; }
 .powered a:hover { color: var(--acc); }
+/* 코드 · 라이선스 · 버그/의견: plain text links on the line above "Powered by" */
+.powered .foot-links { display: flex; gap: 12px; margin-bottom: 3px; }
+.powered .foot-links button {
+  border: 0; background: none; padding: 0; font: inherit; font-size: 11px; letter-spacing: 0.03em;
+  color: var(--dim); cursor: pointer;
+}
+.powered .foot-links button:hover { color: var(--acc); background: none; }
 /* desktop: sit just right of the 92px preset sidebar instead of over it */
 @media (min-width: 761px) { .powered { left: 100px; } }
 .logo .nav-btn { margin-left: 12px; font-weight: 400; letter-spacing: 0.05em; }
 .nav-btn {
   font-size: 12px; color: var(--fg); text-decoration: none; white-space: nowrap;
-  padding: 6px 12px; border: 1px solid var(--line); background: rgba(15, 26, 20, 0.7);
+  padding: 6px 12px; border: 1px solid var(--line); background: var(--surface);
   transition: border-color 0.15s, color 0.15s;
 }
 .nav-btn:hover { border-color: var(--acc); color: var(--acc); }
 .tools { display: flex; gap: 6px; flex-wrap: wrap; }
 .tools button { font-size: 12px; }
-.langs { display: flex; border: 1px solid var(--line); background: rgba(15, 26, 20, 0.7); }
+/* desktop: 저사양 and the language switch side by side at the top right */
+@media (min-width: 761px) {
+  .top { align-items: flex-start; padding-right: 76px; } /* clear of the 64px stash */
+  .tools { flex-direction: row; flex-wrap: nowrap; align-items: stretch; gap: 6px; }
+  .tools button { padding: 4px 10px; white-space: nowrap; }
+}
+.langs { display: flex; border: 1px solid var(--line); background: var(--surface); }
 .langs button { border: 0; background: transparent; color: var(--dim); padding: 5px 9px; font-size: 12px; }
 .langs button:hover { color: var(--fg); }
 .langs button.on { color: var(--bg); background: var(--acc); }
@@ -97,50 +209,49 @@ button.on { background: var(--acc); color: var(--bg); }
 .chip {
   display: inline-flex; align-items: center; gap: 6px;
   padding: 2px 4px 2px 6px; font-size: 12px;
-  color: var(--g); border: 1px solid color-mix(in srgb, var(--g) 35%, transparent);
-  background: rgba(10, 14, 12, 0.7);
+  color: color-mix(in srgb, var(--g), var(--fg) var(--ink-mix)); border: 1px solid color-mix(in srgb, var(--g) 35%, transparent);
+  background: var(--surface);
   cursor: default; transition: background 0.15s, border-color 0.15s;
 }
 .chip:hover { border-color: var(--g); background: color-mix(in srgb, var(--g) 16%, transparent); }
 .chip .dot { position: relative; width: 12px; height: 12px; border-radius: 50%; background: var(--c); box-shadow: 0 0 6px var(--g); flex: none; }
 .chip button { border: 0; background: transparent; color: var(--dim); padding: 0 4px; font-size: 11px; }
-.chip button:hover { color: #ff6b8b; }
-.chip.slow { --g: #ff4040; }
-.chip.slow .dot { background: #ff4040; }
+.chip button:hover { color: var(--warn); }
+.chip.slow { --g: color-mix(in srgb, #ff4040 var(--orb-keep), var(--orb-mix)); }
+.chip.slow .dot { background: var(--g); }
 .chip.fast { color: #000; background: #e8e8e8; border-color: #000; }
 .chip.fast .dot { background: #000; box-shadow: none; }
 .chip.fast button { color: #333; }
 .solo-hint { margin: 0; min-height: 1.4em; font-size: 12px; color: var(--dim); text-align: center; }
-.solo-hint b { color: var(--g); font-weight: 400; }
+.solo-hint b { color: color-mix(in srgb, var(--g), var(--fg) var(--ink-mix)); font-weight: 400; }
 
 .actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+.actions:empty { display: none; }
 .actions button { font-size: 12px; }
 .actions button:disabled { opacity: 0.35; cursor: default; }
 /* the loop's save / share buttons, swapped for the stems' ones while the stems are open */
 body.stem-open .actions .loop-only, body:not(.stem-open) .actions .stem-only { display: none; }
 /* empty-part placeholders above the player */
-.roles { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 6px; max-width: 420px; margin-bottom: 30px; }
-.role { display: flex; flex-direction: column; align-items: center; gap: 2px; width: 50px; font-size: 10px; color: rgba(255, 255, 255, 0.28); }
-.role > i { position: relative; width: 14px; height: 14px; border-radius: 50%; border: 1px dashed rgba(255, 255, 255, 0.22); overflow: hidden; }
-.role.on { color: var(--g); }
+.roles { display: flex; flex-direction: column; align-items: center; gap: 4px; max-width: 420px; margin-bottom: 30px; }
+.role-row { display: flex; justify-content: center; gap: 6px; }
+.role { display: flex; flex-direction: column; align-items: center; gap: 2px; width: 50px; font-size: 10px; color: color-mix(in srgb, var(--hi) 28%, transparent); }
+.role > i { position: relative; width: 14px; height: 14px; border-radius: 50%; border: 1px dashed color-mix(in srgb, var(--hi) 22%, transparent); overflow: hidden; }
+.role.on { color: color-mix(in srgb, var(--g), var(--fg) var(--ink-mix)); }
 .role.on > i { border: 0; background: var(--c); box-shadow: 0 0 8px var(--g); }
 .role.next > i { border: 1px solid var(--g); animation: blink 0.5s infinite alternate; }
-.role.next { color: var(--g); }
+.role.next { color: color-mix(in srgb, var(--g), var(--fg) var(--ink-mix)); }
 
-/* song timeline */
-.song { display: none; width: 100%; max-width: 460px; align-items: center; gap: 6px; }
-.song.on { display: flex; }
-.song-bar { position: relative; flex: 1; display: flex; height: 30px; border: 1px solid var(--line); }
-.song-bar .sec {
-  position: relative; display: grid; place-items: center; overflow: hidden;
-  font-size: 10px; color: var(--dim); white-space: nowrap;
-  border-right: 1px solid var(--line);
-}
-.song-bar .sec:last-of-type { border-right: 0; }
-.song-bar .sec.mod { color: #ffd23f; }
-.song-bar .sec.now { color: var(--bg); background: var(--acc); }
-.song-cursor { position: absolute; top: -3px; bottom: -3px; width: 2px; background: #fff; box-shadow: 0 0 8px #fff; left: 0; }
+/* ↩ 루프 모드로 under the player: only on a phone (orbsMobile.css), where the stems are hidden;
+   wide screens have everything about the song in the stems' head */
+.song { display: none; align-items: center; gap: 6px; }
 .song button { font-size: 11px; color: var(--dim); white-space: nowrap; }
+/* ↩ 루프 모드로 (under the player on a phone, in the stems' head): a clear way back */
+button.loop-mode {
+  font-size: 12px; color: var(--acc); white-space: nowrap; padding: 5px 12px;
+  border: 1px solid var(--acc); background: color-mix(in srgb, var(--acc) 10%, var(--deep));
+  box-shadow: 0 0 10px color-mix(in srgb, var(--acc) 25%, transparent);
+}
+button.loop-mode:hover { background: color-mix(in srgb, var(--acc) 24%, var(--deep)); }
 
 /* ---------- player core / drop zone ---------- */
 .core {
@@ -158,7 +269,7 @@ body.stem-open .actions .loop-only, body:not(.stem-open) .actions .stem-only { d
 .core.hot .ring {
   border: 2px solid var(--acc);
   transform: scale(1.08);
-  box-shadow: 0 0 40px rgba(57, 255, 156, 0.35), inset 0 0 40px rgba(57, 255, 156, 0.2);
+  box-shadow: 0 0 40px color-mix(in srgb, var(--acc) 35%, transparent), inset 0 0 40px color-mix(in srgb, var(--acc) 20%, transparent);
 }
 .core.gulp .ring { animation: gulp 0.5s ease-out; }
 /* volume dial around the play button, same as the player page: drag along it or scroll over the player */
@@ -168,12 +279,12 @@ body.stem-open .actions .loop-only, body:not(.stem-open) .actions .stem-only { d
 }
 .volring .hit { fill: none; stroke: transparent; stroke-width: 26; stroke-linecap: round; pointer-events: stroke; cursor: grab; }
 .volring.drag .hit { cursor: grabbing; }
-.volring .track { fill: none; stroke: rgba(255, 255, 255, 0.08); stroke-width: 6; stroke-linecap: round; }
+.volring .track { fill: none; stroke: color-mix(in srgb, var(--hi) 8%, transparent); stroke-width: 6; stroke-linecap: round; }
 .volring .arc { fill: none; stroke-width: 6; stroke-linecap: round; }
-.volring .knob { fill: #fff; }
-.volring #volTicks line { stroke: rgba(230, 255, 242, 0.18); stroke-width: 1.5; }
-.volring #volTicks line.lit { stroke: rgba(57, 255, 156, 0.75); }
-.volring:focus-visible .track { stroke: rgba(57, 255, 156, 0.3); }
+.volring .knob { fill: var(--cursor); }
+.volring #volTicks line { stroke: color-mix(in srgb, var(--fg) 18%, transparent); stroke-width: 1.5; }
+.volring #volTicks line.lit { stroke: color-mix(in srgb, var(--acc) 75%, transparent); }
+.volring:focus-visible .track { stroke: color-mix(in srgb, var(--acc) 30%, transparent); }
 @keyframes gulp {
   0% { transform: scale(1.15); box-shadow: 0 0 60px var(--gulp, var(--acc)); }
   100% { transform: scale(1); box-shadow: none; }
@@ -182,12 +293,12 @@ body.stem-open .actions .loop-only, body:not(.stem-open) .actions .stem-only { d
   width: 42%; height: 42%;
   border-radius: 50%;
   border: 2px solid var(--acc);
-  background: rgba(5, 12, 9, 0.9);
+  background: var(--deep);
   display: grid; place-items: center;
   position: relative; z-index: 2;
-  box-shadow: 0 0 24px rgba(57, 255, 156, 0.25);
+  box-shadow: 0 0 24px color-mix(in srgb, var(--acc) 25%, transparent);
 }
-.play:hover { background: rgba(20, 40, 30, 0.95); }
+.play:hover { background: color-mix(in srgb, var(--acc) 12%, var(--bg)); }
 .play svg { width: 42%; fill: var(--acc); }
 .play .i-stop { display: none; }
 body.playing .play .i-play { display: none; }
@@ -201,16 +312,24 @@ body.loading .play { animation: blink 0.8s infinite alternate; }
   position: absolute; left: 50%; top: 50%;
   width: 22px; height: 22px; margin: -11px 0 0 -11px;
   border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%, #fff 0, var(--c) 35%, color-mix(in srgb, var(--c) 40%, #000) 100%);
+  background: radial-gradient(circle at 35% 30%, #fff 0, var(--c) 35%, color-mix(in srgb, var(--c) 40%, var(--shadow)) 100%);
   box-shadow: 0 0 14px var(--g, var(--c));
   transition: opacity 0.3s;
   will-change: transform, opacity; /* moved every frame (orbs.js frame) */
 }
 .sat.dark { box-shadow: 0 0 0 1.5px var(--g), 0 0 14px var(--g); }
+/* first-orb volume demo (orbs.js showVolumeTip): the orbs light up neon, --neon 0..1 following the dip */
+body.vol-demo .sat {
+  outline: 2px solid color-mix(in srgb, var(--g, var(--c)) 50%, #fff); outline-offset: 2px;
+  box-shadow:
+    0 0 calc(8px + 10px * var(--neon, 0)) 2px var(--g, var(--c)),
+    0 0 calc(20px + 36px * var(--neon, 0)) calc(4px + 8px * var(--neon, 0)) color-mix(in srgb, var(--g, var(--c)) 70%, transparent);
+  filter: brightness(calc(1 + 0.5 * var(--neon, 0))) saturate(1.4);
+}
 .sat.pen { outline: 1px dashed var(--g); outline-offset: 3px; }
 
 /* ---------- right column: orb field, roll below it ---------- */
-.right { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.right { display: flex; flex-direction: column; min-width: 0; min-height: 0; container: right / inline-size; }
 .field {
   position: relative; flex: 1; min-height: 0; overflow: hidden;
   isolation: isolate; /* the art and its dimming sit behind the orbs but above the page */
@@ -223,12 +342,52 @@ body.loading .play { animation: blink 0.8s infinite alternate; }
   background: var(--field-bg, none) center top / 100% auto repeat-y;
   pointer-events: none; will-change: transform;
 }
+/* light theme: the art inverted (hue turned back, so its colours stay), a pale sky instead of a night one */
+:root[data-theme='light'] .field-art { filter: invert(1) hue-rotate(180deg); }
 /* dimmed so the orbs stay readable */
 .field::before {
   content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none;
-  background: linear-gradient(rgba(5, 5, 8, 0.25), rgba(5, 5, 8, 0.5));
+  background: linear-gradient(color-mix(in srgb, var(--bg) var(--wash-top), transparent), color-mix(in srgb, var(--bg) var(--wash-bottom), transparent));
 }
+/* 오브 검색: sits in the field's top-left corner */
+.field-tools {
+  position: absolute; top: 12px; left: 10px; z-index: 3;
+  display: flex; flex-direction: column; align-items: stretch; gap: 4px;
+  cursor: default;
+}
+.field-tools:empty { display: none; }
+.field-tools button { font-size: 12px; text-align: left; padding: 4px 10px; background: var(--surface); }
+.field-tools button.on { background: var(--acc); }
 .field.rush .orb .ball { box-shadow: 0 -18px 24px -10px var(--g, var(--c)); }
+/* fall speed, set with the wheel over the field: shown on the right edge only while it changes */
+.speed-meter {
+  position: absolute; right: 14px; top: 50%; z-index: 3;
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  transform: translate(6px, -50%); opacity: 0; pointer-events: none;
+  transition: opacity 0.35s, transform 0.35s;
+}
+.speed-meter.show { opacity: 1; transform: translate(0, -50%); transition-duration: 0.12s; }
+.speed-meter .track {
+  position: relative; width: 6px; height: 160px; border-radius: 3px;
+  background: color-mix(in srgb, var(--hi) 14%, transparent);
+}
+.speed-meter .fill {
+  position: absolute; left: 0; right: 0; bottom: 0; border-radius: 3px;
+  height: calc(var(--f, 0.5) * 100%); background: var(--acc);
+}
+.speed-meter .knob {
+  position: absolute; left: 50%; bottom: calc(var(--f, 0.5) * 100%);
+  width: 14px; height: 14px; border-radius: 50%; transform: translate(-50%, 50%);
+  background: #fff; box-shadow: 0 0 8px color-mix(in srgb, var(--shadow) 50%, transparent);
+}
+.speed-meter .mark {
+  position: absolute; left: -4px; right: -4px; bottom: calc(var(--one, 0.5) * 100%); height: 1px;
+  background: color-mix(in srgb, var(--hi) 45%, transparent);
+}
+.speed-meter .val {
+  font-size: 11px; font-variant-numeric: tabular-nums; color: var(--fg);
+  padding: 2px 6px; border-radius: 4px; background: color-mix(in srgb, var(--bg) 60%, transparent);
+}
 
 /* falling orbs */
 .orb {
@@ -254,14 +413,14 @@ body.loading .play { animation: blink 0.8s infinite alternate; }
   cursor: grab;
   background:
     radial-gradient(circle at 32% 28%, rgba(255, 255, 255, 0.95) 0, rgba(255, 255, 255, 0) 22%),
-    radial-gradient(circle at 50% 55%, var(--c) 0, color-mix(in srgb, var(--c) 55%, #000) 70%, color-mix(in srgb, var(--c) 25%, #000) 100%);
-  box-shadow: 0 0 26px color-mix(in srgb, var(--g, var(--c)) 70%, transparent), inset 0 -6px 14px rgba(0, 0, 0, 0.35);
+    radial-gradient(circle at 50% 55%, var(--c) 0, color-mix(in srgb, var(--c) 55%, var(--shadow)) 70%, color-mix(in srgb, var(--c) 25%, var(--shadow)) 100%);
+  box-shadow: 0 0 26px color-mix(in srgb, var(--g, var(--c)) var(--glow), transparent), inset 0 -6px 14px color-mix(in srgb, var(--shadow) 35%, transparent);
   animation: pulse 2.4s ease-in-out var(--delay, 0s) infinite;
   transition: transform 0.15s;
 }
 .orb .ball:hover { transform: scale(1.08); }
 @keyframes pulse {
-  50% { box-shadow: 0 0 40px var(--g, var(--c)), inset 0 -6px 14px rgba(0, 0, 0, 0.35); }
+  50% { box-shadow: 0 0 40px color-mix(in srgb, var(--g, var(--c)) calc(var(--glow) + 30%), transparent), inset 0 -6px 14px color-mix(in srgb, var(--shadow) 35%, transparent); }
 }
 /* the black orb: a bright rim and halo so it reads against the dark background */
 .orb.dark .ball {
@@ -276,10 +435,10 @@ body.loading .play { animation: blink 0.8s infinite alternate; }
   position: absolute; left: 0; bottom: calc(var(--s) / 2 + 8px);
   transform: translateX(-50%);
   white-space: nowrap;
-  color: var(--g, var(--c));
+  color: color-mix(in srgb, var(--g, var(--c)), var(--fg) var(--ink-mix));
   font-size: clamp(12px, 1.1vw, 14px);
   letter-spacing: 0.05em;
-  text-shadow: 0 0 10px color-mix(in srgb, var(--g, var(--c)) 60%, transparent), 0 1px 2px #000;
+  text-shadow: 0 0 10px color-mix(in srgb, var(--g, var(--c)) 60%, transparent), 0 1px 2px var(--halo);
   pointer-events: none;
 }
 .orb.big .label { font-size: clamp(13px, 1.25vw, 16px); }
@@ -308,6 +467,39 @@ body.loading .play { animation: blink 0.8s infinite alternate; }
 .orb.absorb .ball { transition: transform 0.3s ease-in, opacity 0.3s; transform: scale(0.1); opacity: 0; }
 .orb.absorb .label, .orb.absorb .kind { opacity: 0; transition: opacity 0.15s; }
 
+/* ---------- what the slots did to an orb (orbs.js decorate) ----------
+   Volume: turned down = smaller, turned up = a bit bigger (--vol-scale, one step each slot).
+   Variation: a faint pattern over the ball, picked by its seed (--vpat, turned by --vpat-rot). */
+.orb.vol .ball, .mini.vol, .sat.vol { scale: var(--vol-scale, 1); transition: scale 0.3s cubic-bezier(.3, 1.6, .5, 1); }
+.orb.varied:not(.multi) .ball::after, .mini.varied:not(.multi)::after, .sat.varied:not(.multi)::after {
+  content: ''; position: absolute; inset: 0; border-radius: 50%; pointer-events: none;
+  background: var(--vpat); rotate: var(--vpat-rot, 0deg);
+}
+
+/* ---------- combo orbs: the orbs it brings in, huddled together (orbs.js orbInner) ---------- */
+.orb.cluster .ball, .mini.cluster {
+  background: none; box-shadow: none; animation: none; overflow: visible;
+}
+.bub {
+  position: absolute; left: var(--x); top: var(--y); width: var(--d); height: var(--d);
+  translate: -50% -50%; border-radius: 50%;
+  background:
+    radial-gradient(circle at 32% 28%, rgba(255, 255, 255, 0.9) 0, rgba(255, 255, 255, 0) 24%),
+    radial-gradient(circle at 50% 55%, var(--c) 0, color-mix(in srgb, var(--c) 55%, var(--shadow)) 70%, color-mix(in srgb, var(--c) 25%, var(--shadow)) 100%);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--g, var(--c)) 65%, transparent), inset 0 -3px 6px color-mix(in srgb, var(--shadow) 35%, transparent);
+  animation: squirm var(--t, 2.6s) ease-in-out calc(var(--k) * -0.7s) infinite;
+}
+.bub.dark {
+  background: radial-gradient(circle at 32% 28%, rgba(255, 255, 255, 0.85) 0, rgba(255, 255, 255, 0) 22%), radial-gradient(circle at 50% 55%, #2a2a38 0, #0b0b10 75%);
+  box-shadow: 0 0 0 1.5px rgba(220, 220, 255, 0.8), 0 0 10px rgba(200, 200, 255, 0.6);
+}
+@keyframes squirm {
+  0%, 100% { transform: translate(var(--ax), var(--ay)) scale(var(--as)); }
+  33% { transform: translate(var(--bx), var(--by)) scale(var(--bs)); }
+  66% { transform: translate(var(--cx), var(--cy)) scale(var(--cs)); }
+}
+.lite .bub { box-shadow: inset 0 -3px 6px color-mix(in srgb, var(--shadow) 35%, transparent); } /* the squirm is transform only: cheap, kept */
+
 /* ---------- multi-colour orbs (combos, moods): a slowly turning colour swirl ---------- */
 .swirl { display: none; }
 .multi .swirl {
@@ -322,39 +514,109 @@ body.loading .play { animation: blink 0.8s infinite alternate; }
   content: ''; position: absolute; inset: 0; border-radius: 50%;
   background:
     radial-gradient(circle at 32% 28%, rgba(255, 255, 255, 0.9) 0, rgba(255, 255, 255, 0) 24%),
-    radial-gradient(circle at 50% 50%, rgba(0, 0, 0, 0) 45%, rgba(0, 0, 0, 0.5) 100%);
+    radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--shadow) 0%, transparent) 45%, color-mix(in srgb, var(--shadow) 50%, transparent) 100%);
 }
 .sat.multi .swirl, .dot.multi .swirl { inset: 0; border-radius: 50%; filter: none; }
 
-/* ---------- piano roll (right column only) ---------- */
+/* ---------- orb slots under the field, and 편집's tab (right column) ----------
+   Four empty orb slots (편집 · 음량 감소 · 음량 증가 · 변주) sit along the bottom. An orb thrown into
+   편집 opens its tab (#roll, the piano roll), which slides up above them; the other three change
+   the orb and keep it there, jiggling, until it is grabbed out again. */
 .roll {
-  flex: 0 0 max(13vh, 104px); min-height: 0; overflow: hidden;
+  flex: 0 0 0; min-height: 0; overflow: hidden;
   display: flex; flex-direction: column;
-  background: rgba(6, 8, 12, 0.94);
-  border-top: 1px solid var(--line);
-  transition: flex-basis 0.3s, box-shadow 0.2s;
+  background: var(--deep);
+  border-top: 0 solid var(--line);
+  transition: flex-basis 0.45s cubic-bezier(.2, .9, .3, 1.1), box-shadow 0.2s;
 }
-/* with an orb in it the roll takes two thirds of the height */
-body.roll-full .roll { flex-basis: 66vh; }
-/* clicking the empty field tucks the open roll away (it keeps its orb); clicking the roll brings it back */
-body.roll-full.roll-min .roll { flex-basis: max(13vh, 104px); cursor: pointer; }
+/* with an orb in it the tab takes two thirds of the height */
+body.roll-full .roll { flex-basis: 66vh; border-top-width: 1px; }
+/* clicking the empty field tucks the open tab away (it keeps its orb); clicking the tab brings it back */
+body.roll-full.roll-min .roll { flex-basis: 76px; cursor: pointer; }
 body.roll-full.roll-min #rollCanvas { pointer-events: none; }
-/* hidden until five orbs have gone into the player, then it slides up from the bottom */
-@media (min-width: 761px) {
-  body:not(.roll-ready) .roll { flex-basis: 0; border-top-width: 0; }
-  .roll { transition: flex-basis 0.6s cubic-bezier(.2, .9, .3, 1.15), box-shadow 0.2s; }
-}
-.roll.intro { animation: rollIntro 2.4s ease-out; }
-@keyframes rollIntro {
-  0%, 30% { box-shadow: inset 0 8px 50px rgba(57, 255, 156, 0.45); border-top-color: var(--acc); }
-}
-.roll.intro .roll-name b { animation: rollIntroText 0.9s ease-in-out 0.5s 3; }
-@keyframes rollIntroText { 50% { color: var(--acc); text-shadow: 0 0 12px var(--acc); } }
-.roll.hot { box-shadow: inset 0 6px 40px rgba(57, 255, 156, 0.3); border-top-color: var(--acc); }
+.roll.hot { box-shadow: inset 0 6px 40px color-mix(in srgb, var(--acc) 30%, transparent); border-top-color: var(--acc); }
 .roll.gulp { animation: rollGulp 0.6s ease-out; }
 @keyframes rollGulp { from { box-shadow: inset 0 10px 60px var(--g); } }
-.roll.reject .roll-slot { animation: shake 0.35s; }
 @keyframes shake { 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
+#rollClose { padding: 4px 8px; font-size: 12px; color: var(--dim); }
+
+.slots {
+  position: relative; flex: none;
+  display: flex; align-items: center; justify-content: center; gap: clamp(16px, 3.5vw, 48px);
+  height: 104px; padding: 0 12px; overflow: visible;
+  background: var(--deep); border-top: 1px dashed var(--line);
+  transition: height 0.6s cubic-bezier(.2, .9, .3, 1.15), border-width 0.6s;
+}
+/* hidden until five orbs have gone into the player, then they slide up from the bottom */
+body:not(.roll-ready) .slots { height: 0; border-top-width: 0; overflow: hidden; }
+body:not(.roll-ready) .roll { flex-basis: 0 !important; border-top-width: 0; }
+/* an empty orb slot: a dashed hollow circle with its name inside */
+.orb-slot {
+  --g: var(--acc); --d: 82px;
+  position: relative; flex: none; width: var(--d); height: var(--d);
+  display: grid; place-items: center; border-radius: 50%;
+  border: 1.5px dashed color-mix(in srgb, var(--fg) 30%, transparent);
+  background: radial-gradient(circle, color-mix(in srgb, var(--hi) 2.5%, transparent) 0, color-mix(in srgb, var(--shadow) 40%, transparent) 100%);
+  box-shadow: inset 0 0 18px color-mix(in srgb, var(--shadow) 70%, transparent);
+  color: var(--dim);
+  transition: border-color 0.15s, background 0.15s, color 0.15s, opacity 0.15s, transform 0.15s, box-shadow 0.15s;
+}
+.slot-label {
+  display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 0 8px;
+  max-width: 100%; font-size: 11px; line-height: 1.15; text-align: center; word-break: keep-all; overflow-wrap: anywhere;
+  transition: opacity 0.2s; pointer-events: none;
+}
+.slot-label i { font-style: normal; font-size: 16px; filter: grayscale(0.4); }
+.slot-label b { font-weight: 400; }
+#slotQuieter { --g: color-mix(in srgb, #5ec8ff var(--orb-keep), var(--orb-mix)); }
+#slotLouder { --g: color-mix(in srgb, #ffb347 var(--orb-keep), var(--orb-mix)); }
+#slotVary { --g: color-mix(in srgb, #ff3bd4 var(--orb-keep), var(--orb-mix)); }
+#slotCopy { --g: color-mix(in srgb, #7dffb0 var(--orb-keep), var(--orb-mix)); }
+/* 편집 with its tab open */
+.orb-slot.open { color: color-mix(in srgb, var(--g), var(--fg) var(--ink-mix)); border-style: solid; border-color: var(--g); box-shadow: inset 0 0 18px color-mix(in srgb, var(--shadow) 70%, transparent), 0 0 18px color-mix(in srgb, var(--g) 45%, transparent); }
+.orb-slot.open i, .orb-slot.hot i { filter: none; }
+.orb-slot.hot { color: color-mix(in srgb, var(--g), var(--fg) var(--ink-mix)); border-style: solid; border-color: var(--g); background: color-mix(in srgb, var(--g) 18%, transparent); transform: scale(1.1); box-shadow: 0 0 26px color-mix(in srgb, var(--g) 55%, transparent); }
+.orb-slot.off { opacity: 0.3; }
+/* a volume / variation slot with its orb in it: the orb shivers there, waiting to be picked up */
+.orb-slot.filled { border-style: solid; border-color: color-mix(in srgb, var(--g) 55%, transparent); }
+.orb-slot.filled .slot-label { opacity: 0; }
+.orb-slot > .mini {
+  position: absolute; inset: 7px; width: auto; height: auto;
+  cursor: grab; touch-action: none;
+  animation: shiver 0.09s linear infinite alternate;
+}
+.orb-slot > .mini:hover { animation-duration: 0.14s; }
+@keyframes shiver {
+  0% { transform: translate(-1.5px, 0.5px) rotate(-3deg); }
+  50% { transform: translate(1.5px, -1px) rotate(2deg); }
+  100% { transform: translate(-0.5px, 1.5px) rotate(4deg); }
+}
+.lite .orb-slot > .mini { animation-duration: 0.2s; }
+.orb-slot.gulp { animation: slotGulp 0.6s ease-out; }
+@keyframes slotGulp { from { box-shadow: 0 0 34px var(--g), inset 0 0 22px var(--g); } }
+.orb-slot.reject { animation: shake 0.35s; }
+.slots.intro .orb-slot { animation: slotIntro 0.9s ease-in-out 0.4s 2; }
+@keyframes slotIntro { 50% { color: color-mix(in srgb, var(--g), var(--fg) var(--ink-mix)); border-color: var(--g); box-shadow: 0 0 16px color-mix(in srgb, var(--g) 60%, transparent); } }
+/* why a slot turned an orb away: a short line above the slots */
+.slot-hint {
+  position: absolute; left: 50%; bottom: calc(100% + 8px); z-index: 3; transform: translate(-50%, 4px);
+  width: max-content; max-width: calc(100% - 24px); padding: 6px 12px;
+  font-size: 12px; color: var(--warn); background: var(--panel); border: 1px solid color-mix(in srgb, var(--warn) 50%, transparent);
+  opacity: 0; pointer-events: none; transition: opacity 0.25s, transform 0.25s;
+}
+.slot-hint.on { opacity: 1; transform: translate(-50%, 0); }
+/* a narrow field (an iPad held either way, a small window): the five slots don't fit in one row,
+   so they go in two (편집 · 약하게 · 세게 over 변주 · 복제), a little smaller */
+@container right (max-width: 580px) {
+  .slots {
+    flex-wrap: wrap; align-content: center; row-gap: 8px; column-gap: clamp(12px, 5cqi, 28px);
+    height: 172px; padding: 6px 12px;
+  }
+  .orb-slot { --d: 72px; }
+  .slots::after { content: ''; order: 2; flex-basis: 100%; height: 0; } /* the line break */
+  #slotMidi, #slotQuieter, #slotLouder { order: 1; }
+  #slotVary, #slotCopy { order: 3; }
+}
 .roll-head { display: flex; align-items: center; gap: 10px; padding: 10px 12px; flex-wrap: wrap; min-height: 76px; }
 .roll-slot {
   width: 56px; height: 56px; flex: none;
@@ -373,7 +635,7 @@ body.roll-full.roll-min #rollCanvas { pointer-events: none; }
 }
 .mini {
   position: relative; width: 28px; height: 28px; border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%, #fff 0, var(--c) 35%, color-mix(in srgb, var(--c) 40%, #000) 100%);
+  background: radial-gradient(circle at 35% 30%, #fff 0, var(--c) 35%, color-mix(in srgb, var(--c) 40%, var(--shadow)) 100%);
   box-shadow: 0 0 14px var(--g);
 }
 .mini.dark { background: radial-gradient(circle at 35% 30%, #fff 0, #2a2a38 30%, #0b0b10 100%); box-shadow: 0 0 0 1.5px var(--g), 0 0 12px var(--g); }
@@ -381,11 +643,20 @@ body.roll-full.roll-min #rollCanvas { pointer-events: none; }
 .roll-name { display: flex; flex-direction: column; line-height: 1.3; min-width: 0; flex: 1; }
 .roll-name b { font-weight: 400; }
 .roll-name span { color: var(--dim); font-size: 11px; }
-.roll-hint { color: #ff6b8b; font-size: 12px; }
+.roll-hint { color: var(--warn); font-size: 12px; }
 .roll-tools { display: flex; gap: 4px; flex-wrap: wrap; }
 .roll-tools button { font-size: 12px; padding: 4px 8px; }
 .roll-tools button.go { border-color: var(--acc); color: var(--acc); }
 .roll-tools button:disabled { opacity: 0.35; cursor: default; }
+/* 수정 완료: the one way out of the tab, bigger than the old row of buttons */
+.roll-tools #rollDone {
+  font-size: 15px; font-weight: 600; padding: 9px 22px; border-width: 1.5px;
+  background: color-mix(in srgb, var(--acc) 14%, transparent);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--acc) 35%, transparent);
+}
+.roll-tools #rollDone:not(:disabled):hover { background: color-mix(in srgb, var(--acc) 26%, transparent); }
+#rollDice { font-size: 12px; padding: 4px 8px; }
+#rollDice:disabled { opacity: 0.35; cursor: default; }
 #rollCanvas { flex: 1; min-height: 0; width: 100%; display: block; cursor: crosshair; touch-action: none; }
 
 /* ---------- preset sidebar (left): saved sets as draggable tiles ---------- */
@@ -393,14 +664,14 @@ body.roll-full.roll-min #rollCanvas { pointer-events: none; }
   display: flex; flex-direction: column; align-items: stretch; gap: 8px;
   padding: 14px 6px 28px;
   border-right: 1px dashed var(--line);
-  background: rgba(6, 8, 12, 0.6);
+  background: var(--side);
   min-height: 0;
 }
 .side-head { font-size: 10px; letter-spacing: 0.15em; color: var(--dim); text-align: center; }
 .pb-save { display: flex; flex-direction: column; gap: 4px; }
 .pb-save input {
   width: 100%; font: inherit; font-size: 11px; color: var(--fg);
-  background: #000; border: 1px solid var(--line); padding: 3px 5px; user-select: text;
+  background: var(--field-in); border: 1px solid var(--line); padding: 3px 5px; user-select: text;
 }
 .pb-save button { font-size: 11px; padding: 3px 4px; border-color: var(--acc); color: var(--acc); }
 .pb-list {
@@ -415,7 +686,7 @@ body.roll-full.roll-min #rollCanvas { pointer-events: none; }
   padding: 6px 2px; cursor: grab; touch-action: none;
   border: 1px solid transparent;
 }
-.ptile:hover { border-color: var(--line); background: rgba(57, 255, 156, 0.05); }
+.ptile:hover { border-color: var(--line); background: color-mix(in srgb, var(--acc) 5%, transparent); }
 .ptile .mini { width: 36px; height: 36px; }
 .ptile .pname { max-width: 100%; font-size: 11px; color: var(--fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ptile small { font-size: 9px; color: var(--dim); letter-spacing: 0.1em; }
@@ -430,7 +701,7 @@ body.roll-full.roll-min #rollCanvas { pointer-events: none; }
 .ptile:hover .del, .ptile:hover .share { display: block; }
 .ptile .share.up { top: auto; bottom: 0; }
 .ptile .share:hover { color: var(--acc); }
-.ptile .del:hover { color: #ff6b8b; }
+.ptile .del:hover { color: var(--warn); }
 .ptile.gone { opacity: 0.3; }
 body.server-down .ptile .share.cloud { display: none; } /* no ☁ on tiles while the server is down */
 .ptile.stem .mini { outline: 1px dashed var(--acc2); outline-offset: 3px; }
@@ -439,20 +710,21 @@ body.server-down .ptile .share.cloud { display: none; } /* no ☁ on tiles while
 .pb-shared { border-top: 1px dashed var(--line); padding-top: 8px; }
 .pb-shared .side-head { display: flex; align-items: center; justify-content: center; gap: 2px; }
 .pb-shared .side-head button { padding: 0 4px; font-size: 11px; border: 0; }
+.pb-import { font-size: 11px; padding: 4px 2px; line-height: 1.25; word-break: keep-all; }
 .ptile.gulp { animation: stashGulp 0.6s ease-out; }
 
 /* ---------- stash sidebar ---------- */
 .stash {
   display: flex; flex-direction: column; align-items: center;
-  padding: 64px 0 10px;
+  padding: 14px 0 10px;
   border-left: 1px dashed var(--line);
-  background: rgba(6, 8, 12, 0.6);
+  background: var(--side);
   transition: box-shadow 0.2s, background 0.2s;
   min-height: 0;
 }
-.stash.hot { background: rgba(57, 255, 156, 0.08); box-shadow: inset 0 0 30px rgba(57, 255, 156, 0.3); }
+.stash.hot { background: color-mix(in srgb, var(--acc) 8%, transparent); box-shadow: inset 0 0 30px color-mix(in srgb, var(--acc) 30%, transparent); }
 .stash.gulp { animation: stashGulp 0.5s ease-out; }
-@keyframes stashGulp { from { background: rgba(57, 255, 156, 0.25); } }
+@keyframes stashGulp { from { background: color-mix(in srgb, var(--acc) 25%, transparent); } }
 .stash.reject { animation: shake 0.35s; }
 .stash-head { font-size: 10px; letter-spacing: 0.15em; color: var(--dim); margin-bottom: 6px; }
 .stash-slots {
@@ -462,7 +734,7 @@ body.server-down .ptile .share.cloud { display: none; } /* no ☁ on tiles while
 }
 .stash-slots .cell {
   flex: none; width: 40px; height: 40px; border-radius: 50%;
-  border: 1px dashed rgba(255, 255, 255, 0.08);
+  border: 1px dashed color-mix(in srgb, var(--hi) 8%, transparent);
   display: grid; place-items: center;
 }
 .stash-slots .cell .mini { cursor: grab; }
@@ -514,14 +786,14 @@ body.server-down .ptile .share.cloud { display: none; } /* no ☁ on tiles while
   color: var(--fg); background: var(--panel); border: 1px solid var(--line);
   font: inherit; user-select: text; -webkit-user-select: text;
 }
-.import::backdrop { background: rgba(0, 0, 0, 0.6); }
+.import::backdrop { background: var(--scrim); }
 .import p { margin: 8px 0; font-size: 12px; color: var(--dim); }
 .import textarea {
   width: 100%; resize: vertical; font: 12px/1.4 ui-monospace, Consolas, monospace;
-  color: var(--fg); background: rgba(0, 0, 0, 0.4); border: 1px solid var(--line); padding: 8px;
+  color: var(--fg); background: var(--field-in); border: 1px solid var(--line); padding: 8px;
 }
 .import textarea:focus { outline: none; border-color: var(--acc); }
-.import .import-err { color: #ff6b8b; min-height: 1.2em; }
+.import .import-err { color: var(--warn); min-height: 1.2em; }
 .import-btns { display: flex; justify-content: flex-end; gap: 6px; }
 .import-btns button.go { border-color: var(--acc); color: var(--acc); }
 .import-btns button:disabled { opacity: 0.35; cursor: default; }
@@ -534,7 +806,7 @@ body.server-down .ptile .share.cloud { display: none; } /* no ☁ on tiles while
 .upload .fld small { color: var(--dim); font-size: 10px; }
 .upload input:not([type]), .upload textarea {
   width: 100%; font: inherit; font-size: 13px; color: var(--fg);
-  background: rgba(0, 0, 0, 0.4); border: 1px solid var(--line); padding: 6px 8px;
+  background: var(--field-in); border: 1px solid var(--line); padding: 6px 8px;
 }
 .upload input:not([type]):focus { outline: none; border-color: var(--acc); }
 .upload textarea { resize: none; font-family: inherit; }
@@ -545,10 +817,12 @@ body.server-down .ptile .share.cloud { display: none; } /* no ☁ on tiles while
 .upload input[type='radio'], .upload input[type='checkbox'] { accent-color: var(--acc); }
 .upload .hp { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
 .upload .import-err.ok { color: var(--acc); }
+.upload .sh-credit { font-size: 11px; color: var(--fg); border-left: 2px solid var(--acc); padding-left: 8px; }
+.upload .sh-credit small { display: block; color: var(--dim); font-size: 10px; overflow-wrap: anywhere; }
 
 /* ---------- clear-all, above the player ---------- */
-.clear-all { font-size: 11px; padding: 3px 12px; color: var(--dim); border-color: rgba(255, 107, 139, 0.35); }
-.clear-all:hover { color: #ff6b8b; border-color: #ff6b8b; }
+.clear-all { font-size: 11px; padding: 3px 12px; color: var(--dim); border-color: color-mix(in srgb, var(--warn) 35%, transparent); }
+.clear-all:hover { color: var(--warn); border-color: var(--warn); }
 
 /* ---------- the song's orbs as mixer strips, grouped by slot ---------- */
 .chips { gap: 6px; max-width: 540px; }
@@ -556,7 +830,7 @@ body.server-down .ptile .share.cloud { display: none; } /* no ☁ on tiles while
   display: flex; flex-direction: column; align-items: center; gap: 2px;
   width: 84px; padding: 4px 4px 5px;
   border: 1px solid color-mix(in srgb, var(--g) 30%, transparent);
-  background: rgba(10, 14, 12, 0.72);
+  background: var(--surface);
   transition: border-color 0.15s, background 0.15s;
   position: relative;
 }
@@ -564,93 +838,107 @@ body.server-down .ptile .share.cloud { display: none; } /* no ☁ on tiles while
 .strip .sdice, .strip .snum { position: absolute; top: 1px; padding: 0 2px; border: 0; background: none; line-height: 1.2; }
 .strip .sdice { right: 1px; font-size: 11px; opacity: 0.45; }
 .strip .sdice:hover { opacity: 1; }
-.strip .snum { left: 2px; font-size: 9px; color: var(--g); }
+.strip .snum { left: 2px; font-size: 9px; color: color-mix(in srgb, var(--g), var(--fg) var(--ink-mix)); }
 .strip .snum:hover { text-decoration: line-through; }
-.strip:hover { border-color: var(--g); background: color-mix(in srgb, var(--g) 12%, rgba(10, 14, 12, 0.8)); }
+.strip:hover { border-color: var(--g); background: color-mix(in srgb, var(--g) 12%, var(--surface)); }
 .strip .mini { width: 36px; height: 36px; margin: 6px 0 4px; cursor: grab; touch-action: none; transition: transform 0.06s linear; will-change: transform; }
-.strip b { font-size: 11px; font-weight: 400; color: var(--g); white-space: nowrap; }
+.strip b { font-size: 11px; font-weight: 400; color: color-mix(in srgb, var(--g), var(--fg) var(--ink-mix)); white-space: nowrap; }
 .strip span { font-size: 9px; color: var(--dim); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* a hand-edited orb: its C01 tag stays put, ↺ goes back to the orb it came from */
-.strip span.snum.custom { color: var(--g); font-size: 9px; max-width: none; cursor: default; }
+.strip span.snum.custom { color: color-mix(in srgb, var(--g), var(--fg) var(--ink-mix)); font-size: 9px; max-width: none; cursor: default; }
 .strip span.snum.custom:hover { text-decoration: none; }
-.strip.slow { --g: #ff4040; }
+/* 12 or more orbs in the song (orbs.js renderChips): smaller strips, 8 to a row */
+.chips.many { gap: 4px; max-width: 560px; }
+.chips.many .strip { width: 64px; padding: 2px 2px 3px; }
+.chips.many .strip .mini { width: 26px; height: 26px; margin: 4px 0 2px; }
+.chips.many .strip b { font-size: 10px; }
+.chips.many .strip span { font-size: 8px; }
+.strip.slow { --g: color-mix(in srgb, #ff4040 var(--orb-keep), var(--orb-mix)); }
 .strip.fast { --g: #111; background: #e8e8e8; }
 .strip.fast span { color: #444; }
 
-/* ---------- variation seeds ---------- */
-.seeds { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; max-width: 460px; }
-.seeds:empty { display: none; }
-.seed { font-size: 10px; padding: 1px 6px; color: var(--dim); }
-.seed.now { color: var(--acc); border-color: var(--acc); }
-.seed.fav { color: #ffd23f; border-color: rgba(255, 210, 63, 0.5); }
-#favSeed { min-width: 34px; padding: 6px 8px; }
-#favSeed.on { color: #ffd23f; border-color: #ffd23f; background: rgba(255, 210, 63, 0.12); }
 
 /* ---------- orb search ---------- */
 .search {
-  position: fixed; top: 58px; right: 20px; z-index: 12;
+  position: fixed; top: var(--search-y, 58px); left: var(--search-x, auto); right: 20px; z-index: 12;
   width: min(440px, calc(100vw - 32px)); max-height: 62vh;
   display: none; flex-direction: column; gap: 8px; padding: 10px;
-  background: var(--panel); border: 1px solid var(--line); box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+  background: var(--panel); border: 1px solid var(--line); box-shadow: 0 10px 40px color-mix(in srgb, var(--shadow) 60%, transparent);
 }
 .search.open { display: flex; }
-.search input { font: inherit; font-size: 13px; color: var(--fg); background: #000; border: 1px solid var(--line); padding: 6px 8px; user-select: text; }
+.search input { font: inherit; font-size: 13px; color: var(--fg); background: var(--field-in); border: 1px solid var(--line); padding: 6px 8px; user-select: text; }
 .search input:focus { outline: none; border-color: var(--acc); }
 .search-results { overflow: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 6px; }
 .search-results .empty { grid-column: 1 / -1; color: var(--dim); font-size: 12px; margin: 4px; }
 .hit { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 4px; border: 1px solid transparent; cursor: grab; text-align: center; touch-action: none; }
 .hit:hover { border-color: var(--g); background: color-mix(in srgb, var(--g) 10%, transparent); }
 .hit.on { opacity: 0.4; cursor: not-allowed; }
-.hit span { font-size: 11px; color: var(--g); }
+.hit span { font-size: 11px; color: color-mix(in srgb, var(--g), var(--fg) var(--ink-mix)); }
 .hit small { font-size: 9px; color: var(--dim); letter-spacing: 0.1em; text-transform: uppercase; }
 
 /* ---------- stems: the full song as an editable grid ---------- */
 .stems {
   flex: 0 0 0; min-height: 0; overflow: hidden;
   display: flex; flex-direction: column;
-  background: rgba(6, 8, 12, 0.95); border-top: 1px solid transparent;
+  background: var(--deep); border-top: 1px solid transparent;
   transition: flex-basis 0.3s;
 }
-body.stem-open .stems { flex-basis: 50vh; border-top-color: var(--line); }
-body.stem-open.roll-full .stems { flex-basis: 34vh; }
-body.stem-open.roll-full .roll { flex-basis: 40vh; }
-body.stem-open.roll-full.roll-min .stems { flex-basis: 50vh; }
-body.stem-open.roll-full.roll-min .roll { flex-basis: max(13vh, 104px); }
-.stem-head { display: flex; align-items: center; gap: 10px; padding: 6px 10px; font-size: 12px; }
-.stem-head b { color: var(--acc); letter-spacing: 0.15em; font-weight: 400; }
-.stem-hint { flex: 1; color: var(--dim); font-size: 10px; }
+body.stem-open .stems { flex-basis: 64vh; border-top-color: var(--line); }
+body.stem-open.roll-full .stems { flex-basis: 42vh; }
+body.stem-open.roll-full .roll { flex-basis: 38vh; }
+body.stem-open.roll-full.roll-min .stems { flex-basis: 64vh; }
+body.stem-open.roll-full.roll-min .roll { flex-basis: 76px; }
+.stem-head { display: flex; align-items: center; gap: 8px; padding: 8px 10px; font-size: 12px; flex-wrap: wrap; }
+.stem-head b { color: var(--acc); letter-spacing: 0.15em; font-weight: 400; margin-right: auto; }
 .stem-head button { font-size: 11px; color: var(--dim); }
+.stem-head button:not(:disabled):hover { color: var(--fg); }
+.stem-head button:disabled { opacity: 0.35; cursor: default; }
+.stem-head #songBtn { color: var(--fg); }
+.stem-head #songBtn:hover { color: var(--acc); }
+.stem-head button.loop-mode { color: var(--acc); }
 .stem-body { position: relative; flex: 1; min-height: 0; overflow: auto; }
-.stem-grid { display: grid; grid-auto-rows: 30px; gap: 2px; padding: 0 8px 8px; min-width: max-content; }
+.stem-grid { display: grid; grid-auto-rows: 34px; gap: 2px; padding: 0 8px 8px; min-width: max-content; }
 .stem-grid .corner {
   position: sticky; left: 0; top: 0; z-index: 3;
   display: flex; align-items: center; padding-left: 4px;
-  font-size: 10px; color: var(--dim); background: rgba(6, 8, 12, 0.97);
+  font-size: 10px; color: var(--dim); background: var(--deep);
 }
 .stem-grid .sh {
+  --p: 0;
   position: sticky; top: 0; z-index: 2;
   display: flex; align-items: center; justify-content: space-between; gap: 2px; padding: 0 4px;
-  background: rgba(15, 26, 20, 0.96); border-bottom: 1px solid var(--line); overflow: hidden;
+  background: var(--deep); border-bottom: 1px solid var(--line); overflow: hidden;
 }
+/* click a section head: play from the 4 bars under the mouse · double-click: loop the section */
+.stem-grid .sh { cursor: pointer; user-select: none; }
 .sh .sname { font-size: 11px; padding: 2px 4px; color: var(--fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.sh .sname:hover { color: var(--acc); }
-.sh.mod .sname { color: #ffd23f; }
-.sh.now { box-shadow: inset 0 -2px 0 var(--acc); }
-.sh.aud { background: color-mix(in srgb, var(--acc) 25%, rgba(15, 26, 20, 0.96)); }
+.sh:hover .sname { color: var(--acc); }
+.sh.mod .sname { color: var(--gold); }
+.sh.now { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--acc) 55%, transparent); }
+/* the section's progress: a bar along its bottom edge, full once it is past */
+.sh .prog {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 3px; pointer-events: none;
+  transform-origin: left; transform: scaleX(var(--p));
+  background: color-mix(in srgb, var(--acc) 40%, transparent);
+}
+.sh.now .prog { background: linear-gradient(90deg, var(--acc), #fff); box-shadow: 0 0 8px var(--acc); }
+.sh.mod .prog { background: color-mix(in srgb, var(--gold) 45%, transparent); }
+.sh.mod.now .prog { background: linear-gradient(90deg, var(--gold), #fff); box-shadow: 0 0 8px var(--gold); }
+.sh.aud { background: color-mix(in srgb, var(--acc) 25%, var(--deep)); }
 .stem-grid .batch { font-size: 10px; padding: 1px 4px; color: var(--dim); flex: none; }
 .stem-grid .batch:hover { color: var(--acc); }
 .rh {
   position: sticky; left: 0; z-index: 1;
   display: flex; align-items: center; gap: 5px; padding: 0 4px;
-  background: rgba(6, 8, 12, 0.97); border-left: 2px solid var(--g); overflow: hidden;
+  background: var(--deep); border-left: 2px solid var(--g); overflow: hidden;
 }
 .rh .mini { width: 16px; height: 16px; flex: none; }
-.rh b { font-size: 10px; font-weight: 400; color: var(--g); white-space: nowrap; }
+.rh b { font-size: 10px; font-weight: 400; color: color-mix(in srgb, var(--g), var(--fg) var(--ink-mix)); white-space: nowrap; }
 .rh span { flex: 1; min-width: 0; font-size: 10px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.rh.alt b::after { content: ' ↺'; color: #ffd23f; }
+.rh.alt b::after { content: ' ↺'; color: var(--gold); }
 .cell {
   display: flex; align-items: center; justify-content: center; cursor: pointer;
-  background: rgba(255, 255, 255, 0.03); border: 1px dashed rgba(255, 255, 255, 0.07);
+  background: color-mix(in srgb, var(--hi) 3%, transparent); border: 1px dashed color-mix(in srgb, var(--hi) 7%, transparent);
 }
 .cell:hover { border-color: var(--g); }
 .cell.on {
@@ -658,35 +946,39 @@ body.stem-open.roll-full.roll-min .roll { flex-basis: max(13vh, 104px); }
   border: 1px solid color-mix(in srgb, var(--g) 60%, transparent);
   box-shadow: inset 0 0 10px color-mix(in srgb, var(--g) 30%, transparent);
 }
-.cell.aud { outline: 1px solid rgba(57, 255, 156, 0.35); }
-.seedtag { font-size: 10px; padding: 0 4px; color: #fff; text-shadow: 0 1px 2px #000; white-space: nowrap; }
+.cell.aud { outline: 1px solid color-mix(in srgb, var(--acc) 35%, transparent); }
+.seedtag { font-size: 10px; padding: 0 4px; color: var(--fg); text-shadow: 0 1px 2px var(--halo); white-space: nowrap; }
 .cell.on { justify-content: space-between; padding: 0 2px; }
-.cell.first { border-left: 1px solid rgba(255, 255, 255, 0.28); }
-.cellx { font-size: 10px; padding: 0 4px; color: rgba(255, 255, 255, 0.55); border: 0; background: none; }
-.cellx:hover { color: #ff6b8b; }
+.cell.first { border-left: 1px solid color-mix(in srgb, var(--hi) 28%, transparent); }
+.cellx { font-size: 10px; padding: 0 4px; color: color-mix(in srgb, var(--hi) 55%, transparent); border: 0; background: none; }
+.cellx:hover { color: var(--warn); }
+.celltools { display: flex; align-items: center; }
+.cellfill { font-size: 10px; padding: 0 2px; border: 0; background: none; filter: grayscale(1); opacity: 0.4; }
+.cellfill:hover { opacity: 0.85; }
+.cellfill.on { filter: none; opacity: 1; text-shadow: 0 0 6px #ffb347; }
 .sh .bars { font-size: 9px; color: var(--dim); white-space: nowrap; }
 .sh .len { font-size: 12px; line-height: 1; padding: 1px 5px; color: var(--dim); flex: none; }
 .sh .len:hover { color: var(--acc); border-color: var(--acc); }
 .sh .sname { flex: 1; min-width: 0; text-align: left; }
-#stemOnce.on { color: #ffd23f; border-color: #ffd23f; }
 .seedtag:hover { text-decoration: underline; }
-.stem-cursor { position: absolute; top: 0; bottom: 0; width: 2px; background: #fff; box-shadow: 0 0 10px #fff; pointer-events: none; display: none; z-index: 4; }
+.stem-cursor { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--cursor); box-shadow: 0 0 10px var(--cursor); pointer-events: none; display: none; z-index: 4; }
 
 /* a small box to type a seed */
 .seedpop { position: fixed; z-index: 20; display: none; gap: 4px; padding: 6px; background: var(--panel); border: 1px solid var(--acc); }
 .seedpop.open { display: flex; }
-.seedpop input { width: 90px; font: inherit; font-size: 12px; color: var(--fg); background: #000; border: 1px solid var(--line); padding: 3px 6px; user-select: text; }
+.seedpop input { width: 90px; font: inherit; font-size: 12px; color: var(--fg); background: var(--field-in); border: 1px solid var(--line); padding: 3px 6px; user-select: text; }
 .seedpop button { font-size: 12px; padding: 3px 8px; }
 
 /* ---------- short desktop screens (1366x768, 1600x900, 125% scaling ...) ---------- */
 @media (min-width: 761px) {
   /* a full song can be taller than the window: never clip it at both ends, let it scroll */
-  .left { justify-content: safe center; overflow-y: auto; overflow-x: hidden; scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+  .left { justify-content: safe center; overflow-y: auto; overflow-x: hidden; }
 }
 @media (min-width: 761px) and (max-height: 860px) {
   .left { gap: 8px; padding: 56px 12px 22px; }
   /* the ring sticks 34px out of the core, so these keep the same clearance with the smaller gap */
-  .roles { margin-bottom: 26px; gap: 2px 4px; }
+  .roles { margin-bottom: 26px; gap: 2px; }
+  .role-row { gap: 4px; }
   .status { margin-top: 28px; }
   .chips { gap: 4px; max-width: 100%; }
   .strip { width: 66px; padding: 2px 2px 3px; }
@@ -694,10 +986,9 @@ body.stem-open.roll-full.roll-min .roll { flex-basis: max(13vh, 104px); }
   .strip b { font-size: 10px; }
   .strip span { font-size: 8px; }
   .actions button { padding: 4px 10px; }
-  .song-bar { height: 26px; }
   /* leave the orb field room to grab from while the stems are open */
-  body.stem-open .stems { flex-basis: 40vh; }
-  .stash { padding-top: 56px; }
+  body.stem-open .stems { flex-basis: 54vh; }
+  .stash { padding-top: 14px; }
   .stash-slots .cell { width: 36px; height: 36px; }
 }
 @media (min-width: 761px) and (max-height: 680px) {
@@ -716,48 +1007,141 @@ body.stem-open.roll-full.roll-min .roll { flex-basis: max(13vh, 104px); }
 }
 
 @media (max-width: 760px) {
-  .left .clear-all, .left .seeds { pointer-events: auto; }
+  .left .clear-all { pointer-events: auto; }
   body.stem-open .stems { flex-basis: auto; }
 }
 
 /* orbs that make no sound of their own (mood, tempo, key): a thin rim around the ball, so
    they read as "changes the song" rather than "adds a part" */
-.orb.nosound .ball { outline: 2px solid color-mix(in srgb, var(--g, var(--c)) 70%, #fff); outline-offset: 5px; }
-.mini.nosound { outline: 1.5px solid color-mix(in srgb, var(--g, var(--c)) 70%, #fff); outline-offset: 3px; }
-.sat.nosound { outline: 1.5px solid color-mix(in srgb, var(--g, var(--c)) 70%, #fff); outline-offset: 3px; }
-.role > i.nosound { outline: 1px solid color-mix(in srgb, var(--g, var(--c)) 70%, #fff); outline-offset: 2px; }
+.orb.nosound .ball { outline: 2px solid color-mix(in srgb, var(--g, var(--c)) 70%, var(--cursor)); outline-offset: 5px; }
+.mini.nosound { outline: 1.5px solid color-mix(in srgb, var(--g, var(--c)) 70%, var(--cursor)); outline-offset: 3px; }
+.sat.nosound { outline: 1.5px solid color-mix(in srgb, var(--g, var(--c)) 70%, var(--cursor)); outline-offset: 3px; }
+.role > i.nosound { outline: 1px solid color-mix(in srgb, var(--g, var(--c)) 70%, var(--cursor)); outline-offset: 2px; }
+/* moods: the same rim, dashed, so they read apart from the key orbs (solid rim) */
+.orb.mood .ball, .mini.mood, .sat.mood, .role > i.mood { outline-style: dashed; }
 
 /* major keys (and major combos): a bright golden outline so they read at a glance */
-.orb.major .ball { outline: 3px solid #ffe066; outline-offset: 3px; box-shadow: 0 0 0 6px rgba(255, 224, 102, 0.18), 0 0 30px rgba(255, 210, 63, 0.7); }
-.mini.major { outline: 2px solid #ffe066; outline-offset: 2px; box-shadow: 0 0 10px rgba(255, 210, 63, 0.8); }
-.sat.major { outline: 2px solid #ffe066; outline-offset: 2px; }
-.role > i.major { box-shadow: 0 0 0 1.5px #ffe066, 0 0 8px #ffd23f; }
+.orb.major .ball { outline: 3px solid var(--gold); outline-offset: 3px; box-shadow: 0 0 0 6px color-mix(in srgb, var(--gold) 18%, transparent), 0 0 30px color-mix(in srgb, var(--gold) 70%, transparent); }
+.mini.major { outline: 2px solid var(--gold); outline-offset: 2px; box-shadow: 0 0 10px color-mix(in srgb, var(--gold) 80%, transparent); }
+.sat.major { outline: 2px solid var(--gold); outline-offset: 2px; }
+.role > i.major { box-shadow: 0 0 0 1.5px var(--gold), 0 0 8px var(--gold); }
 
-/* centre hint while the song has no orbs */
+/* first-visit hint: shown until the first orb ever goes into the song (orbs.js FIRST_ORB_KEY) */
 .empty-hint {
-  position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 5;
+  position: fixed; left: 50%; top: 30%; transform: translate(-50%, -50%); z-index: 5;
   width: min(560px, calc(100vw - 32px)); margin: 0; padding: 14px 18px;
   text-align: center; font-size: 15px; line-height: 1.6; color: var(--fg);
-  background: var(--panel); border: 1px solid var(--line); box-shadow: 0 0 24px rgba(57, 255, 156, 0.15);
+  background: var(--panel); border: 1px solid var(--line); box-shadow: 0 0 24px color-mix(in srgb, var(--acc) 15%, transparent);
   pointer-events: none; transition: opacity 0.3s;
 }
-body.has-orbs .empty-hint { opacity: 0; visibility: hidden; transition: opacity 0.3s, visibility 0s 0.3s; }
+body.has-orbs .empty-hint, body.first-orb-done .empty-hint { opacity: 0; visibility: hidden; transition: opacity 0.3s, visibility 0s 0.3s; }
+
+/* a see-through orb that keeps flying from the field into the player until the first throw */
+.ghost-orb {
+  position: fixed; left: 0; top: 0; z-index: 4; width: 34px; height: 34px; margin: -17px 0 0 -17px;
+  border-radius: 50%; pointer-events: none; opacity: 0;
+  background: radial-gradient(circle at 35% 35%, rgba(255, 255, 255, 0.9), color-mix(in srgb, var(--acc) 70%, transparent) 45%, color-mix(in srgb, var(--acc) 15%, transparent) 75%);
+  box-shadow: 0 0 22px color-mix(in srgb, var(--acc) 60%, transparent);
+}
+
+/* after the first orb: "turn the knob" tip at the volume ring's bottom-right, fades out */
+.vol-tip {
+  position: fixed; z-index: 6; pointer-events: none; white-space: nowrap;
+  padding: 8px 16px; font-size: 14px; font-weight: 700; color: var(--acc);
+  background: var(--panel); border: 2px solid var(--acc); border-radius: 4px;
+  text-shadow: 0 0 8px color-mix(in srgb, var(--acc) 70%, transparent);
+  animation: volTip 6.2s ease-out forwards, volTipGlow 1.2s ease-in-out infinite alternate;
+}
+/* stays up for the 5s dial wiggle, then fades out */
+@keyframes volTip { 0% { opacity: 0; transform: translate(-6px, -6px); } 6%, 80% { opacity: 1; transform: none; } 100% { opacity: 0; transform: none; } }
+@keyframes volTipGlow { from { box-shadow: 0 0 10px color-mix(in srgb, var(--acc) 35%, transparent); } to { box-shadow: 0 0 26px color-mix(in srgb, var(--acc) 80%, transparent), 0 0 4px color-mix(in srgb, var(--acc) 90%, transparent) inset; } }
 
 /* ---------- low-spec mode (body.lite, src/liteMode.js) ----------
    Same layout and colours, minus what costs the most to draw: shadows that animate (repainted every
    frame per orb), blurred swirls and big soft glows. The canvases also drop shadows and draw at 1x. */
 .lite .orb .ball { animation: none; box-shadow: 0 0 14px color-mix(in srgb, var(--g, var(--c)) 60%, transparent); }
 .lite .orb.dark .ball { box-shadow: 0 0 0 2px rgba(220, 220, 255, 0.85), 0 0 14px rgba(200, 200, 255, 0.6); }
-.lite .orb.major .ball { box-shadow: 0 0 0 6px rgba(255, 224, 102, 0.18); }
+.lite .orb.major .ball { box-shadow: 0 0 0 6px color-mix(in srgb, var(--gold) 18%, transparent); }
 .lite .field.rush .orb .ball { box-shadow: none; }
-.lite .orb .label { text-shadow: 0 1px 2px #000; }
+.lite .orb .label { text-shadow: 0 1px 2px var(--halo); }
 .lite .multi .swirl { filter: none; animation-duration: 10s; }
 .lite .orb.ejected .ball, .lite .core.gulp .ring { animation: none; }
 
-/* ---------- tools that show up later (orbs.js countMove) ----------
-   The variation / stems / save / share buttons and the strips' 🎲 stay hidden until the player has
-   put in or taken out 8 orbs by hand, then fade in once (body.tools-intro) and stay. Selected by id
-   and class rather than position: on a phone (orbsMobile.js) they are moved into other pages. */
-body:not(.tools-ready) :is(.actions, #songBtn, .m-export-btn, .seeds, .strip .seed-dice) { display: none; }
-body.tools-intro :is(.actions, #songBtn, .m-export-btn, .seeds, .strip .seed-dice) { animation: toolsIn 0.9s ease-out both; }
+/* ---------- tools that show up later (orbs.js tutorial) ----------
+   Each step of the guide unlocks a part with a body class: .roll-ready (the slots, above),
+   .midi-ready (the 편집 slot), .share-ready (loop WAV / share / server share, ⇪ on a phone),
+   .song-ready (📂 스템 열기). Selected by id and class rather than position: on a phone
+   (orbsMobile.js) they are moved into other places. */
+body:not(.midi-ready) #slotMidi { display: none; }
+body:not(.share-ready) :is(#wavBtn, #shareBtn, #serverShareBtn, #wavStemBtn, #stemShareBtn, .m-export-btn) { display: none; }
+body:not(.song-ready) #stemReopen { display: none; }
+#slotMidi.intro { animation: toolsIn 0.6s ease-out both, slotIntro 0.9s ease-in-out 0.6s 2; }
+body.share-ready :is(#wavBtn, #shareBtn, #serverShareBtn, .m-export-btn), body.song-ready #stemReopen { animation: toolsIn 0.9s ease-out both; }
 @keyframes toolsIn { from { opacity: 0; transform: translateY(6px); } }
+
+/* ---------- guide: spotlight + note (tutorial.js) ----------
+   The hole is a see-through box over the part being shown; its huge shadow dims the rest. Neither
+   takes clicks, so the page keeps working underneath. */
+.tut-hole {
+  position: fixed; z-index: 60; pointer-events: none; border-radius: 10px;
+  box-shadow: 0 0 0 200vmax var(--scrim), 0 0 0 2px var(--acc), 0 0 24px 2px color-mix(in srgb, var(--acc) 55%, transparent);
+  opacity: 0; transition: opacity 0.35s;
+}
+.tut-hole.on { opacity: 1; }
+.tut-tip {
+  position: fixed; z-index: 61; pointer-events: none;
+  width: max-content; max-width: min(380px, calc(100vw - 16px)); padding: 12px 16px;
+  font-size: 14px; line-height: 1.6; color: var(--fg); word-break: keep-all;
+  background: var(--panel); border: 1px solid var(--acc); border-radius: 4px;
+  box-shadow: 0 0 22px color-mix(in srgb, var(--acc) 35%, transparent);
+  opacity: 0; transform: translateY(6px); transition: opacity 0.35s, transform 0.35s;
+}
+.tut-tip.on { opacity: 1; transform: none; }
+/* a note that stays under the title (no dimming) */
+.tut-banner {
+  position: fixed; z-index: 5; pointer-events: none;
+  top: calc(var(--top-h, 52px) + 2px); left: 108px;
+  max-width: min(520px, calc(100vw - 124px)); padding: 8px 14px;
+  font-size: 13px; line-height: 1.5; color: var(--acc); word-break: keep-all;
+  background: var(--panel); border: 1px solid var(--acc); border-left-width: 3px;
+  box-shadow: 0 0 16px color-mix(in srgb, var(--acc) 25%, transparent);
+  opacity: 0; transform: translateY(-6px); transition: opacity 0.4s, transform 0.4s;
+  animation: tutGlow 1.6s ease-in-out infinite alternate;
+}
+.tut-banner.on { opacity: 1; transform: none; }
+@keyframes tutGlow { to { box-shadow: 0 0 26px color-mix(in srgb, var(--acc) 50%, transparent); } }
+@media (max-width: 760px) { .tut-banner { left: 16px; max-width: calc(100vw - 32px); } }
+.lite .tut-banner { animation: none; }
+
+/* ---------- scrollbars: thin neon rails in the page's colours ---------- */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: color-mix(in srgb, var(--hi) 2.5%, transparent); }
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--acc) 55%, transparent), color-mix(in srgb, var(--acc2) 45%, transparent));
+  border: 2px solid transparent; background-clip: padding-box; border-radius: 6px;
+}
+::-webkit-scrollbar-thumb:horizontal {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--acc) 55%, transparent), color-mix(in srgb, var(--acc2) 45%, transparent));
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--acc); background-clip: padding-box; }
+::-webkit-scrollbar-corner { background: transparent; }
+/* browsers without the ::-webkit-scrollbar parts (Firefox) */
+@supports not selector(::-webkit-scrollbar) {
+  * { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--acc) 50%, transparent) color-mix(in srgb, var(--hi) 3%, transparent); }
+}
+
+/* ---------- boot screen (sample preload) ---------- */
+.boot {
+  position: fixed; inset: 0; z-index: 1000;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+  padding: 0 16px; background: var(--bg);
+  transition: opacity 0.5s, visibility 0.5s;
+}
+body.booted .boot { opacity: 0; visibility: hidden; pointer-events: none; }
+.boot-title { color: var(--acc); letter-spacing: 0.2em; text-indent: 0.2em; animation: bootPulse 1.2s ease-in-out infinite; }
+.boot-bar { width: min(280px, 100%); height: 4px; background: var(--line); overflow: hidden; }
+.boot-bar i { display: block; width: 0; height: 100%; background: linear-gradient(90deg, var(--acc), var(--acc2)); transition: width 0.15s; }
+.boot-count { color: var(--dim); font-size: 12px; min-height: 18px; }
+@keyframes bootPulse { 50% { opacity: 0.45; } }
+@media (prefers-reduced-motion: reduce) { .boot-title { animation: none; } }

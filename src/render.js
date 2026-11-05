@@ -1,7 +1,7 @@
 // Offline renderer that runs inside a hidden iframe (render.html).
 // It has its own Strudel/superdough instance, so swapping the global audio context
 // to an OfflineAudioContext here never interrupts the live player in the parent page.
-import { initStrudel, Pattern, samples, registerZZFXSounds } from '@strudel/web';
+import { initStrudel, Pattern, registerZZFXSounds } from '@strudel/web';
 import { loadSampleBanks } from './samples.js';
 import { renderOffline } from './offline.js';
 
@@ -10,7 +10,7 @@ Pattern.prototype.sect = function (a, len) {
 };
 
 // the orb page (render.html?orbs) gates parts with .songPart() and also plays ZZFX synths
-// and mridangam strokes on top of the shared banks
+// on top of the shared banks
 Pattern.prototype.songPart = function (s0, len, a, b) {
   return this.filterWhen((t) => {
     const p = (((t - s0) % len) + len) % len;
@@ -22,7 +22,7 @@ const ready = initStrudel({
   prebake: () => {
     if (!orbs) return loadSampleBanks();
     registerZZFXSounds();
-    return Promise.all([loadSampleBanks(), samples('https://raw.githubusercontent.com/felixroos/dough-samples/main/mridangam.json')]);
+    return loadSampleBanks();
   },
 });
 const post = (msg, transfer) => parent.postMessage({ source: 'algorave-render', ...msg }, location.origin, transfer);

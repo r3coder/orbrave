@@ -16,29 +16,46 @@ export const DRUMS_URL = new URL('samples/strudel.json', document.baseURI).href;
 const DRUMS_BASE = new URL('samples/', document.baseURI).href;
 export const loadDrums = () => samples(DRUMS_URL, DRUMS_BASE);
 
-// Fetch and decode every self-hosted drum one-shot up front. Strudel only loads a sample on its
-// first hit, and drops that hit ("loading sound … took too long") when it isn't ready in time.
-// The files are small (a few KiB each), so loading the whole bank is cheaper than missing beats.
+// Fetch and decode the self-hosted drum one-shots ahead of time. Strudel only loads a sample on
+// its first hit, and drops that hit ("loading sound … took too long") when it isn't ready in time.
 // superdough caches buffers by URL, so later hits on the same files play straight away.
-let drumsReady;
+//
+// Two phases, so the page doesn't wait for the whole bank:
+// - boot: the first BOOT_COUNT files, in round-robin order over the sounds (every sound's :0
+//   first, then every :1 …), so each kit piece already has its default hit. The returned promise
+//   resolves here and onProgress(n, total) counts up to this set only.
+// - background: the rest keeps loading quietly with fewer requests at a time, so it doesn't
+//   crowd out the orb / song samples fetched on demand. drumsAll() resolves when it is done.
+const BOOT_COUNT = 100;
+const BOOT_WORKERS = 8;
+const BG_WORKERS = 2;
+let drumsReady, drumsAllDone;
+export const drumsAll = () => drumsAllDone ?? preloadDrums().then(() => drumsAllDone);
 export function preloadDrums(onProgress) {
   return (drumsReady ??= (async () => {
     const map = await fetch(DRUMS_URL).then((r) => r.json());
-    const urls = Object.entries(map)
-      .filter(([k]) => !k.startsWith('_'))
-      .flatMap(([, v]) => (Array.isArray(v) ? v : Object.values(v).flat()))
-      .map((p) => DRUMS_BASE + p);
+    const lists = Object.entries(map)
+      // fx_* (≈2 MB) and the pitched instruments (note maps, ≈2.5 MB) are longer and only a few
+      // orbs play them: those load when the orb is hovered, grabbed or added (warm in orbs.js)
+      .filter(([k, v]) => !k.startsWith('_') && !k.startsWith('fx_') && Array.isArray(v))
+      .map(([, v]) => v);
+    const urls = [];
+    for (let i = 0; urls.length < lists.reduce((s, l) => s + l.length, 0); i++) {
+      for (const l of lists) if (i < l.length) urls.push(DRUMS_BASE + l[i]);
+    }
     const ac = getAudioContext(); // decoding works while the context is still suspended
-    const queue = [...urls];
+    const load = (url) => loadBuffer(url, ac).catch((e) => console.warn('drum preload failed', url, e));
+    const run = (queue, workers, onEach) =>
+      Promise.all(Array.from({ length: workers }, async () => {
+        for (let url; (url = queue.shift()); ) await load(url).then(onEach);
+      }));
+
+    const boot = urls.slice(0, BOOT_COUNT);
+    const total = boot.length; // run() empties the queue as it goes
     let done = 0;
-    onProgress?.(0, urls.length);
-    const worker = async () => {
-      for (let url; (url = queue.shift()); ) {
-        await loadBuffer(url, ac).catch((e) => console.warn('drum preload failed', url, e));
-        onProgress?.(++done, urls.length);
-      }
-    };
-    await Promise.all(Array.from({ length: 8 }, worker)); // a few requests at a time
+    onProgress?.(0, total);
+    await run(boot, BOOT_WORKERS, () => onProgress?.(++done, total));
+    drumsAllDone = run(urls.slice(BOOT_COUNT), BG_WORKERS);
   })());
 }
 

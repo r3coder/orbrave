@@ -149,6 +149,7 @@ export const MIX_TRIM = {
     "kitbreak:31": 1.092
   },
   "kinds": {
+    "bass:dubsub:sine": 1.105,
     "bass:rumble:sawtooth": 1.658,
     "chords:dub:sawtooth": 10.627,
     "arp:synth:triangle": 8.887,
@@ -274,6 +275,16 @@ export const MIX_TRIM = {
       "lead": 0.507,
       "perc": 0.865,
       "_mix": 1.927
+    },
+    "dubtechno": {
+      "snare": 1.364,
+      "hats": 0.365,
+      "ohat": 0.234,
+      "bass": 0.51,
+      "chords": 0.263,
+      "perc": 0.554,
+      "crackle": 1.206,
+      "_mix": 2.304
     }
   }
 };

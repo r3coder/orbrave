@@ -36,6 +36,7 @@ const TARGETS = {
   lofi: { chords: -3, snare: -1, hats: -11, crackle: -22 },
   synthwave: { chords: -6, lead: -5, arp: -9, snare: -1 },
   ambient: { ref: 'chords', chords: 0, bass: -4, arp: -5, lead: -3, perc: -12 },
+  dubtechno: { chords: -7, bass: -3, hats: -12, perc: -16, crackle: -24 },
 };
 const targetFor = (style, role) => (TARGETS[style]?.[role] ?? BASE[role]);
 
@@ -75,14 +76,14 @@ async function measureSamples() {
   log('  done');
 }
 
-async function measureKinds() {
+async function measureKinds(styles = STYLE_NAMES, skipKnown = false) {
   const levels = {};
-  for (const style of STYLE_NAMES) {
+  for (const style of styles) {
     for (let i = 0; i < KIND_SONGS; i++) {
       const song = generateSong(((i + 1) * 2246822519) >>> 0, 0, [style]);
       const sec = mainSection(song);
       for (const part of sec.parts) {
-        if (!part.kind || (levels[part.kind]?.length ?? 0) >= 4) continue;
+        if (!part.kind || (levels[part.kind]?.length ?? 0) >= 4 || (skipKnown && part.kind in MIX_TRIM.kinds)) continue;
         const m = await measure(part.code, sec.start, sec.start + Math.min(CYCLES, sec.len), song.cps);
         if (Number.isFinite(m.integrated) && m.integrated > -70) (levels[part.kind] ??= []).push(m.integrated);
       }
@@ -185,5 +186,30 @@ async function run(apply) {
   window.__mixDone = true;
 }
 
+// New styles only: measure the sound recipes that have no trim yet, then the part levels and
+// loudness of the styles that have no role trims, leaving every existing trim as it is.
+async function runNew() {
+  logEl.textContent = '';
+  const t0 = performance.now();
+  const styles = STYLE_NAMES.filter((st) => !MIX_TRIM.roles[st]);
+  log(`— new styles: ${styles.join(', ') || 'none'}`);
+  if (styles.length) {
+    await measureKinds(styles, true);
+    for (let pass = 1; pass <= 2; pass++) {
+      log(`— part levels (pass ${pass})`);
+      for (const st of styles) await measureRoles(st, true);
+    }
+    log('— part levels after');
+    for (const st of styles) await measureRoles(st, false);
+    log('— main-section loudness');
+    for (const st of styles) await measureMix(st, true);
+    for (const st of styles) await measureMix(st, false);
+    printTable();
+  }
+  log(`finished in ${((performance.now() - t0) / 1000).toFixed(0)} s`);
+  window.__mixDone = true;
+}
+
 document.getElementById('run').onclick = () => run(true);
+document.getElementById('runNew').onclick = () => runNew();
 document.getElementById('report').onclick = () => run(false);

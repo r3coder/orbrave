@@ -7,7 +7,8 @@ export const LIMITS = {
   body: 32 * 1024, // bytes of JSON per upload
   name: 32,
   author: 24,
-  description: 100,
+  description: 100, // what the user types
+  credits: 160, // room after it for the CC-BY credits the orb page appends (src/licenses.js)
   layers: 24,
   drawn: 8,
   sections: 12,
@@ -15,10 +16,13 @@ export const LIMITS = {
   sectionBlocks: 16, // 4-bar blocks per section
   rows: 40,
   seed: 10_000_000,
+  gainMin: 5, // an orb's own volume, whole percents (orb page volume slots)
+  gainMax: 400,
 };
 
 const ID = /^[A-Za-z0-9_-]{1,40}$/;
-const RAW = /^[.0-9a-e]{64}$/; // a drawing: 64 steps, '.' or a row 0–14 in base 36
+// a drawing: 64 steps, each '.', a row 0–14 in base 36, or a chord of rows in parentheses
+const RAW = /^(?:[.0-9a-e]|\([0-9a-e]{2,15}\)){64}$/;
 
 // Characters that can hide or disguise text: C0/C1 controls, zero-width marks, bidi overrides
 // and isolates, the BOM, line/paragraph separators, and the Unicode "tag" block.
@@ -61,6 +65,7 @@ const id = (v, label) => {
 
 // The stem grid: sections (4-bar blocks each) and, per instrument row, one entry per block:
 // null = silent there, -1 = playing (no seed), n >= 0 = playing with seed n.
+// `fills` (optional): the blocks whose last bar plays as a fill.
 function cleanSong(s, layerIds) {
   if (!s || typeof s !== 'object' || Array.isArray(s)) fail('스템 데이터가 올바르지 않아요');
   const sections = list(s.sections, LIMITS.sections, '섹션').map((x) => {
@@ -87,7 +92,13 @@ function cleanSong(s, layerIds) {
     if (!alt && !layerIds.has(rid)) fail('스템 줄이 오브 목록과 맞지 않아요');
     const cells = list(r.cells, blocks, '스템 칸');
     if (cells.length !== blocks) fail('스템 칸 수가 섹션 길이와 맞지 않아요');
-    return { id: rid, alt, cells: cells.map((c) => (c === null ? null : int(c, -1, LIMITS.seed, '시드'))) };
+    const out = { id: rid, alt, cells: cells.map((c) => (c === null ? null : int(c, -1, LIMITS.seed, '시드'))) };
+    if (r.fills != null) {
+      const fills = [...new Set(list(r.fills, blocks, '필인').map((i) => int(i, 0, blocks - 1, '필인 위치')))];
+      if (fills.some((i) => out.cells[i] === null)) fail('필인은 악기가 연주하는 칸에만 넣을 수 있어요');
+      if (fills.length) out.fills = fills.sort((a, b) => a - b);
+    }
+    return out;
   });
   if (!rows.length) fail('스템에 악기가 없어요');
   return { sections, rows };
@@ -101,7 +112,7 @@ export function validatePreset(b) {
   const kind = b.kind === 'stem' ? 'stem' : b.kind === 'orb' || b.kind == null ? 'orb' : fail('종류는 오브 또는 스템이어야 해요');
   const name = cleanText(b.name, '노래 제목', LIMITS.name, { required: true });
   const author = cleanText(b.author, '노래 저자', LIMITS.author);
-  const description = cleanText(b.description, '노래 설명', LIMITS.description);
+  const description = cleanText(b.description, '노래 설명', LIMITS.description + 1 + LIMITS.credits);
 
   const drawnIds = new Set();
   const drawn = list(b.drawn ?? [], LIMITS.drawn, '그린 악기').map((d) => {
@@ -127,7 +138,18 @@ export function validatePreset(b) {
     if (!Object.keys(seeds).length) seeds = null;
   }
 
-  const out = { name, author, description, kind, layers, drawn: drawn.filter((d) => layers.includes(d.id)), variation, ...(seeds ? { seeds } : {}) };
+  // orbs turned down / up on their own: { orb id: percent }, only for orbs in the set
+  let gains = null;
+  if (b.gains != null) {
+    if (typeof b.gains !== 'object' || Array.isArray(b.gains)) fail('악기별 음량 형식이 올바르지 않아요');
+    const entries = Object.entries(b.gains);
+    if (entries.length > LIMITS.layers) fail('악기별 음량이 너무 많아요');
+    gains = {};
+    for (const [k, v] of entries) if (layers.includes(id(k, '악기별 음량'))) gains[k] = int(v, LIMITS.gainMin, LIMITS.gainMax, '악기별 음량');
+    if (!Object.keys(gains).length) gains = null;
+  }
+
+  const out = { name, author, description, kind, layers, drawn: drawn.filter((d) => layers.includes(d.id)), variation, ...(seeds ? { seeds } : {}), ...(gains ? { gains } : {}) };
   if (kind === 'stem') out.song = cleanSong(b.song, new Set(layers));
   return out;
 }

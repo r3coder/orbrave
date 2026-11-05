@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <title>Mobile preview</title>
+  <!-- Dev tool (npm run dev → /tools/mobile-preview.html): the orb page at several phone sizes side by
+       side. The frames share one origin, so they share localStorage (tutorial progress, session). -->
+  <style>
+    :root { color-scheme: dark; }
+    body { margin: 0; background: #0b0b10; color: #ccc; font: 13px/1.5 ui-monospace, Consolas, monospace; }
+    header { position: sticky; top: 0; z-index: 2; display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; padding: 10px 16px; background: #15151d; border-bottom: 1px solid #2a2a36; }
+    header b { color: #fff; letter-spacing: 0.1em; }
+    button, select { font: inherit; color: inherit; background: #20202a; border: 1px solid #333344; padding: 5px 10px; cursor: pointer; }
+    button:hover { border-color: #39ff9c; }
+    label { display: flex; gap: 6px; align-items: center; }
+    main { display: flex; flex-wrap: wrap; gap: 28px 24px; align-items: flex-start; padding: 20px 16px 60px; }
+    figure { margin: 0; }
+    figcaption { display: flex; gap: 8px; align-items: center; margin-bottom: 6px; white-space: nowrap; }
+    figcaption small { color: #777; }
+    figcaption button { padding: 1px 6px; font-size: 11px; }
+    .box { overflow: hidden; border: 1px solid #333344; border-radius: 14px; background: #000; }
+    iframe { display: block; border: 0; transform-origin: 0 0; }
+  </style>
+</head>
+<body>
+  <header>
+    <b>● ORBRAVE · mobile preview</b>
+    <label>배율 <input id="scale" type="range" min="0.35" max="1" step="0.05" value="0.6" /> <span id="scaleOut"></span></label>
+    <label>상태
+      <select id="state">
+        <option value="keep">그대로</option>
+        <option value="first">첫 방문 (튜토리얼 처음부터)</option>
+        <option value="slots">슬롯 열림 (5개 던진 뒤)</option>
+        <option value="all">모든 기능 열림</option>
+      </select>
+    </label>
+    <button id="reload">↻ 전부 새로고침</button>
+    <label><input id="land" type="checkbox" /> 가로 화면 포함</label>
+  </header>
+  <main id="grid"></main>
+  <script>
+    const DEVICES = [
+      ['iPhone SE', 375, 667],
+      ['Small (320)', 320, 568],
+      ['Galaxy S24', 360, 780],
+      ['iPhone 15', 393, 852],
+      ['Pixel 8 Pro', 412, 915],
+      ['iPhone 15 Pro Max', 430, 932],
+      ['Z Fold 커버', 344, 882],
+      ['Z Fold 펼침', 690, 830],
+      ['Pixel Fold 펼침', 840, 700],
+    ];
+    const LAND = [['iPhone 15 가로', 852, 393], ['iPad mini 세로', 768, 1024], ['iPad mini 가로', 1024, 768]];
+    const grid = document.getElementById('grid');
+    const scaleEl = document.getElementById('scale');
+    const frames = [];
+    const url = () => '/index.html?preview=' + Date.now();
+
+    function build() {
+      grid.innerHTML = '';
+      frames.length = 0;
+      const list = document.getElementById('land').checked ? [...DEVICES, ...LAND] : DEVICES;
+      for (const [name, w, h] of list) {
+        const fig = document.createElement('figure');
+        fig.innerHTML = `<figcaption><span>${name}</span><small>${w}×${h}</small><button title="이 화면만 새로고침">↻</button><button title="새 창으로">⧉</button></figcaption><div class="box"><iframe></iframe></div>`;
+        const ifr = fig.querySelector('iframe');
+        ifr.width = w;
+        ifr.height = h;
+        const [re, pop] = fig.querySelectorAll('button');
+        re.onclick = () => (ifr.src = url());
+        pop.onclick = () => window.open('/index.html', name, `width=${w},height=${h}`);
+        frames.push({ fig, ifr, w, h });
+        grid.append(fig);
+      }
+      rescale();
+      reloadAll();
+    }
+    function rescale() {
+      const s = +scaleEl.value;
+      document.getElementById('scaleOut').textContent = Math.round(s * 100) + '%';
+      for (const { fig, ifr, w, h } of frames) {
+        ifr.style.transform = `scale(${s})`;
+        const box = fig.querySelector('.box');
+        box.style.width = w * s + 'px';
+        box.style.height = h * s + 'px';
+      }
+    }
+    // tutorial progress lives in localStorage (src/orbs.js TUT_KEY / FIRST_ORB_KEY)
+    function applyState() {
+      const v = document.getElementById('state').value;
+      if (v === 'keep') return;
+      for (const k of ['orbTutorial', 'orbFirstOrb', 'orbSession', 'orbRollReady', 'orbToolsReady']) localStorage.removeItem(k);
+      if (v === 'first') return;
+      localStorage.setItem('orbFirstOrb', '1');
+      const step = v === 'all' ? 6 : 2;
+      localStorage.setItem('orbTutorial', JSON.stringify({ step, thrown: v === 'all' ? 20 : 5, moves: 20, thrownAt: 0, movesAt: 0, at: Date.now(), banner: false, bannerMoves: 0, used: false, combo: true }));
+    }
+    function reloadAll() {
+      applyState();
+      // one at a time: each frame boots the sample bank
+      frames.forEach((f, i) => setTimeout(() => (f.ifr.src = url()), i * 400));
+    }
+    scaleEl.oninput = rescale;
+    document.getElementById('reload').onclick = reloadAll;
+    document.getElementById('state').onchange = reloadAll;
+    document.getElementById('land').onchange = build;
+    build();
+  </script>
+</body>
+</html>

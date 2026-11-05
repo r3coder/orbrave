@@ -1,7 +1,8 @@
 /* Phone (portrait) layout, loaded after orbs.css so it wins over its narrow-screen rules.
    One-row header (📁 presets sheet, 🔍, ⋯ menu) / the orbs raining around the player, with the
    song's orbs and buttons under it / the stash as a strip at the bottom.
-   MIDI and the full-song stems stay on wide screens. orbsMobile.js moves the elements around. */
+   The full-song stems and 편집 (piano roll) stay on wide screens; the orb slots (약하게 / 세게 / 변주 /
+   복제) sit between the orbs and the stash. orbsMobile.js moves the elements around. */
 .m-head-btns, .m-credit, .m-sheet, .m-export, .m-rotate { display: none; }
 
 /* phones held sideways: just a notice. A touch screen that short, or any screen phone-sized
@@ -22,9 +23,9 @@
 
   /* ---------- header: logo, ∞, 📁, 🔍, ⋯ ---------- */
   .top {
-    flex-wrap: nowrap; gap: 8px;
+    flex-wrap: nowrap; gap: 8px; align-items: center;
     padding: max(8px, env(safe-area-inset-top, 0px)) 10px 8px;
-    background: rgba(5, 5, 8, 0.94); border-bottom: 1px dashed var(--line);
+    background: color-mix(in srgb, var(--bg) 94%, transparent); border-bottom: 1px dashed var(--line);
     pointer-events: auto;
   }
   .logo { display: flex; align-items: center; min-width: 0; font-size: 14px; letter-spacing: 0.12em; }
@@ -36,18 +37,19 @@
   .m-head-btns #searchBtn::before { content: '🔍'; font-size: 15px; }
   .m-menu-btn { font-size: 18px !important; }
   .m-head-btns button.on, body.m-menu-open .m-menu-btn, body.m-sheet-open .m-presets-btn {
-    border-color: var(--acc); color: var(--acc); background: rgba(57, 255, 156, 0.12);
+    border-color: var(--acc); color: var(--acc); background: color-mix(in srgb, var(--acc) 12%, transparent);
   }
   /* everything else from the header: a menu under ⋯ */
   .tools {
     position: fixed; top: calc(var(--top-h, 52px) + 4px); right: 8px; z-index: 13;
     display: none; flex-direction: column; flex-wrap: nowrap; gap: 6px;
     width: min(270px, calc(100vw - 16px)); max-height: calc(100dvh - var(--top-h, 52px) - 16px); overflow-y: auto;
-    padding: 10px; background: var(--panel); border: 1px solid var(--line); box-shadow: 0 10px 40px rgba(0, 0, 0, 0.7);
+    padding: 10px; background: var(--panel); border: 1px solid var(--line); box-shadow: 0 10px 40px color-mix(in srgb, var(--shadow) 70%, transparent);
   }
   body.m-menu-open .tools { display: flex; }
   .tools button { text-align: left; font-size: 13px; padding: 10px 12px; min-height: 44px; }
   .tools .langs { align-self: stretch; }
+  .tools .foot-links { display: flex; flex-direction: column; gap: 6px; }
   .tools .langs button { flex: 1; text-align: center; padding: 10px 0; font-size: 13px; min-height: 0; }
   .m-credit { display: flex; flex-wrap: wrap; gap: 4px 14px; padding-top: 8px; border-top: 1px dashed var(--line); font-size: 11px; }
   .m-credit a { color: var(--dim); text-decoration: none; }
@@ -61,23 +63,33 @@
   /* ---------- the screen: orbs + player, stash strip under them ---------- */
   .stage {
     display: grid; position: fixed; left: 0; right: 0; top: var(--top-h, 52px); bottom: 0; height: auto;
-    grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto;
-    grid-template-areas: 'main' 'stash';
+    grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto auto;
+    grid-template-areas: 'main' 'slots' 'stash';
     overflow: hidden;
   }
   .right { display: contents; }
   .field { grid-area: main; order: 0; z-index: 0; }
-  /* MIDI and the stems are for wide screens */
-  .roll, .stems, #songBtn { display: none !important; }
+  /* the stems are for wide screens */
+  .stems, #stemReopen { display: none !important; }
+
+  /* orb slots: one row over the stash. 편집 (the piano roll) is for wide screens: no 편집 slot
+     and no tab here (orbs.js sends an orb in it back when the layout turns into a phone one) */
+  .slots { grid-area: slots; height: 80px; padding: 0 10px; gap: clamp(8px, 5vw, 40px); justify-content: center; }
+  #slotMidi, .roll { display: none !important; }
+  .orb-slot { --d: 66px; }
+  .slot-label { font-size: 10px; padding: 0 5px; gap: 1px; }
+  .slot-label i { font-size: 15px; }
+  .orb-slot small { display: none; }
+  .slot-hint, .slot-hint.on { left: 10px; right: 10px; width: auto; max-width: none; transform: none; text-align: center; }
 
   /* falling orbs: name above, a short description under each */
   .orb .label {
     font-size: 12px;
-    text-shadow: 0 0 3px #000, 0 1px 2px #000, 0 0 10px color-mix(in srgb, var(--g, var(--c)) 50%, transparent);
+    text-shadow: 0 0 3px var(--halo), 0 1px 2px var(--halo), 0 0 10px color-mix(in srgb, var(--g, var(--c)) 50%, transparent);
   }
   .orb .kind {
     display: block; top: calc(var(--s) / 2 + 5px);
-    font-size: 9px; letter-spacing: 0.08em; color: rgba(230, 255, 242, 0.62); text-shadow: 0 1px 2px #000, 0 0 4px #000;
+    font-size: 9px; letter-spacing: 0.08em; color: color-mix(in srgb, var(--fg) 62%, transparent); text-shadow: 0 1px 2px var(--halo), 0 0 4px var(--halo);
   }
 
   .left {
@@ -86,10 +98,9 @@
     padding: 58px 0 10px; border: 0; min-width: 0; overflow: hidden;
     pointer-events: none; /* the orbs underneath stay grabbable */
   }
-  .left .play, .left .chips, .left .seeds, .left .actions, .left .clear-all, .left #vote, .left .song { pointer-events: auto; }
+  .left .play, .left .chips, .left .actions, .left .clear-all, .left #vote, .left .song { pointer-events: auto; }
   .left .roles { display: none; }
   .left .clear-all { position: absolute; top: 10px; left: 10px; font-size: 12px; padding: 7px 10px; }
-  .stage > #shuffle { grid-area: main; align-self: start; justify-self: end; z-index: 2; margin: 10px; font-size: 12px; padding: 7px 10px; }
   .m-empty-hint { top: calc(var(--top-h, 52px) + 60px); transform: translateX(-50%); width: calc(100% - 32px); font-size: 13px; padding: 10px 14px; }
 
   /* the player, centred in what the rows below leave over; a dark halo keeps it readable
@@ -97,21 +108,20 @@
   .core { margin-block: auto; --size: clamp(120px, min(24vw, 19vh), 168px); --drop-pad: 34px; --drop-pull: 1.5; --vote-gap: 30px; }
   .core::before {
     content: ''; position: absolute; inset: -78px; border-radius: 50%; z-index: -1; pointer-events: none;
-    background: radial-gradient(closest-side, rgba(5, 5, 8, 0.8) 55%, rgba(5, 5, 8, 0));
+    background: radial-gradient(closest-side, color-mix(in srgb, var(--bg) 80%, transparent) 55%, color-mix(in srgb, var(--bg) 0%, transparent));
   }
   .ring { inset: -22px; }
   .volring { inset: -22px; width: calc(100% + 44px); height: calc(100% + 44px); }
   .left .status {
     flex: none; margin: 18px 0 0; padding: 3px 12px; max-width: calc(100% - 20px);
-    font-size: 12px; background: rgba(5, 5, 8, 0.78); border-radius: 999px;
+    font-size: 12px; background: color-mix(in srgb, var(--bg) 78%, transparent); border-radius: 999px;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
-  .left .solo-hint { flex: none; padding: 0 12px; text-shadow: 0 1px 3px #000; }
+  .left .solo-hint { flex: none; padding: 0 12px; text-shadow: 0 1px 3px var(--halo); }
   .left .solo-hint:empty { display: none; }
   /* a full song loaded from a preset: no timeline here, just the way back to the loop */
-  .left .song.on { width: auto; }
-  .left .song .song-bar { display: none; }
-  .left .song button { font-size: 12px; padding: 6px 12px; border: 1px solid var(--line); background: rgba(5, 5, 8, 0.78); }
+  .left .song.on { display: flex; width: auto; }
+  .left .song button { font-size: 12px; padding: 6px 12px; border: 1px solid var(--line); background: color-mix(in srgb, var(--bg) 78%, transparent); }
 
   /* the song's orbs: one row, swiped sideways (the ball itself is grabbed, so swipe on the name);
      the edges fade so it shows there is more */
@@ -122,25 +132,17 @@
     -webkit-mask-image: linear-gradient(90deg, transparent, #000 12px, #000 calc(100% - 12px), transparent);
     mask-image: linear-gradient(90deg, transparent, #000 12px, #000 calc(100% - 12px), transparent);
   }
-  .left .chips::-webkit-scrollbar, .left .seeds::-webkit-scrollbar, .stash-slots::-webkit-scrollbar { display: none; }
+  .left .chips::-webkit-scrollbar, .stash-slots::-webkit-scrollbar { display: none; }
   .strip { flex: none; width: 70px; padding: 3px 3px 4px; }
   .strip .mini { width: 32px; height: 32px; margin: 7px 0 2px; }
   .strip b { font-size: 11px; }
   .strip span { font-size: 9px; }
   .strip .sdice { font-size: 13px; opacity: 0.7; padding: 0 3px; }
 
-  /* past variations: one row too */
-  .left .seeds {
-    flex: none; flex-wrap: nowrap; justify-content: safe center;
-    max-width: 100%; padding: 0 10px; overflow-x: auto; scrollbar-width: none;
-  }
-  .seed { flex: none; font-size: 11px; padding: 4px 8px; }
-
-  /* 🎲 변주 · ☆ · ⇪ 내보내기 (the stash's ⇪ only on short phones) */
+  /* 🎼 스템 · ⇪ 내보내기 (the stash's ⇪ only on short phones) */
   .m-export-stash { display: none !important; }
   .left .actions { flex: none; flex-wrap: nowrap; justify-content: center; gap: 8px; width: 100%; padding: 2px 10px 0; }
   .left .actions button { flex: 1; max-width: 160px; min-height: 44px; font-size: 13px; }
-  .left #favSeed { flex: 0 0 48px; }
 
   /* ---------- stash: a strip at the bottom, ⇪ export on its right ---------- */
   .stash {
@@ -149,7 +151,7 @@
     grid-template-areas: 'head slots' 'hint slots';
     align-items: center; column-gap: 10px;
     padding: 6px 10px calc(6px + var(--safe-b)); border: 0; border-top: 1px dashed var(--line);
-    background: rgba(6, 8, 12, 0.94);
+    background: var(--deep);
   }
   .stash-head { grid-area: head; align-self: end; margin: 0; font-size: 11px; white-space: nowrap; }
   .m-stash-hint { grid-area: hint; align-self: start; max-width: 76px; font-size: 9px; line-height: 1.3; color: var(--dim); word-break: keep-all; }
@@ -166,14 +168,14 @@
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     width: 58px; height: 46px; padding: 0 4px; font-size: 10px; line-height: 1.25; white-space: normal; word-break: keep-all;
   }
-  body.m-export-open .m-export-btn { border-color: var(--acc); color: var(--acc); background: rgba(57, 255, 156, 0.12); }
+  body.m-export-open .m-export-btn { border-color: var(--acc); color: var(--acc); background: color-mix(in srgb, var(--acc) 12%, transparent); }
 
   /* ---------- export popover: the loop's / song's save and share buttons, above the stash ---------- */
   .m-export {
     position: fixed; left: 8px; right: 8px; z-index: 8;
-    bottom: calc(124px + var(--safe-b)); /* above the 🎲 · ☆ · ⇪ row (above the stash on short phones) */
+    bottom: calc(128px + var(--safe-b)); /* above the 🎲 · ☆ · ⇪ row (above the stash on short phones) */
     padding: 10px; background: var(--panel); border: 1px solid var(--line);
-    box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.7);
+    box-shadow: 0 -10px 40px color-mix(in srgb, var(--shadow) 70%, transparent);
   }
   body.m-export-open .m-export { display: flex; }
   .m-export .actions { flex-direction: column; flex-wrap: nowrap; width: 100%; gap: 6px; }
@@ -183,7 +185,7 @@
   .m-sheet {
     position: fixed; left: 0; right: 0; top: var(--top-h, 52px); bottom: 0; z-index: 7;
     overflow-y: auto; overscroll-behavior: contain; padding-bottom: var(--safe-b);
-    background: rgba(6, 8, 12, 0.97);
+    background: var(--deep);
     scrollbar-width: thin; scrollbar-color: var(--line) transparent;
   }
   body.m-sheet-open .m-sheet { display: block; }
@@ -207,7 +209,7 @@
     flex: none; height: auto; padding: 0; overflow: visible;
   }
   .m-sheet .pb-list .empty { grid-column: 1 / -1; margin: 0; text-align: left; font-size: 12px; }
-  .m-sheet .ptile { padding: 10px 4px 6px; border: 1px solid var(--line); background: rgba(10, 14, 12, 0.6); }
+  .m-sheet .ptile { padding: 10px 4px 6px; border: 1px solid var(--line); background: var(--surface); }
   .m-sheet .ptile .mini { width: 34px; height: 34px; }
   .m-sheet .ptile .pname, .m-sheet .ptile small {
     display: block; max-width: 100%; text-align: center;
@@ -218,11 +220,11 @@
   .m-sheet .ptile .del, .m-sheet .ptile .share { display: block; font-size: 13px; padding: 2px 6px; }
 }
 
-/* phones the size of an iPhone SE (667px tall) or smaller: no variations at all (🎲 변주, ☆,
-   the recent list, each strip's own 🎲 seed), and a smaller player */
+/* phones the size of an iPhone SE (667px tall) or smaller: no per-strip variations (each
+   strip's own 🎲 seed) and no stem / export row, and a smaller player */
 @media (max-width: 760px) and (max-height: 667px),
   (max-width: 900px) and (max-height: 667px) and (min-aspect-ratio: 3/4) and (max-aspect-ratio: 4/3) {
-  .left .actions, .left .seeds, .strip .sdice, .strip button.snum { display: none; }
+  .left .actions, .strip .sdice, .strip button.snum { display: none; }
   /* ⇪ moves next to the stash, its popover just above it */
   .m-export-stash { display: flex !important; }
   .stash { grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: 'head slots export' 'hint slots export'; }
@@ -238,4 +240,19 @@
 @media (max-width: 380px) {
   .logo .nav-btn { font-size: 0; padding: 7px 11px; }
   .logo .nav-btn::before { content: '∞'; font-size: 14px; }
+}
+/* the smallest phones (iPhone SE 1st gen, 568px tall): lower slots, a smaller player and song row */
+@media (max-width: 760px) and (max-height: 600px) {
+  .slots { height: 64px; }
+  .orb-slot { --d: 54px; }
+  .slot-label { font-size: 9px; }
+  .slot-label i { font-size: 13px; }
+  .core { --size: 88px; }
+  .ring, .volring { inset: -16px; }
+  .volring { width: calc(100% + 32px); height: calc(100% + 32px); }
+  .core::before { inset: -52px; }
+  .left { gap: 4px; padding-top: 48px; }
+  .left .status { margin-top: 12px; font-size: 11px; }
+  .strip { width: 62px; }
+  .strip .mini { width: 26px; height: 26px; margin: 4px 0 1px; }
 }

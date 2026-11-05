@@ -1,6 +1,7 @@
 // Phone (portrait) layout for the orb page. Kept apart from orbs.js: on a phone the page is one
 // screen (the orbs rain around the player, the song's orbs and buttons under it, the stash at
-// the bottom). MIDI and the full-song stems are left to wide screens; the header folds into a
+// the bottom, the orb slots above it). The full-song stems and 편집 (the piano roll) are left to
+// wide screens (orbsMobile.css hides them, orbs.js skips their tutorial steps); the header folds into a
 // menu, presets open as a sheet, and the save/share buttons share one popover. Elements orbs.js
 // holds are only moved (and put back on wide screens), so its listeners and rect checks still work.
 import './orbsMobile.css';
@@ -88,8 +89,8 @@ const PLACES = [
   [presetsBtn, headBtns],
   [$('searchBtn'), headBtns],
   [menuBtn, headBtns],
+  [$('footLinks'), document.querySelector('.tools')],
   [credit, document.querySelector('.tools')],
-  [$('shuffle'), stage],
   [emptyHint, stage],
   [$('presetbar'), sheet],
   [actions[1], exportPop],

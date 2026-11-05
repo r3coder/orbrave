@@ -365,5 +365,233 @@
   "kitbreak/29.flac",
   "kitbreak/30.flac",
   "kitbreak/31.flac"
- ]
+ ],
+ "fx_impact": [
+  "fx/impact/00.flac",
+  "fx/impact/01.flac",
+  "fx/impact/02.flac"
+ ],
+ "fx_subdrop": [
+  "fx/subdrop/00.flac",
+  "fx/subdrop/01.flac"
+ ],
+ "fx_revcr": [
+  "fx/revcr/00.flac",
+  "fx/revcr/01.flac",
+  "fx/revcr/02.flac",
+  "fx/revcr/03.flac"
+ ],
+ "fx_revsd": [
+  "fx/revsd/00.flac",
+  "fx/revsd/01.flac",
+  "fx/revsd/02.flac"
+ ],
+ "fx_upsweep": [
+  "fx/upsweep/00.flac",
+  "fx/upsweep/01.flac"
+ ],
+ "fx_downsweep": [
+  "fx/downsweep/00.flac",
+  "fx/downsweep/01.flac"
+ ],
+ "swagbass": {
+  "A0": [
+   "swagbass/A0.flac"
+  ],
+  "C1": [
+   "swagbass/C1.flac"
+  ],
+  "Eb1": [
+   "swagbass/Eb1.flac"
+  ],
+  "Gb1": [
+   "swagbass/Gb1.flac"
+  ],
+  "G1": [
+   "swagbass/G1.flac"
+  ],
+  "A1": [
+   "swagbass/A1.flac"
+  ],
+  "C2": [
+   "swagbass/C2.flac"
+  ],
+  "D2": [
+   "swagbass/D2.flac"
+  ],
+  "Eb2": [
+   "swagbass/Eb2.flac"
+  ],
+  "Gb2": [
+   "swagbass/Gb2.flac"
+  ],
+  "A2": [
+   "swagbass/A2.flac"
+  ],
+  "C3": [
+   "swagbass/C3.flac"
+  ],
+  "Eb3": [
+   "swagbass/Eb3.flac"
+  ],
+  "Gb3": [
+   "swagbass/Gb3.flac"
+  ],
+  "A3": [
+   "swagbass/A3.flac"
+  ],
+  "C4": [
+   "swagbass/C4.flac"
+  ],
+  "Eb4": [
+   "swagbass/Eb4.flac"
+  ],
+  "Gb4": [
+   "swagbass/Gb4.flac"
+  ],
+  "A4": [
+   "swagbass/A4.flac"
+  ]
+ },
+ "growlybass": {
+  "Db1": [
+   "growlybass/Db1.flac"
+  ],
+  "E1": [
+   "growlybass/E1.flac"
+  ],
+  "Gb1": [
+   "growlybass/Gb1.flac"
+  ],
+  "A1": [
+   "growlybass/A1.flac"
+  ],
+  "C2": [
+   "growlybass/C2.flac"
+  ],
+  "Eb2": [
+   "growlybass/Eb2.flac"
+  ],
+  "Gb2": [
+   "growlybass/Gb2.flac"
+  ],
+  "A2": [
+   "growlybass/A2.flac"
+  ],
+  "C3": [
+   "growlybass/C3.flac"
+  ],
+  "Eb3": [
+   "growlybass/Eb3.flac"
+  ],
+  "Gb3": [
+   "growlybass/Gb3.flac"
+  ],
+  "A3": [
+   "growlybass/A3.flac"
+  ],
+  "C4": [
+   "growlybass/C4.flac"
+  ],
+  "Eb4": [
+   "growlybass/Eb4.flac"
+  ]
+ },
+ "uprightbass": {
+  "C1": [
+   "uprightbass/C1.flac"
+  ],
+  "Eb1": [
+   "uprightbass/Eb1.flac"
+  ],
+  "G1": [
+   "uprightbass/G1.flac"
+  ],
+  "Bb1": [
+   "uprightbass/Bb1.flac"
+  ],
+  "D2": [
+   "uprightbass/D2.flac"
+  ],
+  "F2": [
+   "uprightbass/F2.flac"
+  ],
+  "A2": [
+   "uprightbass/A2.flac"
+  ],
+  "C3": [
+   "uprightbass/C3.flac"
+  ],
+  "E3": [
+   "uprightbass/E3.flac"
+  ],
+  "G3": [
+   "uprightbass/G3.flac"
+  ],
+  "A3": [
+   "uprightbass/A3.flac"
+  ]
+ },
+ "wurli": {
+  "A1": [
+   "wurli/A1.flac"
+  ],
+  "C2": [
+   "wurli/C2.flac"
+  ],
+  "E2": [
+   "wurli/E2.flac"
+  ],
+  "F2": [
+   "wurli/F2.flac"
+  ],
+  "Ab2": [
+   "wurli/Ab2.flac"
+  ],
+  "A2": [
+   "wurli/A2.flac"
+  ],
+  "B2": [
+   "wurli/B2.flac"
+  ],
+  "Eb3": [
+   "wurli/Eb3.flac"
+  ],
+  "E3": [
+   "wurli/E3.flac"
+  ],
+  "Ab3": [
+   "wurli/Ab3.flac"
+  ],
+  "Db4": [
+   "wurli/Db4.flac"
+  ],
+  "E4": [
+   "wurli/E4.flac"
+  ],
+  "Gb4": [
+   "wurli/Gb4.flac"
+  ],
+  "G4": [
+   "wurli/G4.flac"
+  ],
+  "Ab4": [
+   "wurli/Ab4.flac"
+  ],
+  "B4": [
+   "wurli/B4.flac"
+  ],
+  "Db5": [
+   "wurli/Db5.flac"
+  ],
+  "G5": [
+   "wurli/G5.flac"
+  ],
+  "Db6": [
+   "wurli/Db6.flac"
+  ],
+  "Ab6": [
+   "wurli/Ab6.flac"
+  ]
+ }
 }

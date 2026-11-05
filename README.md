@@ -19,6 +19,7 @@ A website where an algorithm composes [Strudel](https://strudel.cc) (TidalCycles
 | `src/i18n.js` | Korean / English / Japanese |
 | `src/mixTrim.js` | **Mix balance table** (generated). Matches each sample's and each instrument's K-weighted loudness, puts each part per genre at its target level relative to the kick, and evens out loudness between genres |
 | `tools/mix.html` | Dev-only tool that builds the table above. On the dev server, open `/tools/mix.html` → run all → paste the printed table into `src/mixTrim.js`. Rerun it after changing samples, sounds, or genres. Not included in the deployed build |
+| `tools/orb-levels.html` | Dev-only level check for orbs. On the dev server, open `/tools/orb-levels.html?run`: every sound orb is rendered alone and compared with its category's median loudness (or the target an orb names with `level`), and the orbs to check (default: the newest batches) that are off get `TRIM` entries to paste into `src/orbCatalog.js`. Results are cached by orb code, so reruns only measure new or changed orbs. "new styles only" in `tools/mix.html` does the same for a new song genre |
 
 - `tools/analyze/`: **Reference-track analyzer** (Python, local only). Splits real tracks you put in `analysis/tracks/<genre>/` into stems and saves statistics per genre: a 16-step hit grid, swing, BPM, key, stem loudness, and form (see below).
 - `vite.config.js` patches superdough's node pool, which isn't keyed by AudioContext, so it can't reuse a node from another context. Without the patch, from the second WAV save onward some instruments would be silent.
@@ -26,7 +27,8 @@ A website where an algorithm composes [Strudel](https://strudel.cc) (TidalCycles
 - The same seed + genre always produces the same song. The URL `#<seed>.<genre>` is a share link.
 - Every line of a song is placed at absolute cycle positions with `.sect(start, len)`. The live code always holds **the current song + the next song**, so the handoff happens with no gap at all. As soon as the next song starts, the song after it is generated and queued.
 - Tempo also switches on the scheduler clock through a `cps` event at the song's start position.
-- Genres (9): techno, house, acid, trance, dnb, breakbeat, lofi, synthwave, ambient. Each genre's drum grid, bass, progressions, sounds, and arrangement rules (with the sources they come from) are in [docs/GENRES.md](docs/GENRES.md)
+- Genres (10): techno, house, acid, trance, dnb, breakbeat, lofi, synthwave, ambient, dubtechno. Each genre's drum grid, bass, progressions, sounds, and arrangement rules (with the sources they come from) are in [docs/GENRES.md](docs/GENRES.md)
+- Orb page: 523 orbs (338 sound orbs plus combos, moods, keys and tempos) on one frame (124 BPM, A minor). Counts per category and sound family, the scale each orb uses, the batches the catalogue is built from, spawn balance, levels and how to add orbs are in [docs/ORBS.md](docs/ORBS.md)
 
 ## Development
 
@@ -133,14 +135,15 @@ server {
 Notes:
 - **Use HTTPS.** Browser audio features (AudioWorklet, clipboard) only work in a secure context (HTTPS or localhost).
 - Samples (`src/samples.js`):
-  - **Drums are self-hosted** in `public/samples/` (about 7 MB of FLAC, copied to `dist/samples/`), all **CC0**. Sources, and what was left out and why, are in [public/samples/SOURCES.md](public/samples/SOURCES.md):
+  - **Drums are self-hosted** in `public/samples/` (about 12.5 MB of FLAC; the ~2 MB of `fx_*` and ~2.5 MB of pitched instruments load only when an orb that plays them is picked; copied to `dist/samples/`), all **CC0** except the Wurlitzer. Sources, and what was left out and why, are in [public/samples/SOURCES.md](public/samples/SOURCES.md):
     - [MckAudio/MckSamplePacks](https://github.com/MckAudio/MckSamplePacks): TR-8 recordings of the 909/808/707/606/727 voices (banks `TR909` … `TR727`) and an analog RD-6 (`RD6`)
     - [Karoryfer Big Rusty Drums](https://github.com/sfzinstruments/karoryfer.big-rusty-drums): acoustic kit (`Kit`), plus `kitbreak`, an original break played on that kit and cut into 32 slices (it replaces the Amen break)
-    - To rebuild: `node tools/samples/download.mjs <dir>`, then `tools/analyze/.venv/Scripts/python -I tools/samples/build_bank.py <dir> public/samples`. `tools/samples/trims.py` recomputes the per-sample loudness trims without a browser
+    - `fx_*`: impacts, sub drops, reversed crashes/snares and sweeps made by this project (`tools/samples/build_fx.py`), sized to the orb page's 4-bar blocks
+    - Pitched instruments for the orb page (`tools/samples/build_pitched.py`): bass guitars `swagbass` and `growlybass` (Karoryfer Samples, CC0), `uprightbass` (D. Smolken, CC0), and the `wurli` Wurlitzer EP200 by Greg Sullivan (**CC BY 3.0, attribution required**, shown in the site's credits)
+    - To rebuild: `node tools/samples/download.mjs <dir>`, then `tools/analyze/.venv/Scripts/python -I tools/samples/build_bank.py <dir> public/samples` and `... -I tools/samples/build_fx.py public/samples` and `build_pitched.py <dir> public/samples` (they add their keys back to `strudel.json`). `tools/samples/trims.py` recomputes the per-sample loudness trims without a browser
   - Loaded at runtime from GitHub raw (if your server sets a CSP, allow `raw.githubusercontent.com` in `connect-src`):
     - [VCSL](https://github.com/sgossner/VCSL) (CC0): marimba, kalimba, conga, shakers, steinway and more
     - [Salamander Grand Piano](https://archive.org/details/SalamanderGrandPianoV3), Alexander Holm (**CC-BY 3.0, attribution required**, shown in the site's credits)
-    - Mridangam strokes (orb page only) from [yaxu/mrid](https://github.com/yaxu/mrid), (c) Arthur Carabott 2022, performer Harishankar V Menon (**CC-BY-SA 4.0**: attribution required, and adaptations of the samples stay CC-BY-SA)
     - Maps (json) come from [felixroos/dough-samples](https://github.com/felixroos/dough-samples)
 - Font: [Dalmoori (달무리)](https://github.com/RanolP/dalmoori-font) by RanolP, Apache-2.0. Font files and license are in `public/fonts/`.
 - **License:** Strudel is AGPL-3.0, so if you deploy this publicly you must make this site's source code available to users too (for example, a public repo link in the footer). That's why `package.json` is also set to AGPL-3.0-or-later.

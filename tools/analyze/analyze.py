@@ -102,7 +102,8 @@ def beats_of(x):
 # syncopated or sparse music; when the tracked tempo falls outside the folder's range and one of
 # those ratios brings it inside, the beat grid is rebuilt at that tempo before grid fitting.
 GENRE_BPM = {'techno': (120, 150), 'house': (114, 130), 'acid': (115, 150), 'trance': (125, 150), 'dnb': (160, 182),
-             'breakbeat': (110, 145), 'lofi': (65, 100), 'synthwave': (78, 130)}
+             'breakbeat': (110, 145), 'lofi': (65, 100), 'synthwave': (78, 130),
+             'dubtechno': (112, 135), 'dubstep': (134, 148)}
 
 
 def metrical_prior(beats, genre, duration):

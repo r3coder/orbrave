@@ -1,5 +1,5 @@
 import {
-  initStrudel, evaluate, hush, Pattern, samples, registerZZFXSounds,
+  initStrudel, evaluate, hush, Pattern, registerZZFXSounds,
   getAudioContext, getSuperdoughAudioController,
 } from '@strudel/web';
 import { generateSong, nextSeed, randomSeed, STYLE_NAMES } from './composer.js';
@@ -10,6 +10,7 @@ import { mountVote } from './vote.js';
 import { loadSampleBanks, preloadSamples, preloadDrums } from './samples.js';
 import { mountLicenses } from './licenses.js';
 import { copyText } from './copyBox.js';
+import { saveFile } from './saveFile.js';
 
 // Place a pattern at an absolute cycle window: shift it so its cycle 0 lands on `a`,
 // and drop every event outside [a, a+len). Generated songs use this for every line.
@@ -100,13 +101,10 @@ function randomPreset(except) {
 const nextRef = (song) => (presetMode() ? { preset: randomPreset(song.preset?.id) } : { seed: nextSeed(song.seed) });
 const makeSong = (ref, at) => (ref.preset ? presetSong(ref.preset, at) : generateSong(ref.seed, at, ref.style ? [ref.style] : pool()));
 
-// orb presets also play ZZFX synths and mridangam strokes; loaded the first time one comes up
+// orb presets also play ZZFX synths; registered the first time one comes up
 let orbSounds;
 const ensureOrbSounds = () => (orbSounds ??= Promise.resolve()
-  .then(() => {
-    registerZZFXSounds();
-    return samples('https://raw.githubusercontent.com/felixroos/dough-samples/main/mridangam.json');
-  })
+  .then(() => registerZZFXSounds())
   .catch((e) => console.warn('orb sounds unavailable', e)));
 
 async function load(cur, nxt, { record = true } = {}) {
@@ -464,7 +462,7 @@ const jobs = new Map();
 function renderer() {
   if (!frameReady) {
     renderFrame = document.createElement('iframe');
-    renderFrame.src = 'render.html?orbs'; // ?orbs: also ZZFX synths + mridangam, for orb presets
+    renderFrame.src = 'render.html?orbs'; // ?orbs: also ZZFX synths, for orb presets
     renderFrame.style.display = 'none';
     frameReady = new Promise((res) => (renderFrame.onload = res));
     document.body.append(renderFrame);
@@ -498,11 +496,9 @@ async function download() {
         location.origin,
       );
     });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([wav], { type: 'audio/wav' }));
-    a.download = `${song.title} - ${song.style} ${song.bpm}bpm [${song.id}].wav`;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+    saveFile(new Blob([wav], { type: 'audio/wav' }), `${song.title} - ${song.style} ${song.bpm}bpm [${song.id}].wav`, {
+      handoff: () => location.href.split('#')[0] + hashOf(song),
+    });
   } catch (e) {
     console.error('render failed', e);
   } finally {

@@ -11,7 +11,7 @@
   display: grid; place-items: center;
   border-radius: 50%;
   border: 1px solid var(--line, rgba(255, 255, 255, 0.15));
-  background: rgba(5, 12, 9, 0.85);
+  background: var(--surface, rgba(5, 12, 9, 0.85));
   color: var(--dim, #8aa);
   cursor: pointer;
   transition: color 0.15s, border-color 0.15s, background 0.15s, transform 0.1s;
@@ -20,8 +20,8 @@
 .vote .vote-down svg { transform: scaleY(-1); }
 .vote button:hover { color: var(--fg, #fff); border-color: var(--acc, #39ff9c); }
 .vote button:active { transform: scale(0.92); }
-.vote .vote-up.on { color: #050c09; background: var(--acc, #39ff9c); border-color: var(--acc, #39ff9c); }
-.vote .vote-down.on { color: #fff; background: #ff3bd4; border-color: #ff3bd4; }
+.vote .vote-up.on { color: var(--bg, #050c09); background: var(--acc, #39ff9c); border-color: var(--acc, #39ff9c); }
+.vote .vote-down.on { color: var(--bg, #fff); background: var(--acc2, #ff3bd4); border-color: var(--acc2, #ff3bd4); }
 .vote.busy { opacity: 0.6; }
 .vote button.pop { animation: vote-pop 0.35s ease-out; }
 .vote.shake { animation: vote-shake 0.35s; }

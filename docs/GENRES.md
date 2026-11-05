@@ -22,6 +22,7 @@ Each genre has its own form (`FORMS` in `src/composer.js`) and decides which par
 | synthwave | intro [8/16] → (verse → chorus) ×2–3 → (bridge → chorus) → (chorus) → outro 8 | A pop song. Verses on pads + arps, choruses add the lead, the bridge drops the drums |
 | lofi | sample [4/8] → (verse → (chorus) → dropout or sample) ×2–3 → outro or sample | A loop: the beat drops in and out under the sample |
 | ambient | dawn → 1–3 long textures (swell / drift / glow, 24–32 bars) → fade | Slow changes in filter and density |
+| dubtechno | intro [16/32] → groove 16 → main [24/32] → (strip or break [8/16] → main) ×1–2 → outro 16 | The echoing chord runs from the first bar and opens its filter over the song. **strip** drops the kick, **break** leaves the chords and bass alone in their echoes |
 
 ---
 
@@ -101,3 +102,12 @@ Each genre has its own form (`FORMS` in `src/composer.js`) and decides which par
 - **Motion**: very slow LFO on the filter, long reverb (4–8 s), long delay (60–80% feedback)
 - *Analysis*: all reference tracks were minor and mostly held one chord, so dorian/minor now outweigh lydian and progressions lean static (i, i–♭III, i–♭VI). 1–3 long sections (24–32 bars) between dawn and fade
 - Sources: [BeatKey ambient](https://beatkey.pages.dev/how-to-make-ambient-music), [MusicRadar generative drone](https://www.musicradar.com/tuition/tech/how-to-create-a-generative-evolving-ambient-drone-sound-in-ableton-live-590880), [Synthtopia – Eno generative](https://www.synthtopia.com/content/2019/04/24/twenty-techniques-for-generative-music-inspired-by-brian-eno/)
+
+## dubtechno
+- **Tempo**: 120–130
+- **Drums**: soft four-on-the-floor kick (909/808, low and round), rim or soft clap on 2 and 4, 16th hats that keep moving, a shaker or rim for percussion. Fills almost never
+- **Bass**: a short sub note on the offbeats, under the chord rather than a melody
+- **Harmony**: **one minor chord** (m7, m9 or a bare root + 7th), sometimes a second chord for two bars (i–♭III, i–v). The chord is a **short stab into long, filtered echoes** (delay feedback ~0.6–0.7, reverb), off the beat. A slow filter opens over a whole section
+- **Texture**: tape hiss / vinyl crackle under everything
+- *Analysis* (6 tracks, 123–130 BPM, median 124): 83% minor; the commonest 4-bar loops are a single chord (`i i i i`, `♭III ♭III ♭III ♭III`). Hats fill almost every 16th with **~19% swing** (most other genres measured near 0). The chord layer plays from bar 1 in 89% of bars; bass sits ~9 dB under the drums and is **ducked hard (~12 dB)**, chords ~3 dB. Sections: intro 8, groove ~14, peak 32, break ~12, outro ~12 bars
+- Sources: [Attack – Basic Channel-style dub techno](https://www.attackmagazine.com/technique/beat-dissected/basic-channel-style-dub-techno/), [Attack – dub techno synth chords](https://www.attackmagazine.com/technique/synth-secrets/dub-techno-synth-chords/), [AudioTent – dub techno chord sound design](https://www.audiotent.com/production-tips/dub-techno-chord-sound-design)

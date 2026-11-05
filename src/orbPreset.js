@@ -10,34 +10,69 @@ import {
 
 export const BARS = 4, STEPS = BARS * 16, ROWS = 15;
 
-// a drawing as 64 chars: '.' = no note, otherwise the row in base 36
-export const packRaw = (raw) => raw.map((d) => (d === null ? '.' : d.toString(36))).join('');
-export const unpackRaw = (str) => [...String(str).padEnd(STEPS, '.').slice(0, STEPS)].map((c) => (c === '.' ? null : Math.min(ROWS - 1, parseInt(c, 36) || 0)));
+// A step holds null (no note), one row, or a sorted array of rows (a chord). Single notes stay
+// plain numbers so drawings saved before chords existed load unchanged.
+export const notesAt = (x) => (x === null || x === undefined ? [] : Array.isArray(x) ? x : [x]);
+export const stepOf = (ds) => {
+  const u = [...new Set(ds)].sort((a, b) => a - b);
+  return !u.length ? null : u.length === 1 ? u[0] : u;
+};
+const same = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
+
+// a drawing as text, one entry per sixteenth: '.' = no note, a row in base 36, or a chord as
+// its rows in parentheses ("(047)"). A drawing without chords is exactly 64 chars.
+export const packRaw = (raw) => raw.map((x) => {
+  const ds = notesAt(x);
+  return !ds.length ? '.' : ds.length === 1 ? ds[0].toString(36) : `(${ds.map((d) => d.toString(36)).join('')})`;
+}).join('');
+export const unpackRaw = (str) => {
+  const row = (c) => Math.min(ROWS - 1, parseInt(c, 36) || 0);
+  const out = [];
+  const t = String(str);
+  for (let i = 0; i < t.length && out.length < STEPS; i++) {
+    if (t[i] === '(') {
+      const j = t.indexOf(')', i);
+      if (j < 0) break;
+      out.push(stepOf([...t.slice(i + 1, j)].map(row)));
+      i = j;
+    } else out.push(t[i] === '.' ? null : row(t[i]));
+  }
+  while (out.length < STEPS) out.push(null);
+  return out;
+};
 
 // Turn a rough drawing into notes that sit on the beat and on the harmony: one note per
 // eighth (the average height of the line there); melodic parts snap to the bar's triad on
 // strong beats and to its chord tones elsewhere, and a repeated pitch ties into a long note.
+// A chord (several rows in one step) plays as placed, on the eighth, tied while it repeats.
 // Drums hit on each eighth the line passes, plus the sixteenth after it where the line slopes.
+// Each sixteenth comes out as { ds: [rows], start } or null.
 export function quantize(raw, v) {
-  const out = Array(STEPS).fill(null); // { d, start } per sixteenth
+  const out = Array(STEPS).fill(null);
   let prev = null;
   for (let e = 0; e < STEPS / 2; e++) {
-    const a = raw[2 * e], b = raw[2 * e + 1];
-    const vals = [a, b].filter((x) => x !== null);
-    if (!vals.length) {
+    const A = notesAt(raw[2 * e]), B = notesAt(raw[2 * e + 1]);
+    if (!A.length && !B.length) {
       prev = null;
       continue;
     }
     const pos = e % 8, c = BAR_CHORDS[Math.floor(e / 8)];
+    const chord = A.length > 1 || B.length > 1;
     if (v.root) {
-      const avg = Math.round(vals.reduce((s, x) => s + x, 0) / vals.length);
-      const d = snap(avg, v.snap === 'triad' || pos % 4 === 0 ? c.triad : c.tones, 0, ROWS - 1);
-      out[2 * e] = { d, start: !(prev === d && pos !== 0) };
-      out[2 * e + 1] = { d, start: false };
-      prev = d;
+      let ds;
+      if (chord) ds = notesAt(stepOf([...A, ...B]));
+      else {
+        const vals = [...A, ...B];
+        const avg = Math.round(vals.reduce((s, x) => s + x, 0) / vals.length);
+        ds = [snap(avg, v.snap === 'triad' || pos % 4 === 0 ? c.triad : c.tones, 0, ROWS - 1)];
+      }
+      out[2 * e] = { ds, start: !(prev && same(prev, ds) && pos !== 0) };
+      out[2 * e + 1] = { ds, start: false };
+      prev = ds;
     } else {
-      out[2 * e] = { d: Math.round(vals[0]), start: true };
-      if (a !== null && b !== null && Math.abs(a - b) >= 2) out[2 * e + 1] = { d: b, start: true };
+      out[2 * e] = { ds: A.length ? A : B, start: true };
+      const slope = chord ? !same(A, B) : A.length && B.length && Math.abs(A[0] - B[0]) >= 2;
+      if (A.length && B.length && slope) out[2 * e + 1] = { ds: B, start: true };
     }
   }
   return out;
@@ -45,7 +80,8 @@ export function quantize(raw, v) {
 
 export function sheetCode(raw, v) {
   const q = quantize(raw, v);
-  const tok = q.map((n) => (!n ? '~' : n.start ? (v.map ? v.map(n.d) : n.d) : v.legato ? '_' : '~'));
+  const one = (d) => (v.map ? v.map(d) : d);
+  const tok = q.map((n) => (!n ? '~' : n.start ? (n.ds.length === 1 ? one(n.ds[0]) : `[${n.ds.map(one).join(',')}]`) : v.legato ? '_' : '~'));
   const pat = `"<${[0, 1, 2, 3].map((b) => `[${tok.slice(b * 16, b * 16 + 16).join(' ')}]`).join(' ')}>"`;
   return v.root ? `n(${pat}).scale("${v.root}:minor")${v.sound}` : `${v.ctrl}(${pat})${v.sound}`;
 }
@@ -53,25 +89,96 @@ export function sheetCode(raw, v) {
 // ---------- wire format ----------
 // What the server stores and returns for one preset (see docs/PRESET_API.md):
 //   { id, name, author?, description?, kind: 'orb' | 'stem', createdAt?,
-//     layers: [orb id | drawing id], drawn: [{ id, src, raw }], variation, seeds?, song? }
+//     layers: [orb id | drawing id], drawn: [{ id, src, raw }], variation, seeds?, gains?, song? }
 // `seeds` ({ orb id: seed }) names orbs that play their own variation instead of `variation`.
-// `raw` travels packed (64 chars). A stem preset also carries the full-song grid (`song`, below).
+// `gains` ({ orb id: percent }) names orbs turned down / up in the orb page's volume slots
+// (whole percents, GAIN_MIN–GAIN_MAX; 100 is left out).
+// `raw` travels packed (64 steps, see packRaw). A stem preset also carries the full-song grid (`song`, below).
 // Anything unknown is dropped, so presets made with an older or newer catalogue still load with
 // the orbs this page knows.
 
 const known = (id) => typeof id === 'string' && Object.hasOwn(byId, id);
+
+// the orbs' own volumes, as whole percents: only orbs of the set, only sensible values, or null
+export const GAIN_MIN = 5, GAIN_MAX = 400;
+export function cleanGains(g, layers) {
+  if (!g || typeof g !== 'object' || Array.isArray(g)) return null;
+  const out = Object.fromEntries(Object.entries(g).filter(([k, v]) => layers.includes(k) && Number.isSafeInteger(v) && v >= GAIN_MIN && v <= GAIN_MAX && v !== 100));
+  return Object.keys(out).length ? out : null;
+}
+
+// ---------- effect strength (mood orbs in the 약하게 / 세게 slots) ----------
+// A mood orb has no sound of its own, so its "volume" steps (-3 … +3, stored like any orb's as a
+// percent in `gains`: 80% per step down, 120% per step up) scale how hard its effects bite.
+// Each effect is pulled toward "off" (weaker) or pushed past where it was (stronger).
+const VOL_STEPS = 3;
+export const pctStep = (pct) => {
+  const g = (pct ?? 100) / 100;
+  if (!(g > 0) || Math.abs(g - 1) < 0.005) return 0;
+  return Math.max(-VOL_STEPS, Math.min(VOL_STEPS, Math.round(g < 1 ? Math.log(g) / Math.log(0.8) * -1 : Math.log(g) / Math.log(1.2))));
+};
+const clamp = (x, lo, hi) => Math.min(hi, Math.max(lo, x));
+const num = (x) => String(+x.toFixed(3));
+// per effect: (value, strength) -> value; strength 1 leaves it as it is
+const FX_SCALE = {
+  lpf: (x, s) => clamp(20000 * (x / 20000) ** s, 80, 20000), // cutoff: weaker opens up toward 20 kHz
+  hpf: (x, s) => clamp(20 * (x / 20) ** s, 20, 9000),
+  crush: (x, s) => clamp(16 - (16 - x) * s, 3, 16), // bits: 16 is clean
+  coarse: (x, s) => Math.max(1, Math.round(1 + (x - 1) * s)),
+  room: (x, s) => clamp(x * s, 0, 1),
+  roomsize: (x, s) => clamp(x * Math.sqrt(s), 0.5, 10),
+  delay: (x, s) => clamp(x * s, 0, 0.95),
+  delayfeedback: (x, s) => clamp(x * s, 0, 0.85),
+  shape: (x, s) => clamp(x * s, 0, 0.9),
+  degradeBy: (x, s) => clamp(x * s, 0, 0.9),
+};
+const NUM = /^-?\d*\.?\d+$/;
+// the strength a step stands for: three steps down nearly switch the effect off
+export const fxStrength = (step) => (step < 0 ? 0.6 ** -step : 1.25 ** step);
+// whether the strength slots change anything (a mood that only mutes parts or speaks a vowel does not)
+export const fxScalable = (fx) => !!fx && (scaleFx(fx, -1) !== fx || scaleFx(fx, 1) !== fx);
+// `fx` (a mood's effect chain, e.g. `.lpf(650).room(.5)`) at `step`
+export function scaleFx(fx, step) {
+  if (!fx || !step) return fx ?? '';
+  const s = fxStrength(step);
+  let out = '';
+  for (let i = 0; i < fx.length;) {
+    const m = /^\.(\w+)\(/.exec(fx.slice(i));
+    if (!m) {
+      out += fx[i++];
+      continue;
+    }
+    // the call's arguments, up to the matching bracket
+    let depth = 1, j = i + m[0].length;
+    for (; j < fx.length && depth; j++) depth += fx[j] === '(' ? 1 : fx[j] === ')' ? -1 : 0;
+    const name = m[1], arg = fx.slice(i + m[0].length, j - 1), f = FX_SCALE[name];
+    let next = arg;
+    if (f && NUM.test(arg.trim())) next = num(f(+arg, s));
+    // a moving value (sine.range(300,3000) …): both ends of the range
+    else if (f) next = arg.replace(/range\(\s*([\d.]+)\s*,\s*([\d.]+)\s*\)/, (_, a, b) => `range(${num(f(+a, s))},${num(f(+b, s))})`);
+    // auto-pan: a narrower swing when weaker
+    else if (name === 'pan' && s < 1 && !/range\(/.test(arg)) next = `${arg}.range(${num(0.5 - 0.5 * s)},${num(0.5 + 0.5 * s)})`;
+    out += `.${name}(${next})`;
+    i = j;
+  }
+  return out;
+}
+
 const clip = (s, n) => (typeof s === 'string' ? s.trim().slice(0, n) : '');
 const BLOCK = 4; // bars per stem cell
 
 // The stem grid (the orb page's full song) as data: its sections, and per instrument row one
 // entry per 4-bar block: null = silent, -1 = playing (orb without a seed), n = playing with seed n.
-//   { sections: [{ name, len, shift, v }], rows: [{ id, alt, cells: [...] }] }
+// `fills` (optional) lists the blocks whose last bar plays as a 💥 fill.
+//   { sections: [{ name, len, shift, v }], rows: [{ id, alt, cells: [...], fills?: [blockIndex] }] }
 export function songToWire(song) {
   return {
     sections: song.sections.map(({ name, len, shift, v }) => ({ name, len, shift: shift ?? 0, v: v ?? 0 })),
-    rows: song.rows.filter((r) => song.cells[r.id]).map((r) => ({
-      id: r.id, alt: !!r.alt, cells: song.cells[r.id].flat().map((c) => (!c.on ? null : c.v == null ? -1 : c.v)),
-    })),
+    rows: song.rows.filter((r) => song.cells[r.id]).map((r) => {
+      const flat = song.cells[r.id].flat();
+      const fills = flat.flatMap((c, i) => (c.on && c.fill ? [i] : []));
+      return { id: r.id, alt: !!r.alt, cells: flat.map((c) => (!c.on ? null : c.v == null ? -1 : c.v)), ...(fills.length && { fills }) };
+    }),
   };
 }
 
@@ -91,9 +198,11 @@ export function songFromWire(w, rename = (id) => id) {
     const id = typeof r?.id === 'string' ? rename(r.id) : null;
     if (!id || !known(id) || cells[id] || !Array.isArray(r.cells) || r.cells.length !== total) continue;
     let k = 0;
+    const fills = new Set(Array.isArray(r.fills) ? r.fills : []);
     cells[id] = sections.map((sec) => Array.from({ length: sec.len / BLOCK }, () => {
-      const c = r.cells[k++];
-      return Number.isSafeInteger(c) && c >= 0 ? { on: true, v: c } : { on: c === -1, v: c === -1 || c === null ? null : 0 };
+      const fill = fills.has(k), c = r.cells[k++];
+      const cell = Number.isSafeInteger(c) && c >= 0 ? { on: true, v: c } : { on: c === -1, v: c === -1 || c === null ? null : 0 };
+      return { ...cell, fill: cell.on && fill };
     }));
     rows.push({ id, alt: r.alt === true });
   }
@@ -112,6 +221,7 @@ export function toWire(p, extra = {}) {
     drawn: (p.drawn ?? []).map((d) => ({ id: d.id, src: d.src, raw: packRaw(d.raw) })),
     variation: p.variation ?? 0,
     ...(p.seeds ? { seeds: p.seeds } : {}),
+    ...(p.gains ? { gains: p.gains } : {}),
     ...(stem ? { song: p.song } : {}),
     agree: extra.agree === true,
     website: extra.website ?? '',
@@ -134,12 +244,14 @@ export function fromWire(x) {
   const seeds = x.seeds && typeof x.seeds === 'object'
     ? Object.fromEntries(Object.entries(x.seeds).filter(([k, v]) => layers.includes(k) && Number.isSafeInteger(v) && v >= 0))
     : null;
+  const gains = cleanGains(x.gains, layers);
   const song = x.kind === 'stem' && x.song && typeof x.song === 'object' ? x.song : null;
   const p = {
-    id, name: clip(x.name, 32) || '이름 없는 프리셋', author: clip(x.author, 24), description: clip(x.description, 100),
+    id, name: clip(x.name, 32) || '이름 없는 프리셋', author: clip(x.author, 24), description: clip(x.description, 261), // 100 typed + credits (server/presetSchema.mjs LIMITS)
     kind: song ? 'stem' : 'orb', createdAt: typeof x.createdAt === 'string' ? x.createdAt : null,
     layers, drawn, variation: Number.isSafeInteger(x.variation) && x.variation >= 0 ? x.variation : 0,
     ...(seeds ? { seeds } : {}),
+    ...(gains ? { gains } : {}),
     ...(song ? { song } : {}),
     // how often it comes up (from 👍 / 👎 on the server); never shown
     ...(Number.isFinite(x.w) && x.w > 0 ? { w: Math.min(10, x.w) } : {}),
@@ -178,6 +290,8 @@ export function presetLines(p) {
   const mode = keyOrb?.mode ?? 'minor', shift = keyOrb?.key ?? 0;
   const dt = (((60 / bpm) * 3) / 4).toFixed(3); // dotted-eighth delay in seconds
   const lines = [];
+  // the mood's effects at the strength set in the orb page's 약하게 / 세게 slots
+  const moodFx = mood ? scaleFx(mood.fx, pctStep(p.gains?.[mood.id])) : '';
   setMode(mode);
   try {
     for (const l of ls) {
@@ -187,7 +301,9 @@ export function presetLines(p) {
       if (mode !== 'minor') code = code.replaceAll(':minor"', `:${mode}"`);
       const pitched = l.pitched || /\b(scale|chord|note)\(/.test(code);
       const key = shift && pitched ? `.transpose(${shift})` : '';
-      lines.push({ layer: l, role: role(l), code: `// ${l.name}\n$: ${code}${key}${mood?.fx ?? ''}`.replaceAll('__DT__', dt) });
+      const g = p.gains?.[l.id]; // the orb's own volume (orb page volume slots)
+      const gain = Number.isSafeInteger(g) && g !== 100 ? `.postgain(${g / 100})` : '';
+      lines.push({ layer: l, role: role(l), code: `// ${l.name}\n$: ${code}${key}${moodFx}${gain}`.replaceAll('__DT__', dt) });
     }
   } finally {
     setMode('minor');

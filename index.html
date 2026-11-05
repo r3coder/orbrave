@@ -4,23 +4,25 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>ORBRAVE</title>
+  <!-- the saved theme before anything paints (src/theme.js keeps it up to date) -->
+  <script>try { document.documentElement.dataset.theme = localStorage.getItem('orbTheme') === 'light' ? 'light' : 'dark'; } catch {}</script>
   <meta name="description" content="Drag glowing orbs into the player to build a track, one layer at a time." />
   <!-- old player share links (/#seed.style, /#preset.id) used to live here; send them to the player -->
   <script>if (/^#[\w-]+\.[\w-]+$/.test(location.hash)) location.replace('play.html' + location.hash);</script>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>●</text></svg>" />
 </head>
 <body>
+  <div class="boot" id="boot" role="status" aria-live="polite">
+    <div class="boot-title" data-i18n="loadingSounds">사운드 불러오는 중</div>
+    <div class="boot-bar"><i id="bootBar"></i></div>
+    <div class="boot-count" id="bootCount"></div>
+  </div>
   <canvas id="viz"></canvas>
 
   <header class="top">
     <div class="logo">● ORBRAVE<span class="by">-made by <a href="https://sites.google.com/view/r3c0d3r/home_ura" target="_blank" rel="noopener">R3C0D3r</a></span><a class="nav-btn" href="play.html" data-i18n="toPlayer" data-i18n-title="toPlayerTip">∞ 무한 재생</a></div>
     <div class="tools">
-      <button id="importBtn" data-i18n="import" data-i18n-title="importTip">📥 불러오기</button>
-      <button id="shuffle" data-i18n="shuffle" data-i18n-title="shuffleTip">↻ 오브 새로고침</button>
-      <button id="searchBtn" data-i18n="search" data-i18n-title="searchTip">🔍 오브 검색</button>
-      <button id="codeToggle" data-i18n="code">&lt;/&gt; 코드</button>
-      <button id="licenseBtn" data-i18n="licenses">ⓘ 라이선스</button>
-      <button id="feedbackBtn" data-i18n="feedback">🐞 버그/의견 제출</button>
+      <button id="themeBtn">☀ 라이트 모드</button>
       <button id="liteBtn" data-i18n="lite" data-i18n-title="liteTip">⚡ 저사양 모드</button>
       <div class="langs" id="langs" role="group" aria-label="language"></div>
     </div>
@@ -43,6 +45,7 @@
       </div>
       <div class="pb-half pb-shared">
         <div class="side-head"><span data-i18n="shared">모두의 곡</span> <button id="sharedRefresh" class="ghost" data-i18n-title="sharedRefreshTip">↻</button></div>
+        <button id="importBtn" class="pb-import" data-i18n="import" data-i18n-title="importTip">📋 코드 붙여넣기</button>
         <div class="pb-list" id="sharedList"></div>
       </div>
     </aside>
@@ -79,55 +82,64 @@
       <p class="status" id="status"></p>
       <div class="chips" id="chips"></div>
       <p class="solo-hint" id="soloHint"></p>
-      <div class="seeds" id="seeds" data-i18n-title="seedsTip"></div>
-      <div class="actions">
-        <button id="variate" data-i18n="variate" data-i18n-title="variateTip">🎲 변주</button>
-        <button id="favSeed" class="fav" data-i18n-title="favTip">☆</button>
-        <button id="songBtn" data-i18n-title="makeSongTip">🎼 전체 곡 스템 생성하기</button>
-      </div>
-      <!-- loop mode: the loop's buttons; with the stems open they become the stems' ones -->
+      <!-- empty on wide screens; a phone puts its ⇪ button here (orbsMobile.js) -->
+      <div class="actions"></div>
+      <!-- loop mode: the loop's buttons and 📂 스템 열기; with the stems open, the stems' save /
+           share buttons are swapped in (and on a wide screen moved up into the stems' head) -->
       <div class="actions">
         <button id="wavBtn" class="loop-only" data-i18n="wav" data-i18n-title="wavTip">💾 루프 WAV 저장</button>
         <button id="wavStemBtn" class="stem-only" data-i18n="wavStem" data-i18n-title="wavStemTip">💾 스템 WAV 저장</button>
         <button id="shareBtn" class="loop-only" data-i18n="shareOrbs" data-i18n-title="shareOrbsTip">🔗 루프 공유</button>
         <button id="stemShareBtn" class="stem-only" data-i18n="shareStems" data-i18n-title="shareStemsTip" disabled>🔗 스템 공유</button>
         <button id="serverShareBtn">☁ 서버 공유</button>
+        <button id="stemReopen" class="loop-only" data-i18n="openStems" data-i18n-title="openStemsTip">📂 스템 열기</button>
       </div>
       <div class="song" id="song">
-        <div class="song-bar" id="songBar"></div>
-        <button id="songOff" class="ghost" data-i18n="toLoop">✕ 루프로</button>
+        <button id="songOff" class="loop-mode" data-i18n="toLoop">↩ 루프 모드로</button>
       </div>
     </section>
 
     <section class="right" id="right">
-      <div class="field" id="field"></div>
+      <div class="field" id="field">
+        <div class="field-tools">
+          <button id="searchBtn" data-i18n="search" data-i18n-title="searchTip">🔍 오브 검색</button>
+        </div>
+      </div>
       <section class="stems" id="stems">
         <div class="stem-head">
           <b data-i18n="stems">스템</b>
-          <span class="stem-hint" data-i18n="stemHint">칸 = 4마디 · 섹션 이름: 그 부분만 반복 · −/+: 4마디 줄이기/늘리기 · 칸 클릭: 넣기/빼기 · ✕: 이 칸에서 지우기 · #시드 클릭: 바꾸기 · 리드는 4마디마다 다른 시드</span>
-          <button id="stemOnce" class="go" data-i18n-title="onceTip">▶ 처음부터 끝까지</button>
-          <button id="stemClose" class="ghost" data-i18n="toLoop">✕ 루프로</button>
+          <button id="songBtn" data-i18n="otherSong" data-i18n-title="otherSongTip">🎲 곡 구성 랜덤화</button>
+          <button id="stemClose" class="loop-mode" data-i18n="toLoop">↩ 루프 모드로</button>
         </div>
         <div class="stem-body" id="stemBody">
           <div class="stem-grid" id="stemGrid"></div>
           <i class="stem-cursor" id="stemCursor"></i>
         </div>
       </section>
+      <!-- 편집's tab: the piano roll, sliding up above the slots with the orb that was thrown in -->
       <section class="roll" id="roll">
         <div class="roll-head">
           <div class="roll-slot" id="rollSlot"></div>
           <div class="roll-name" id="rollName"></div>
           <span class="roll-hint" id="rollHint"></span>
+          <button id="rollDice" data-i18n="rollDice" data-i18n-title="rollDiceTip">🎲 변주</button>
+          <!-- 수정 완료: the tab goes down and the orb waits, jiggling, in the 편집 slot -->
           <div class="roll-tools">
-            <button id="rollDice" data-i18n="rollDice" data-i18n-title="rollDiceTip">🎲 변주</button>
-            <button id="rollAdd" class="go" data-i18n="rollAdd">＋ 곡에 추가</button>
-            <button id="rollStash" data-i18n="rollStash">⇥ 보관함</button>
-            <button id="rollErase" data-i18n="rollErase">지우개</button>
-            <button id="rollClear" data-i18n="rollClear">지우기</button>
-              </div>
+            <button id="rollDone" class="go" data-i18n="rollDone" data-i18n-title="rollDoneTip">✓ 수정 완료</button>
+          </div>
         </div>
         <canvas id="rollCanvas"></canvas>
       </section>
+      <!-- empty orb slots to throw an orb into (ids / data-slot are stable: the tutorial points at them).
+           편집 opens the piano roll; the others change the orb and keep it, jiggling, until it is grabbed -->
+      <nav class="slots" id="slots">
+        <div class="orb-slot" id="slotMidi" data-i18n-title="slotMidiTip" data-slot="midi"><span class="slot-label"><i>✎</i><b data-i18n="slotMidi">편집</b></span></div>
+        <div class="orb-slot" id="slotQuieter" data-i18n-title="slotQuieterTip" data-slot="quieter"><span class="slot-label"><i>🔉</i><b data-i18n="slotQuieter">약하게</b></span></div>
+        <div class="orb-slot" id="slotLouder" data-i18n-title="slotLouderTip" data-slot="louder"><span class="slot-label"><i>🔊</i><b data-i18n="slotLouder">세게</b></span></div>
+        <div class="orb-slot" id="slotVary" data-i18n-title="slotVaryTip" data-slot="vary"><span class="slot-label"><i>🎲</i><b data-i18n="slotVary">변주</b></span></div>
+        <div class="orb-slot" id="slotCopy" data-i18n-title="slotCopyTip" data-slot="copy"><span class="slot-label"><i>⧉</i><b data-i18n="slotCopy">복제</b></span></div>
+        <span class="slot-hint" id="slotHint" role="status" aria-live="polite"></span>
+      </nav>
     </section>
 
     <aside class="stash" id="stash">
@@ -135,7 +147,7 @@
       <div class="stash-slots" id="stashSlots"></div>
     </aside>
   </main>
-  <p class="empty-hint" id="emptyHint" data-i18n="emptyHint">아무 오브나 잡고 재생 버튼이 있는 곳으로 던지거나, 왼쪽 프리셋에서 오브를 불러와 주세요</p>
+  <p class="empty-hint" id="emptyHint" data-i18n="emptyHint">오른쪽에서 오브를 하나 골라서 왼쪽으로 던져주세요</p>
 
   <aside class="drawer" id="drawer">
     <div class="drawer-head"><span>generated strudel</span><button id="codeClose" class="ghost">✕</button></div>
@@ -149,13 +161,13 @@
 
   <dialog class="import" id="importDlg">
     <form method="dialog" id="importForm">
-      <div class="side-head" data-i18n="importTitle">프리셋 불러오기</div>
+      <div class="side-head" data-i18n="importTitle">코드로 불러오기</div>
       <p data-i18n="importBody">공유받은 코드를 붙여 넣으세요. 프리셋 목록에 추가되고 바로 재생돼요.</p>
       <textarea id="importText" rows="4" spellcheck="false" placeholder="orb1:…"></textarea>
       <p class="import-err" id="importErr"></p>
       <div class="import-btns">
         <button type="button" class="ghost" id="importCancel" data-i18n="cancel">취소</button>
-        <button id="importOk" class="go" data-i18n="importOk">불러오기</button>
+        <button id="importOk" class="go" data-i18n="importOk">코드로 불러오기</button>
       </div>
     </form>
   </dialog>
@@ -178,6 +190,8 @@
       <label class="fld"><span data-i18n="shDesc">노래 설명</span> <small id="shCount">0 / 100</small>
         <textarea id="shDesc" rows="2" maxlength="100"></textarea>
       </label>
+      <!-- filled by src/orbs.js when the set plays a CC-BY sound -->
+      <p class="sh-credit" id="shCredit" hidden></p>
       <!-- left empty by people; bots that fill every field get refused -->
       <input class="hp" id="shWebsite" name="website" tabindex="-1" aria-hidden="true" />
       <p data-i18n-html="shBody">서버에 공유하면 이 오브 / 스템 조합이 왼쪽 <b>모두의 곡</b> 목록에 나타나요.
@@ -193,7 +207,14 @@
     </form>
   </dialog>
 
-  <footer class="powered">Powered by <a href="https://strudel.cc/" target="_blank" rel="noopener">strudel</a> · <a href="https://github.com/r3coder/orbrave" target="_blank" rel="noopener">source (AGPL-3.0)</a></footer>
+  <footer class="powered">
+    <div class="foot-links" id="footLinks">
+      <button type="button" id="codeToggle" data-i18n="code">&lt;/&gt; 코드</button>
+      <button type="button" id="licenseBtn" data-i18n="licenses">ⓘ 라이선스</button>
+      <button type="button" id="feedbackBtn" data-i18n="feedback">🐞 버그/의견 제출</button>
+      <button type="button" id="tutorialBtn" data-i18n="tutorialAgain" data-i18n-title="tutorialAgainTip">↺ 튜토리얼 재실행</button>
+    </div>
+    Powered by <a href="https://strudel.cc/" target="_blank" rel="noopener">strudel</a> · <a href="https://github.com/r3coder/orbrave" target="_blank" rel="noopener">source (AGPL-3.0)</a></footer>
 
   <script type="module" src="/src/orbs.js"></script>
   <script type="module" src="/src/orbsMobile.js"></script>

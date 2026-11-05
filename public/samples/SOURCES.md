@@ -1,8 +1,9 @@
 # Drum samples: sources and licenses
 
 Every file in this folder is released under **CC0 1.0** (public domain dedication) by
-its original author. The files were trimmed, faded, peak-normalized and converted to
-16-bit FLAC by `tools/samples/build_bank.py`; that processing adds no new rights.
+its original author, except `wurli` (CC BY 3.0, see below). The files were trimmed, faded, peak-normalized and converted to
+16-bit FLAC by `tools/samples/build_bank.py` (`build_fx.py` and `build_pitched.py` for `fx_*` and the
+pitched instruments; those keep one velocity layer per note and fold to mono); that processing adds no new rights.
 
 | Bank keys | Source | Author | License |
 |---|---|---|---|
@@ -10,6 +11,11 @@ its original author. The files were trimmed, faded, peak-normalized and converte
 | `RD6_*` | same repository, folder `RD6/`: an analog RD-6 drum machine | MckAudio | CC0 1.0 |
 | `Kit_*` | [Karoryfer Big Rusty Drums](https://github.com/sfzinstruments/karoryfer.big-rusty-drums): acoustic kit, close mic mixed with overheads | Karoryfer Samples | [CC0 1.0](https://github.com/sfzinstruments/karoryfer.big-rusty-drums/blob/master/LICENSE) |
 | `kitbreak` | An original 2-bar funk break played with the `Kit_*` hits at 136 BPM and cut into 32 sixteenth slices (pattern written for this project, not copied from a record) | this project | made only from the CC0 `Kit_*` hits |
+| `fx_*` | Short effects for the orb page's 4-bar blocks (impacts, sub drops, reversed crashes and snares, noise sweeps), synthesised by `tools/samples/build_fx.py`; the impacts, reversed crashes and reversed snares also use the CC0 `Kit_*`, `TR909_*`, `TR808_*` and `RD6_*` hits above | this project | CC0 1.0 (synthesised here, or made only from the CC0 hits above) |
+| `swagbass` | Bass guitar (flatwounds, fingered), one velocity layer per sampled note: [karoryfer.swagbass](https://github.com/sfzinstruments/karoryfer.swagbass) | Karoryfer Samples (played and mapped by D. Smolken) | CC0 1.0 |
+| `growlybass` | Squier Jazz Bass, staccato: [karoryfer.growlybass](https://github.com/sfzinstruments/karoryfer.growlybass) | Karoryfer Samples | CC0 1.0 |
+| `uprightbass` | 1958 Otto Rubner double bass, pizzicato: [dsmolken.double-bass](https://github.com/sfzinstruments/dsmolken.double-bass) | D. Smolken | CC0 1.0 |
+| `wurli` | Wurlitzer EP200 electric piano: [GregSullivan.E-Pianos](https://github.com/sfzinstruments/GregSullivan.E-Pianos) | Greg Sullivan | [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/): **credit Greg Sullivan** |
 
 Left out on purpose: the `DR5/` and `RX5/` folders of MckSamplePacks. Those machines play
 back factory PCM sample ROMs, so their recordings carry the manufacturers' sample rights

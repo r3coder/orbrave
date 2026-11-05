@@ -10,7 +10,7 @@ import { MIX_TRIM } from './mixTrim.js';
 
 export const STYLE_NAMES = [
   'techno', 'house', 'acid', 'trance', 'dnb', 'breakbeat', 'lofi',
-  'synthwave', 'ambient',
+  'synthwave', 'ambient', 'dubtechno',
 ];
 
 const ROOTS = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
@@ -167,6 +167,21 @@ const STYLES = {
     stabRhythm: ['x ~ ~ ~ ~ ~ ~ ~', 'x ~ ~ ~ x ~ ~ ~'], chordBars: [4, 8],
     arpSounds: ['vibraphone', 'piano'], arpSteps: [8],
     lead: ['bells', 'soft', 'none'],
+  },
+  // one minor chord as a short stab into long echoes; swung 16th hats; tape hiss underneath
+  dubtechno: {
+    bpm: [120, 130], scales: ['minor', 'minor', 'dorian'], swing16: [0.1, 0.15, 0.2, 0.2], crackle: true,
+    duck: { roles: ['bass', 'chords'], depth: 0.5, release: 0.6 },
+    kick: 'four', kicks: ['TR909_bd:3', 'TR909_bd:4', 'TR808_bd:1', 'RD6_bd:0'],
+    snares: ['TR909_rim:0', 'TR808_rim:0', 'Kit_rim:0', 'TR909_cp:1'],
+    hats: ['techno16', 'house16', 'skip16'], hh: ['TR909_hh:0', 'TR808_hh:1', 'RD6_hh:0'], oh: ['TR909_oh:0', 'TR808_oh:0'],
+    percs: ['TR808_sh:0', 'TR909_rim:0', 'cabasa:0', 'cabasa:3'],
+    bass: ['dubsub', 'dubsub', 'rumble'],
+    bassRhythm: ['~ ~ r ~ ~ ~ r ~ ~ ~ r ~ ~ ~ r ~', '~ ~ r ~ ~ ~ ~ ~ ~ ~ r ~ ~ ~ r ~', 'r ~ ~ ~ ~ ~ r ~ ~ ~ r ~ ~ ~ ~ ~'],
+    chords: ['dub'], voicings: [[0, 2, 4, 6], [0, 2, 4, 6, 8], [0, 6], [0, 2, 4]],
+    progs: [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 2, 2], [0, 0, 4, 0], [0, 0, 5, 5]],
+    stabRhythm: ['~ x ~ ~ ~ x ~ ~', '~ ~ x ~ ~ ~ ~ ~', '~ x ~ ~ ~ ~ x ~', '~ ~ ~ x ~ ~ ~ ~'], chordBars: [2, 4],
+    lead: ['none', 'none', 'blip'],
   },
 };
 
@@ -364,6 +379,8 @@ function bassSound(r, kind) {
       return `.s("sawtooth").lpf(${r.int(900, 1500)}).decay(.1).sustain(0).gain(.28)`;
     case 'drone':
       return `.s("sine").attack(.6).sustain(1).release(2).lpf(500).gain(.32)`;
+    case 'dubsub': // dub techno: a short, round sub under the chord
+      return `.s("sine").decay(.22).sustain(.3).release(.1).lpf(220).shape(.2).gain(.45)`;
     default: // rumble
       return `.s("sawtooth").lpf(${r.int(250, 400)}).lpq(6).decay(.22).sustain(.25).shape(.2).room(.3).gain(.3)`;
   }
@@ -422,6 +439,7 @@ function leadSound(r, kind, dt) {
 //   synthwave a pop song: verse / chorus / bridge, arps throughout
 //   lofi      a sample loop with the beat dropping in and out
 //   ambient   one or a few long textures
+//   dubtechno the echoing chord from bar 1; the kick drops out ("strip") or only chords + bass remain ("break")
 const FORMS = {
   techno: (r) => {
     const main = r.pick([16, 24]);
@@ -495,6 +513,13 @@ const FORMS = {
       if (i < rounds - 1) f.push([r.pick(['dropout', 'sample']), r.pick([4, 8])]);
     }
     return [...f, [r.pick(['outro', 'sample']), 8]];
+  },
+  dubtechno: (r) => {
+    const main = r.pick([24, 32]);
+    const f = [['intro', r.pick([16, 32])], ['groove', 16], ['main', main]];
+    const waves = r.pick([1, 2, 2]);
+    for (let i = 0; i < waves; i++) f.push([r.pick(['strip', 'break']), r.pick([8, 16])], [i === waves - 1 ? 'main2' : 'main', main]);
+    return [...f, ['outro', 16]];
   },
   ambient: (r) => {
     const f = [['dawn', r.pick([8, 16])]];
@@ -592,6 +617,16 @@ const SECTION_LAYERS = {
     chorus: ['kick', 'snare', 'hats', 'ohat', 'bass', 'chords', 'lead', 'arp'],
     bridge: ['chords', 'arp', 'leadSoft', r.chance(0.5) && 'bass'],
     outro: ['chordsClose', 'arp', 'leadSoft'],
+  }),
+  // the chord plays from the first bar, filtered low until the groove; breaks are echoes alone
+  dubtechno: (r, pc) => ({
+    intro: ['kick', 'hats', 'chordsLow'],
+    groove: ['kick', 'hats', 'bass', 'chordsLow', pc()],
+    main: ['kick', 'snare', 'hats', 'ohat', 'bass', 'chords', 'perc'],
+    main2: ['kick', 'snare', 'hats2', 'ohat', 'bass', 'chordsSweep', r.chance(0.4) && 'lead', 'perc'],
+    strip: ['hats', 'bass', 'chordsSweep', pc()],
+    break: ['bass', 'chords', r.chance(0.5) && 'hats'],
+    outro: ['kick', 'hats', 'chordsClose'],
   }),
 };
 

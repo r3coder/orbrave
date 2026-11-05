@@ -1,0 +1,24 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <!-- samples.js resolves the drum bank against the page; the bank lives at /samples/ -->
+  <base href="/" />
+  <title>Orb level tool</title>
+  <style>
+    body { background: #111; color: #ddd; font: 13px/1.5 ui-monospace, Consolas, monospace; padding: 16px; }
+    button, input { font: inherit; padding: 6px 12px; margin-right: 8px; }
+    pre { white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <p>Dev tool: renders every sound orb alone (4 bars at 124 BPM, seeds 1–3), compares its K-weighted
+    loudness with the median of its category, and prints <code>TRIM</code> entries for
+    <code>src/orbCatalog.js</code>. Run it after adding orbs.</p>
+  <label>check <input id="only" value="new" size="28" title="new = orbs with a tag or spot; all; or comma-separated ids" /></label>
+  <label>tolerance dB <input id="tol" value="2" size="3" /></label>
+  <button id="run">run</button>
+  <pre id="log"></pre>
+  <script type="module" src="tools/orb-levels.js"></script>
+</body>
+</html>
