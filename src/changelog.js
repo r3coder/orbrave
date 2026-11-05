@@ -7,6 +7,11 @@ import './licenses.css';
 
 // [version, date, { ko: [...], en: [...], ja: [...] }]
 const NOTES = [
+  ['0.4.2', '2026-11-05', {
+    ko: ['모두의 곡: 서버가 20곡을 골라 보내 줘요 (👍가 많은 곡과 새 곡이 더 자주 나와요). ↻를 누르면 새로 20곡', '모두의 곡 목록 스크롤이 부드러워졌어요: 타일의 색 소용돌이는 마우스를 올렸을 때만 돌아요'],
+    en: ['Shared: the server picks 20 songs (well-liked and new ones more often); ↻ draws a fresh 20', 'The Shared list scrolls smoothly: a tile\'s colour swirl only turns while hovered'],
+    ja: ['みんなの曲: サーバーが 20 曲を選んで送ります(👍 の多い曲と新しい曲がよく出ます)。↻ で新しく 20 曲', 'みんなの曲の一覧がなめらかにスクロールします: タイルの色の渦はマウスを乗せたときだけ回ります'],
+  }],
   ['0.4.1', '2026-11-05', {
     ko: ['넓은 화면: 재생 중인 멜로디 오브들의 루프가 배경에 피아노 롤로 흘러요', '원형 파형이 재생 버튼과 EQ 막대 사이에 들어가요', '휴대폰: 편집을 포함한 오브 슬롯 5개가 항상 나와 있고, 안내에서 하나씩 설명해요', '휴대폰: 위쪽 줄에 전부 비우기 · 오브 설명 · ⇪ 내보내기', '휴대폰: 빈 화면을 아래로 스와이프하면 오브가 빠르게, 위로 스와이프하면 느리게 떨어져요'],
     en: ['Wide screens: the loop of the melodic orbs playing scrolls behind the page as a piano roll', 'The round waveform now sits between the play button and the EQ bars', 'Phones: all 5 orb slots, Edit included, are always out, and the guide explains each one', 'Phones: Clear all, the orb hint and ⇪ Export along the top', 'Phones: swipe down on the empty field for faster-falling orbs, up for slower'],

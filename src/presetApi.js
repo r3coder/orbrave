@@ -22,10 +22,11 @@ async function request(path, init = {}) {
   }
 }
 
-// Every shared preset the server offers (newest first), already checked against this catalogue.
+// Shared presets the server offers (newest first), already checked against this catalogue.
+// `mix`: instead of the newest, `limit` picked at random, well-liked and recent ones more often.
 // Throws when the server is missing or unreachable (the orb page shows that the server is down).
-export async function fetchPresets({ limit = 200 } = {}) {
-  const body = await request(`/presets?limit=${limit}`);
+export async function fetchPresets({ limit = 200, mix = false } = {}) {
+  const body = await request(`/presets?limit=${limit}${mix ? '&order=mix' : ''}`);
   if (!Array.isArray(body?.presets)) throw new Error('not a preset server');
   return body.presets.map(fromWire).filter(Boolean);
 }

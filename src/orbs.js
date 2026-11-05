@@ -2515,6 +2515,7 @@ function setServerUp(up) {
 }
 
 const sharedList = $('sharedList');
+const SHARED_COUNT = 20; // tiles in the shared list; ↻ draws a fresh 20
 let sharedLoading = null;
 let sharedLast = null; // the last list the server sent, re-drawn when the language changes
 function renderShared() {
@@ -2524,11 +2525,12 @@ function renderShared() {
 }
 function refreshShared() {
   if (!sharedList.children.length) sharedList.innerHTML = `<p class="empty">${ot('loading')}</p>`;
-  // well-liked and recent presets tend to come first, and to make the cut of 100
-  sharedLoading ??= fetchPresets({ limit: 500 })
+  // the server picks SHARED_COUNT at random, well-liked and recent ones more often (an older
+  // server ignores `mix` and sends the newest ones; the weighted order on top keeps that varied)
+  sharedLoading ??= fetchPresets({ limit: SHARED_COUNT, mix: true })
     .then((list) => {
       setServerUp(true);
-      sharedLast = weightedOrder(list).slice(0, 100);
+      sharedLast = weightedOrder(list).slice(0, SHARED_COUNT);
       renderShared();
     })
     .catch((e) => {

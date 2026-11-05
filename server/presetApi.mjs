@@ -1,6 +1,6 @@
 // The preset API (contract: docs/PRESET_API.md) as one request handler, shared by the
 // standalone server (server/index.mjs) and the Vite dev server (tools/presetDevApi.js).
-//   GET  /presets?limit=N   newest shared presets
+//   GET  /presets?limit=N   newest shared presets (&order=mix: N picked at random, weighted)
 //   GET  /presets/<id>      one preset
 //   POST /presets           share one (JSON body, validated by presetSchema.mjs)
 //   POST /presets/<id>/vote 👍 / 👎 from one browser: { voter, v: 1 | -1 | 0 }
@@ -135,7 +135,8 @@ export function createPresetApi({ dataDir, trustProxy = false, maxPerDay, rate, 
       }
       if (req.method === 'GET' && !id) {
         const n = Number(url.searchParams.get('limit')) || 200;
-        return send(res, 200, { presets: await store.list(n) });
+        const mix = url.searchParams.get('order') === 'mix';
+        return send(res, 200, { presets: await store.list(n, { mix }) });
       }
       if (req.method === 'GET') {
         const p = await store.get(id);

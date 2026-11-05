@@ -120,10 +120,24 @@ export function createPresetStore(dataDir, { maxPerDay = 2000 } = {}) {
   }
 
   return {
-    async list(limit = 200) {
+    // The newest `limit` presets, or with `mix` `limit` of the cached ones picked at random:
+    // well-liked (weight) and recent (first few days) ones more often, the same weighting the
+    // pages use (weighted shuffle: each gets the key rand^(1/weight), highest first).
+    async list(limit = 200, { mix = false } = {}) {
       cache ??= await loadCache();
       await loadVotes();
-      return cache.slice(0, Math.max(1, Math.min(CACHE, limit))).map((r) => ({ ...r, w: weightOf(r.id) }));
+      const n = Math.max(1, Math.min(CACHE, limit));
+      const all = cache.map((r) => ({ ...r, w: weightOf(r.id) }));
+      if (!mix) return all.slice(0, n);
+      const now = Date.now();
+      return all
+        .map((r) => {
+          const age = Math.max(0, (now - (Date.parse(r.createdAt) || 0)) / 86_400_000);
+          return [Math.random() ** (1 / (r.w * (1 + 2 * Math.exp(-age / 3)))), r];
+        })
+        .sort((a, b) => b[0] - a[0])
+        .slice(0, n)
+        .map((x) => x[1]);
     },
 
     // One vote per voter id and preset: 1 (👍), -1 (👎), or 0 to take it back. Voting again
