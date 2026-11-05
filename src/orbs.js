@@ -11,7 +11,8 @@ import { BARS, STEPS, ROWS, packRaw, unpackRaw, sheetCode, quantize, notesAt, st
 import { uploadPreset, fetchPresets, weightedOrder } from './presetApi.js';
 import { mountVote } from './vote.js';
 import { lite, setLite, onLite, watchFrame } from './liteMode.js';
-import { tone, toneHex, ink, onTheme, setPalette, mountThemeButton } from './theme.js';
+import { tone, toneHex, ink, onTheme, setPalette, mountThemeButton, theme as themeNow } from './theme.js';
+import { drawMidiBackdrop } from './midiBackdrop.js';
 import { ot, secName, allLangs, mountLangButtons } from './orbsI18n.js';
 import { isPhone } from './phoneLayout.js';
 import { mountLicenses, attributionsFor, creditLine, soundName } from './licenses.js';
@@ -491,14 +492,19 @@ const TUT = [
   { when: () => tut.combo, show: () => spotlight(ui.stash, ot(isPhone.matches ? 'tutStashPhone' : 'tutStash'), { wait: 300 }) },
   {
     when: () => tut.thrown >= 5 || stepTimeUp(), cls: 'roll-ready',
+    // a phone has had the slots (편집 too) all along: here each of the five gets a short note
     show: () => {
+      if (isPhone.matches) {
+        SLOTS.forEach((m, i) => spotlight(slotEls[m], `${i + 1}/5 · ${ot('tutX' + m)}`, { wait: i ? 0 : 500 }));
+        return;
+      }
       bump(ui.slots, 'intro');
       spotlight(ui.slots, ot('tutSlots'), { wait: 800 });
     },
   },
   {
     when: () => tut.thrown >= 7 || stepTimeUp(), cls: 'midi-ready',
-    // 편집 is for wide screens: on a phone the step unlocks it quietly (for a later wide screen)
+    // a phone had 편집 explained with the other slots: the step unlocks it quietly (for a later wide screen)
     show: () => {
       if (isPhone.matches) return;
       bump(slotEls.midi, 'intro');
@@ -1291,7 +1297,7 @@ ui.field.addEventListener('pointerdown', (e) => {
 });
 let held = false;
 ui.field.addEventListener('pointerdown', (e) => e.target === ui.field && (held = true));
-const release = () => ((held = false), (boostTarget = fallSpeed));
+const release = () => ((held = false), (swipe = null), (boostTarget = fallSpeed));
 for (const t of ['pointerup', 'pointercancel']) window.addEventListener(t, release);
 ui.field.addEventListener('pointerleave', release);
 
@@ -1318,13 +1324,32 @@ ui.field.addEventListener('wheel', (e) => {
   if (e.target.closest('.field-tools')) return;
   e.preventDefault();
   const dy = e.deltaY * (e.deltaMode === 1 ? 33 : e.deltaMode === 2 ? 400 : 1);
-  let v = fallSpeed * Math.exp(dy * 0.0015);
+  setSpeed(fallSpeed * Math.exp(dy * 0.0015));
+}, { passive: false });
+function setSpeed(v) {
   // settle on ×1 when passing through it, so normal speed is easy to get back to
   if ((fallSpeed - 1) * (v - 1) < 0) v = 1;
   fallSpeed = Math.min(SPEED_MAX, Math.max(SPEED_MIN, v));
   if (!held) boostTarget = fallSpeed;
   showSpeed();
-}, { passive: false });
+}
+// A phone has no wheel: a swipe on the empty field does the same, down faster, up slower. A press
+// that stays put still pours the orbs down while held; once it moves it is a swipe instead.
+let swipe = null; // { y0, y, on }
+ui.field.addEventListener('pointerdown', (e) => {
+  if (e.target === ui.field && isPhone.matches) swipe = { y0: e.clientY, y: e.clientY, on: false };
+});
+window.addEventListener('pointermove', (e) => {
+  if (!swipe) return;
+  if (!swipe.on) {
+    if (Math.abs(e.clientY - swipe.y0) < 14) return;
+    swipe.on = true;
+    swipe.y = e.clientY;
+    held = false; // not a hold any more: the pour stops
+  }
+  setSpeed(fallSpeed * Math.exp((e.clientY - swipe.y) * 0.01));
+  swipe.y = e.clientY;
+}, { passive: true });
 
 // optional background art for the field: an image at public/orbs-field.webp, tiled vertically
 // It lives on its own layer that is only moved (transform), so the drift doesn't repaint the
@@ -1480,10 +1505,13 @@ function accepts(mode, l) {
   return mode === 'quieter' ? volStep(l.id) > -VOL_STEPS : volStep(l.id) < VOL_STEPS;
 }
 // the slot under (x, y): one of the five, or the open tab (the same as its slot)
+// On a phone the slots (편집 included) are always out; on wide screens the guide's steps open them.
+const hasCls = (c) => document.body.classList.contains(c);
+const slotsOn = () => isPhone.matches || hasCls('roll-ready');
+const midiOn = () => isPhone.matches || hasCls('midi-ready');
 function slotAt(x, y) {
-  if (!document.body.classList.contains('roll-ready')) return null;
-  // 편집 (the piano roll) is for wide screens: a phone has no 편집 slot
-  const midi = document.body.classList.contains('midi-ready') && !isPhone.matches;
+  if (!slotsOn()) return null;
+  const midi = midiOn();
   for (const m of SLOTS) if ((m !== 'midi' || midi) && inRect(slotEls[m], x, y)) return m;
   if (midi && rollOrb && inRect(ui.roll, x, y)) return 'midi';
   return null;
@@ -2197,22 +2225,24 @@ ui.roll.addEventListener('pointerdown', (e) => {
 }, true);
 // 수정 완료: the tab goes down and the orb (the drawing, or the variation from 🎲) waits, jiggling,
 // in the 편집 slot until it is grabbed and thrown into the song, the stash or another slot
-// a phone has no 편집: an orb in its tab or slot goes back (a changed drawing leaves as a drawn orb)
-function leaveMidiOnPhone() {
-  if (!isPhone.matches || !((rollOrb && !rollOrb.grabbed) || slotOrbs.midi)) return;
+// the slots went away (a phone turned into a wide screen before the guide opened them): the orbs in the tab and the slots go
+// back where they came from (a changed drawing leaves as a drawn orb)
+function leaveSlots() {
+  if (slotsOn() || !((rollOrb && !rollOrb.grabbed) || slotIds().length)) return;
   if (rollOrb && !rollOrb.grabbed) {
     const { id, home } = takeFromRoll();
     returnOrb(id, home);
   }
-  const sat = slotOrbs.midi;
-  if (sat) {
-    slotOrbs.midi = null;
+  for (const m of FX_SLOTS) {
+    const sat = slotOrbs[m];
+    if (!sat) continue;
+    slotOrbs[m] = null;
     returnOrb(sat.id, sat.home);
-    renderSlots();
   }
+  renderSlots();
   sync();
 }
-isPhone.addEventListener('change', leaveMidiOnPhone);
+isPhone.addEventListener('change', leaveSlots);
 ui.rollDone.addEventListener('click', () => {
   if (!rollOrb || rollOrb.grabbed) return;
   const { id, home } = takeFromRoll();
@@ -3519,6 +3549,7 @@ function frame(ts) {
   g.clearRect(0, 0, w, h);
 
   const c = coreCenter();
+  drawBackdrop(c, dt, w, h);
   let level = 0;
   if (analyser && playing) {
     buf ??= new Float32Array(analyser.fftSize);
@@ -3532,10 +3563,12 @@ function frame(ts) {
     g.shadowBlur = lite ? 0 : 18;
     g.shadowColor = colors[0] ?? ink().acc;
     g.beginPath();
+    // kept in the gap between the play button and the EQ bars (which start 40px out, see drawEq)
     const n = 256, step = Math.floor(buf.length / n);
+    const r0 = ui.core.getBoundingClientRect().width / 2 + 20;
     for (let i = 0; i <= n; i++) {
       const a = (i / n) * Math.PI * 2;
-      const r = c.rad - 10 + buf[(i % n) * step] * 70;
+      const r = r0 + Math.max(-16, Math.min(16, buf[(i % n) * step] * 24));
       const x = c.x + Math.cos(a) * r, y = c.y + Math.sin(a) * r;
       i ? g.lineTo(x, y) : g.moveTo(x, y);
     }
@@ -3576,6 +3609,36 @@ function frame(ts) {
   updateRain(dt, ts);
   drawRoll();
   updateSongCursor();
+}
+
+const rightPane = $('right');
+const presetPane = $('presetbar');
+// the dark piano roll behind the page on wide screens (midiBackdrop.js): the loop of every pitched
+// orb on the player, as it plays (no hover previews, no waiting variations, no auditioned key)
+function drawBackdrop(c, dt, w, h) {
+  const on = !isPhone.matches && playing && !!repl;
+  const now = on ? nowCycle() : 0;
+  const mode = layers().find((l) => l.cat === 'mode')?.mode ?? 'minor';
+  const parts = !on ? [] : [...active.values()]
+    .filter(({ layer: l, at }) => l.code && (l.voice?.root || l.pitched) && now >= at)
+    .map(({ layer: l }) => {
+      const seed = seedOf(l);
+      return {
+        key: `${l.id}|${seed}|${mode}|${l.raw ? l.raw.join() : ''}`,
+        code: () => {
+          setMode(mode);
+          const code = typeof l.code === 'function' ? l.code(rng(hash(l.base ?? l.id) + seed * 7919)) : l.code;
+          return mode === 'minor' ? code : code.replaceAll(':minor"', `:${mode}"`);
+        },
+        color: toneHex(tint(l)),
+        dim: 1,
+      };
+    });
+  // the loop spans the page between the preset bar and the orb field
+  const x0 = presetPane.getBoundingClientRect().right;
+  const x1 = rightPane.getBoundingClientRect().left;
+  const wide = x1 - x0 > 200;
+  drawMidiBackdrop(g, { x: wide ? x0 : 0, w: wide ? x1 - x0 : w, h, cy: c.y, now, on, parts, dark: themeNow === 'dark', ink: ink().ink, lite, dt });
 }
 
 // Equaliser: every sounding orb has its own analyser channel. Around the player each channel
@@ -3908,7 +3971,7 @@ renderStatus();
 ui.code.textContent = buildCode();
 requestAnimationFrame(() => {
   seedRain();
-  leaveMidiOnPhone(); // a set saved on a wide screen may have an orb in 편집: back into the fresh rain
+  leaveSlots(); // a set saved with orbs in the slots, opened where they are off: back into the fresh rain
   requestAnimationFrame(frame);
 });
 if (import.meta.env.DEV) window.__orbs = { spawnWeights, taste: taste.debug, replReady, codeOf, active, rain, stash, byId, addLayer, removeLayer, buildCode, pickForSlot, finishDraft, orbStep, heldSeed, revealRoll, slotOrbs, decorate, get rollOrb() { return rollOrb; }, get draft() { return draft; }, get song() { return song; }, get variation() { return variation; }, patternToRaw, keyMode, LAYERS };

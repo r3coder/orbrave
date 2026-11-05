@@ -1,8 +1,10 @@
 /* Phone (portrait) layout, loaded after orbs.css so it wins over its narrow-screen rules.
    One-row header (📁 presets sheet, 🔍, ⋯ menu) / the orbs raining around the player, with the
    song's orbs and buttons under it / the stash as a strip at the bottom.
-   The full-song stems and 편집 (piano roll) stay on wide screens; the orb slots (약하게 / 세게 / 변주 /
-   복제) sit between the orbs and the stash. orbsMobile.js moves the elements around. */
+   Along the top of the player area: 전부 비우기 · what the touched orb is · ⇪ 내보내기. The full-song
+   stems stay on wide screens. The orb slots (편집 · 약하게 · 세게 · 변주 · 복제) are always out, a low row
+   between the orbs and the stash, and 편집's piano roll slides up over the bottom of the field.
+   orbsMobile.js moves the elements around. */
 .m-head-btns, .m-credit, .m-sheet, .m-export, .m-rotate { display: none; }
 
 /* phones held sideways: just a notice. A touch screen that short, or any screen phone-sized
@@ -72,14 +74,42 @@
   /* the stems are for wide screens */
   .stems, #stemReopen { display: none !important; }
 
-  /* orb slots: one row over the stash. 편집 (the piano roll) is for wide screens: no 편집 slot
-     and no tab here (orbs.js sends an orb in it back when the layout turns into a phone one) */
-  .slots { grid-area: slots; height: 80px; padding: 0 10px; gap: clamp(8px, 5vw, 40px); justify-content: center; }
-  #slotMidi, .roll { display: none !important; }
-  .orb-slot { --d: 66px; }
-  .slot-label { font-size: 10px; padding: 0 5px; gap: 1px; }
-  .slot-label i { font-size: 15px; }
+  /* orb slots: always out on a phone (#ids win over the guide's body:not(.roll-ready / .midi-ready)
+     rules), one low row of five over the stash */
+  #slots {
+    display: flex; grid-area: slots; height: 60px; padding: 0 8px; border-top-width: 1px;
+    flex-wrap: nowrap; gap: clamp(6px, 3.2vw, 28px); justify-content: center; overflow: visible;
+  }
+  .slots::after { display: none; }
+  #slots #slotMidi { display: grid; }
+  .orb-slot { --d: 52px; border-width: 1px; }
+  .orb-slot > .mini { inset: 5px; }
+  .slot-label { font-size: 9px; padding: 0 3px; gap: 0; letter-spacing: -0.02em; }
+  .slot-label i { font-size: 13px; }
   .orb-slot small { display: none; }
+  .orb-slot.hot { transform: scale(1.06); }
+
+  /* 편집's piano roll: slides up over the bottom half of the field; the player moves up into the
+     half left over (.left's padding), so an edited orb can still be thrown into it */
+  :root { --roll-h: min(calc((100dvh - var(--top-h, 52px) - 130px) * 0.5), 440px); }
+  body.roll-full:not(.roll-min) .left { padding-bottom: var(--roll-h); }
+  body.roll-full:not(.roll-min) .left :is(.chips, .song) { display: none; }
+  .roll {
+    grid-area: main; align-self: end; z-index: 4; position: relative;
+    height: 0; transition: height 0.45s cubic-bezier(.2, .9, .3, 1.1), box-shadow 0.2s;
+    box-shadow: 0 -12px 30px color-mix(in srgb, var(--shadow) 60%, transparent);
+  }
+  body.roll-full .roll { height: var(--roll-h); }
+  body.roll-full.roll-min .roll { height: 58px; }
+  .roll-head { flex-wrap: nowrap; gap: 6px; min-height: 0; padding: 6px 8px; }
+  .roll-slot { width: 44px; height: 44px; }
+  .roll-slot .mini { width: 36px; height: 36px; }
+  .roll-name { font-size: 12px; }
+  .roll-name b, .roll-name span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .roll-name span { font-size: 10px; }
+  #rollDice { flex: none; font-size: 11px; padding: 6px 7px; }
+  .roll-tools #rollDone { font-size: 12px; padding: 7px 10px; white-space: nowrap; }
+  .roll-hint:empty { display: none; }
   .slot-hint, .slot-hint.on { left: 10px; right: 10px; width: auto; max-width: none; transform: none; text-align: center; }
 
   /* falling orbs: name above, a short description under each */
@@ -117,7 +147,14 @@
     font-size: 12px; background: color-mix(in srgb, var(--bg) 78%, transparent); border-radius: 999px;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
-  .left .solo-hint { flex: none; padding: 0 12px; text-shadow: 0 1px 3px var(--halo); }
+  /* what the touched / previewed orb is: top centre, between 전부 비우기 and ⇪ (two lines at most) */
+  .left .solo-hint {
+    position: absolute; top: 8px; left: 50%; transform: translateX(-50%); z-index: 2;
+    width: max-content; max-width: calc(100% - 212px); min-height: 0; padding: 3px 8px;
+    font-size: 11px; line-height: 1.3; text-align: center; word-break: keep-all;
+    background: color-mix(in srgb, var(--bg) 80%, transparent); border-radius: 8px; text-shadow: 0 1px 3px var(--halo);
+    display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden;
+  }
   .left .solo-hint:empty { display: none; }
   /* a full song loaded from a preset: no timeline here, just the way back to the loop */
   .left .song.on { display: flex; width: auto; }
@@ -139,10 +176,11 @@
   .strip span { font-size: 9px; }
   .strip .sdice { font-size: 13px; opacity: 0.7; padding: 0 3px; }
 
-  /* 🎼 스템 · ⇪ 내보내기 (the stash's ⇪ only on short phones) */
-  .m-export-stash { display: none !important; }
-  .left .actions { flex: none; flex-wrap: nowrap; justify-content: center; gap: 8px; width: 100%; padding: 2px 10px 0; }
-  .left .actions button { flex: 1; max-width: 160px; min-height: 44px; font-size: 13px; }
+  /* ⇪ 내보내기: top right, across from 전부 비우기 (the save / share buttons pop up under it; the
+     .actions rows stay empty here) */
+  .left > .actions { display: none; }
+  .left .m-export-btn { position: absolute; top: 10px; right: 10px; font-size: 12px; padding: 7px 10px; pointer-events: auto; }
+  body.m-export-open .m-export-btn { border-color: var(--acc); color: var(--acc); background: color-mix(in srgb, var(--acc) 12%, transparent); }
 
   /* ---------- stash: a strip at the bottom, ⇪ export on its right ---------- */
   .stash {
@@ -163,19 +201,13 @@
   }
   .stash-slots .cell { width: 44px; height: 44px; }
   .stash-slots .cell .mini { width: 32px; height: 32px; touch-action: none; }
-  .stash .m-export-btn {
-    grid-area: export; align-self: center;
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    width: 58px; height: 46px; padding: 0 4px; font-size: 10px; line-height: 1.25; white-space: normal; word-break: keep-all;
-  }
-  body.m-export-open .m-export-btn { border-color: var(--acc); color: var(--acc); background: color-mix(in srgb, var(--acc) 12%, transparent); }
 
-  /* ---------- export popover: the loop's / song's save and share buttons, above the stash ---------- */
+  /* ---------- export popover: the loop's / song's save and share buttons, under ⇪ ---------- */
   .m-export {
-    position: fixed; left: 8px; right: 8px; z-index: 8;
-    bottom: calc(128px + var(--safe-b)); /* above the 🎲 · ☆ · ⇪ row (above the stash on short phones) */
+    position: fixed; right: 8px; z-index: 8; top: calc(var(--top-h, 52px) + 52px);
+    width: min(280px, calc(100vw - 16px));
     padding: 10px; background: var(--panel); border: 1px solid var(--line);
-    box-shadow: 0 -10px 40px color-mix(in srgb, var(--shadow) 70%, transparent);
+    box-shadow: 0 10px 40px color-mix(in srgb, var(--shadow) 70%, transparent);
   }
   body.m-export-open .m-export { display: flex; }
   .m-export .actions { flex-direction: column; flex-wrap: nowrap; width: 100%; gap: 6px; }
@@ -221,14 +253,10 @@
 }
 
 /* phones the size of an iPhone SE (667px tall) or smaller: no per-strip variations (each
-   strip's own 🎲 seed) and no stem / export row, and a smaller player */
+   strip's own 🎲 seed) and a smaller player */
 @media (max-width: 760px) and (max-height: 667px),
   (max-width: 900px) and (max-height: 667px) and (min-aspect-ratio: 3/4) and (max-aspect-ratio: 4/3) {
-  .left .actions, .strip .sdice, .strip button.snum { display: none; }
-  /* ⇪ moves next to the stash, its popover just above it */
-  .m-export-stash { display: flex !important; }
-  .stash { grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: 'head slots export' 'hint slots export'; }
-  .m-export { bottom: calc(72px + var(--safe-b)); }
+  .strip .sdice, .strip button.snum { display: none; }
   .core { --size: 104px; }
   .ring, .volring { inset: -20px; }
   .volring { width: calc(100% + 40px); height: calc(100% + 40px); }
@@ -244,8 +272,8 @@
 }
 /* the smallest phones (iPhone SE 1st gen, 568px tall): lower slots, a smaller player and song row */
 @media (max-width: 760px) and (max-height: 600px) {
-  .slots { height: 64px; }
-  .orb-slot { --d: 54px; }
+  #slots { height: 52px; }
+  .orb-slot { --d: 46px; }
   .slot-label { font-size: 9px; }
   .slot-label i { font-size: 13px; }
   .core { --size: 88px; }

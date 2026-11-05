@@ -4,7 +4,8 @@
   <meta charset="utf-8" />
   <title>Mobile preview</title>
   <!-- Dev tool (npm run dev → /tools/mobile-preview.html): the orb page at several phone sizes side by
-       side. The frames share one origin, so they share localStorage (tutorial progress, session). -->
+       side. The frames share one origin, so they share localStorage (tutorial progress, session).
+       편집 열림 needs the dev build (window.__orbs). -->
   <style>
     :root { color-scheme: dark; }
     body { margin: 0; background: #0b0b10; color: #ccc; font: 13px/1.5 ui-monospace, Consolas, monospace; }
@@ -32,25 +33,38 @@
         <option value="first">첫 방문 (튜토리얼 처음부터)</option>
         <option value="slots">슬롯 열림 (5개 던진 뒤)</option>
         <option value="all">모든 기능 열림</option>
+        <option value="song" selected>곡 6개 (튜토리얼 끝)</option>
+        <option value="roll">곡 6개 + 편집 열림</option>
       </select>
     </label>
     <button id="reload">↻ 전부 새로고침</button>
+    <label title="주소창·상태바를 뺀 높이 (추정: iPhone Safari −193, Android Chrome −110)"><input id="bars" type="checkbox" checked /> 브라우저 안 높이</label>
+    <label><input id="old" type="checkbox" /> 작은 폰 (SE · 320)</label>
     <label><input id="land" type="checkbox" /> 가로 화면 포함</label>
   </header>
   <main id="grid"></main>
   <script>
+    // 2023–2026 flagships: [name, CSS width, full CSS height, browser bars to take off for 브라우저 안].
+    // Sizes from yesviz / resolution ÷ pixel ratio; bars estimated (iPhone Safari ~190, Android Chrome ~110)
     const DEVICES = [
-      ['iPhone SE', 375, 667],
-      ['Small (320)', 320, 568],
-      ['Galaxy S24', 360, 780],
-      ['iPhone 15', 393, 852],
-      ['Pixel 8 Pro', 412, 915],
-      ['iPhone 15 Pro Max', 430, 932],
-      ['Z Fold 커버', 344, 882],
-      ['Z Fold 펼침', 690, 830],
-      ['Pixel Fold 펼침', 840, 700],
+      ['Galaxy S23 · S24 · S25', 360, 780, 110],
+      ['Galaxy S24+ · S25+ · Ultra', 412, 891, 110],
+      ['Galaxy Z Flip 7', 360, 840, 110],
+      ['Galaxy Z Fold 5·6 커버', 344, 882, 110],
+      ['Pixel 8 · 9 · 10', 412, 915, 110],
+      ['Pixel 9 · 10 Pro XL', 448, 997, 110],
+      ['iPhone 16e', 390, 844, 193],
+      ['iPhone 15 · 16', 393, 852, 193],
+      ['iPhone 16 Pro · 17', 402, 874, 193],
+      ['iPhone Air', 420, 912, 193],
+      ['iPhone 15 Plus · 16 Plus', 430, 932, 193],
+      ['iPhone 16 · 17 Pro Max', 440, 956, 193],
+      ['Galaxy Z Fold 5·6 펼침', 690, 829, 110],
+      ['Pixel 10 Pro Fold 펼침', 692, 717, 110],
+      ['Galaxy Z Fold 7 펼침', 984, 1092, 110],
     ];
-    const LAND = [['iPhone 15 가로', 852, 393], ['iPad mini 세로', 768, 1024], ['iPad mini 가로', 1024, 768]];
+    const OLD = [['iPhone SE', 375, 667, 0], ['Small (320)', 320, 568, 0]];
+    const LAND = [['iPhone 15 가로', 852, 393, 0], ['iPad mini 세로', 768, 1024, 0], ['iPad mini 가로', 1024, 768, 0]];
     const grid = document.getElementById('grid');
     const scaleEl = document.getElementById('scale');
     const frames = [];
@@ -59,15 +73,17 @@
     function build() {
       grid.innerHTML = '';
       frames.length = 0;
-      const list = document.getElementById('land').checked ? [...DEVICES, ...LAND] : DEVICES;
-      for (const [name, w, h] of list) {
+      const bars = document.getElementById('bars').checked;
+      const list = [...DEVICES, ...(document.getElementById('old').checked ? OLD : []), ...(document.getElementById('land').checked ? LAND : [])];
+      for (const [name, w, full, cut] of list) {
+        const h = bars ? full - cut : full;
         const fig = document.createElement('figure');
         fig.innerHTML = `<figcaption><span>${name}</span><small>${w}×${h}</small><button title="이 화면만 새로고침">↻</button><button title="새 창으로">⧉</button></figcaption><div class="box"><iframe></iframe></div>`;
         const ifr = fig.querySelector('iframe');
         ifr.width = w;
         ifr.height = h;
         const [re, pop] = fig.querySelectorAll('button');
-        re.onclick = () => (ifr.src = url());
+        re.onclick = () => load(ifr);
         pop.onclick = () => window.open('/index.html', name, `width=${w},height=${h}`);
         frames.push({ fig, ifr, w, h });
         grid.append(fig);
@@ -92,18 +108,49 @@
       for (const k of ['orbTutorial', 'orbFirstOrb', 'orbSession', 'orbRollReady', 'orbToolsReady']) localStorage.removeItem(k);
       if (v === 'first') return;
       localStorage.setItem('orbFirstOrb', '1');
-      const step = v === 'all' ? 6 : 2;
-      localStorage.setItem('orbTutorial', JSON.stringify({ step, thrown: v === 'all' ? 20 : 5, moves: 20, thrownAt: 0, movesAt: 0, at: Date.now(), banner: false, bannerMoves: 0, used: false, combo: true }));
+      const step = v === 'slots' ? 2 : 6;
+      localStorage.setItem('orbTutorial', JSON.stringify({ step, thrown: step === 6 ? 20 : 5, moves: 20, thrownAt: 0, movesAt: 0, at: Date.now(), banner: false, bannerMoves: 0, used: false, combo: true }));
+      if (v !== 'song' && v !== 'roll') return;
+      // a song restored from the session (src/orbs.js restoreSession)
+      localStorage.setItem('orbSession', JSON.stringify({
+        layers: ['kick2', 'hat2', 'bass1', 'pad2', 'lead2', 'arp2'], drawn: [], copies: [],
+        stash: ['snare3', 'perc4', 'lead5', 'fx2', 'bass7'], variation: 0, seeds: {}, steps: {}, held: {}, name: '',
+        slots: { louder: { id: 'hat4', home: null } },
+        roll: v === 'roll' ? { id: 'lead7', home: null, src: 'lead7', raw: Array(64).fill(null), edited: false, seed: null } : null,
+      }));
+    }
+    // 편집 열림: once a frame has booted, draw lead7's own notes into its roll (dev build: window.__orbs)
+    function fillRoll(ifr) {
+      if (document.getElementById('state').value !== 'roll') return;
+      const O = ifr.contentWindow?.__orbs;
+      if (!O?.draft) return setTimeout(() => fillRoll(ifr), 500);
+      const raw = O.patternToRaw(O.byId.lead7);
+      if (raw) O.draft.raw = raw;
+    }
+    let sess = null; // the session the state set up, handed to each frame as it loads
+    function load(ifr) {
+      if (sess) localStorage.setItem('orbSession', sess);
+      ifr.onload = () => setTimeout(() => fillRoll(ifr), 1500);
+      ifr.src = url();
     }
     function reloadAll() {
-      applyState();
-      // one at a time: each frame boots the sample bank
-      frames.forEach((f, i) => setTimeout(() => (f.ifr.src = url()), i * 400));
+      // a frame saves its session as it unloads: empty them all first, then set the state
+      for (const f of frames) {
+        f.ifr.onload = null;
+        f.ifr.src = 'about:blank';
+      }
+      setTimeout(() => {
+        applyState();
+        // one at a time (each frame boots the sample bank); each reads the session on boot and
+        // may write it back, so each gets a fresh copy
+        sess = localStorage.getItem('orbSession');
+        frames.forEach((f, i) => setTimeout(() => load(f.ifr), i * 600));
+      }, 400);
     }
     scaleEl.oninput = rescale;
     document.getElementById('reload').onclick = reloadAll;
     document.getElementById('state').onchange = reloadAll;
-    document.getElementById('land').onchange = build;
+    for (const id of ['land', 'old', 'bars']) document.getElementById(id).onchange = build;
     build();
   </script>
 </body>

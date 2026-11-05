@@ -1,8 +1,8 @@
 // Phone (portrait) layout for the orb page. Kept apart from orbs.js: on a phone the page is one
-// screen (the orbs rain around the player, the song's orbs and buttons under it, the stash at
-// the bottom, the orb slots above it). The full-song stems and 편집 (the piano roll) are left to
-// wide screens (orbsMobile.css hides them, orbs.js skips their tutorial steps); the header folds into a
-// menu, presets open as a sheet, and the save/share buttons share one popover. Elements orbs.js
+// screen (the orbs rain around the player with 전부 비우기 · the orb hint · ⇪ along its top, the
+// song's orbs under it, the orb slots and the stash at the bottom). The full-song stems are left to
+// wide screens (orbsMobile.css hides them, orbs.js skips their tutorial step); the header folds into a
+// menu, presets open as a sheet, and the save/share buttons share one popover under ⇪. Elements orbs.js
 // holds are only moved (and put back on wide screens), so its listeners and rect checks still work.
 import './orbsMobile.css';
 import { ot } from './orbsI18n.js';
@@ -54,11 +54,8 @@ sheet.querySelector('.m-sheet-close').addEventListener('click', closePanels);
 
 // export popover: the loop's / song's save and share buttons (the whole .actions row moves in)
 const exportPop = h(`<div class="m-export"></div>`);
-// ⇪ sits right of 🎲 변주 · ☆; on short phones that row is gone and a smaller one sits by the stash
-// (orbsMobile.css shows one of the two)
-const exportBtn = () => toggler('m-export-open', `<button type="button" class="m-export-btn" data-i18n="mExport">${ot('mExport')}</button>`);
-const exportRow = exportBtn(), exportStash = exportBtn();
-exportStash.classList.add('m-export-stash');
+// ⇪ sits at the top right of the player area, across from 전부 비우기; its popover opens under it
+const exportBtn = toggler('m-export-open', `<button type="button" class="m-export-btn" data-i18n="mExport">${ot('mExport')}</button>`);
 
 // the hint while the song is empty (the desktop one points at the sidebar), and one over the stash
 const emptyHint = h(`<p class="empty-hint m-empty-hint" data-i18n="mEmptyHint">${ot('mEmptyHint')}</p>`);
@@ -94,11 +91,10 @@ const PLACES = [
   [emptyHint, stage],
   [$('presetbar'), sheet],
   [actions[1], exportPop],
-  [exportRow, actions[0]],
+  [exportBtn, document.querySelector('.left')],
   [stashHint, $('stash')],
-  [exportStash, $('stash')],
 ];
-const OWN = new Set([presetsBtn, menuBtn, credit, emptyHint, exportRow, exportStash, stashHint]);
+const OWN = new Set([presetsBtn, menuBtn, credit, emptyHint, exportBtn, stashHint]);
 const homes = new Map(); // el -> [parent, nextSibling] to put it back on wide screens
 function place() {
   if (isPhone.matches) {
