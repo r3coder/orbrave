@@ -18,7 +18,7 @@ import { isPhone } from './phoneLayout.js';
 import { mountLicenses, attributionsFor, creditLine, soundName } from './licenses.js';
 import { copyText } from './copyBox.js';
 import { mountChangelog } from './changelog.js';
-import { spotlight, banner } from './tutorial.js';
+import { spotlight, banner, busy as tutBusy, onIdle as onTutIdle } from './tutorial.js';
 import { saveFile } from './saveFile.js';
 import * as taste from './orbTaste.js';
 import { LIMITS, validatePreset } from '../server/presetSchema.mjs';
@@ -463,6 +463,8 @@ function put(layer, at, home = null) {
 //                                    loop WAV / loop share / server share                      (.share-ready)
 //   6  one of those used / 5 more thrown / 1 min after 5
 //                                    📂 스템 열기 (full-song stems)                              (.song-ready)
+//   8  the stems opened (wide screens): ↩ 루프 모드로 at the top right takes you back to the loop
+// A step never starts while another note is still up (tutorial.js busy): it waits its turn.
 // The progress is remembered across reloads; the volume-knob tip after the first orb is separate.
 const TUT_KEY = 'orbTutorial';
 const IDLE_MS = 60_000, SONG_AFTER_MS = 60_000, CODE_AFTER_MS = 30_000;
@@ -573,6 +575,11 @@ const TUT = [
     // the stems are for wide screens: on a phone the button stays hidden and this just passes
     show: () => isPhone.matches || spotlight($('stemReopen'), ot('tutSong'), { wait: 500 }),
   },
+  {
+    // the stems were opened: how to get back to the loop (only the close button stays lit)
+    when: () => tut.used && document.body.classList.contains('stem-open'),
+    show: () => spotlight($('stemClose'), ot('tutStemClose'), { wait: 600 }),
+  },
 ];
 const TUT_LAST = TUT.length - 1;
 // v2 put the Strudel-code note (6) before the stems (now 7): progress saved before that moves up
@@ -591,7 +598,8 @@ function tutCheck() {
     saveTut();
   }
   const s = TUT[tut.step + 1];
-  if (!s || !s.when()) return;
+  // one note at a time: a step that is due waits until the note on screen has gone
+  if (!s || tutBusy() || !s.when()) return;
   tut.step++;
   Object.assign(tut, { at: Date.now(), thrownAt: tut.thrown, movesAt: tut.moves, used: false });
   if (s.cls) document.body.classList.add(s.cls);
@@ -600,14 +608,16 @@ function tutCheck() {
   tutCheck(); // the banner may go with this step
 }
 // what the steps wait for besides orbs: a preset saved (step 5), a save / share button used
-// (step 6), the code opened (step 7)
+// (step 6), the code opened (step 7), the stems opened (step 8)
 function tutEvent(name) {
-  if ((name === 'preset' && tut.step === 4) || (name === 'share' && tut.step === 5) || (name === 'code' && tut.step === 6)) {
+  if ((name === 'preset' && tut.step === 4) || (name === 'share' && tut.step === 5) || (name === 'code' && tut.step === 6) || (name === 'stems' && tut.step === 7)) {
     tut.used = true;
     tutCheck();
   }
 }
 setInterval(() => tut.step < TUT_LAST && !document.hidden && tutCheck(), 2000);
+// a step held back by a note on screen comes as soon as that note has gone
+onTutIdle(() => tut.step < TUT_LAST && tutCheck());
 // skip ahead to step n without pointing at anything (n = TUT_LAST: everything out at once)
 function tutUpTo(n) {
   for (let i = 1; i <= n; i++) if (TUT[i].cls) document.body.classList.add(TUT[i].cls);
@@ -3745,6 +3755,7 @@ function openSong() {
   ui.song.classList.add('on');
   stemToolsPlace();
   updateShareButtons();
+  tutEvent('stems');
 }
 function closeSong() {
   if (song?.sections) lastSong = song; // kept for 📂 스템 열기

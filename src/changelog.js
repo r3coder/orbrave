@@ -7,6 +7,11 @@ import './licenses.css';
 
 // [version, date, { ko: [...], en: [...], ja: [...] }]
 const NOTES = [
+  ['0.4.6', '2026-11-06', {
+    ko: ['튜토리얼 안내는 한 번에 하나씩만 떠요: 다음 안내는 지금 안내가 닫힌 뒤에 나와요', '스템을 처음 열면 오른쪽 위 ↩ 루프 모드로 버튼으로 돌아가는 법을 알려 줘요', '코드 안내에 아무 곳이나 누르면 닫힌다는 설명을 더했어요'],
+    en: ['Guide notes come one at a time: the next waits until the one on screen has closed', 'The first time the stems open, the guide shows how to get back with ↩ Loop mode at the top right', 'The code note now says a click anywhere closes it'],
+    ja: ['ガイドの案内は一度に一つずつ表示され、次の案内は今の案内が閉じてから出ます', 'ステムを初めて開くと、右上の ↩ ループモードへ で戻る方法を案内します', 'コードの案内に、どこかを押すと閉じることを書き加えました'],
+  }],
   ['0.4.5', '2026-11-06', {
     ko: ['(직접수정) strudel.cc ↗: 지금 곡을 Strudel 코드 그대로 strudel.cc 에서 열어 직접 고치고 실행해 볼 수 있어요 (샘플과 출처 포함)', '튜토리얼에 코드 안내가 생겼고, 프리셋 안내 때는 프리셋 줄만 밝게 보여요', '음량을 돌리는 동안 다이얼만 밝고 나머지는 어두워져요', '처음 떨어지는 오브는 로딩 화면에서 미리 받은 소리만 써서, 잡자마자 바로 소리가 나요', '언어는 브라우저가 고른 언어 순서를 따라가요', '왼쪽 아래 링크가 커지고 줄바꿈되며, 오브가 많아도 재생기와 저장 · 공유 버튼이 화면에 남아요'],
     en: ['(edit) strudel.cc ↗: open the current set as plain Strudel code on strudel.cc and change and run it there (samples and credits included)', 'The guide now points out the code, and the preset tip lights up just the preset bar', 'While the volume is turned, everything but the dial dims', 'The first orbs to fall only use sounds loaded on the boot screen, so they play the moment they go in', 'The page language follows your browser\'s list of preferred languages', 'The bottom-left links are larger and wrap; with many orbs in, the player and save / share buttons stay on screen'],

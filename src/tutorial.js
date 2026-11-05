@@ -8,6 +8,14 @@ const GRACE_MS = 1200; // …or on the first press anywhere once it has been up 
 
 const queue = [];
 let current = null;
+let idleCb = null;
+
+// True while a spotlight is up or waiting its turn: the next guide step holds back until it is
+// over, so two notes never share the screen. onIdle(fn) runs fn each time the last one has gone.
+export const busy = () => !!current || queue.length > 0;
+export function onIdle(fn) {
+  idleCb = fn;
+}
 
 // Dim the screen except `target` (an element, or a function returning one, so a target moved by
 // the phone layout is looked up when it shows) and put `text` next to it. Spotlights queue up.
@@ -21,7 +29,10 @@ export function spotlight(target, text, { wait = 0, onDone = null, lift = [] } =
 
 function next() {
   const item = queue.shift();
-  if (!item) return;
+  if (!item) {
+    idleCb?.();
+    return;
+  }
   current = item;
   setTimeout(() => show(item), item.wait);
 }
