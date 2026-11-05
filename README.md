@@ -28,7 +28,7 @@ A website where an algorithm composes [Strudel](https://strudel.cc) (TidalCycles
 - Every line of a song is placed at absolute cycle positions with `.sect(start, len)`. The live code always holds **the current song + the next song**, so the handoff happens with no gap at all. As soon as the next song starts, the song after it is generated and queued.
 - Tempo also switches on the scheduler clock through a `cps` event at the song's start position.
 - Genres (10): techno, house, acid, trance, dnb, breakbeat, lofi, synthwave, ambient, dubtechno. Each genre's drum grid, bass, progressions, sounds, and arrangement rules (with the sources they come from) are in [docs/GENRES.md](docs/GENRES.md)
-- Orb page: 523 orbs (338 sound orbs plus combos, moods, keys and tempos) on one frame (124 BPM, A minor). Counts per category and sound family, the scale each orb uses, the batches the catalogue is built from, spawn balance, levels and how to add orbs are in [docs/ORBS.md](docs/ORBS.md)
+- Orb page: 816 orbs (622 sound orbs plus combos, moods, EQ, keys and tempos) on one frame (124 BPM, A minor). Counts per category and sound family, the scale each orb uses, the batches the catalogue is built from, spawn balance, levels and how to add orbs are in [docs/ORBS.md](docs/ORBS.md)
 
 ## Development
 

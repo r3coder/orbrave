@@ -119,6 +119,15 @@ const FIXED = {
   '잠깐 숨 고르기': ['Catching a Breath', 'ひと息ついて'],
   '햇살 가득 장조': ['Sun-Filled Major', '日差しいっぱいの長調'],
   '달빛 아래 단조': ['Minor by Moonlight', '月明かりの短調'],
+  '쿵쿵 울리는 저음': ['Thumping Lows', 'ずんずん響く低音'],
+  '땅이 흔들리는 초저음': ['Earth-Shaking Sub', '地面が揺れる超低音'],
+  '가슴을 치는 펀치': ['Punch to the Chest', '胸に響くパンチ'],
+  '반짝반짝 고음': ['Sparkly Highs', 'キラキラ高音'],
+  '공기 한 스푼': ['A Spoonful of Air', '空気ひとさじ'],
+  '웃는 얼굴 커브': ['Smiley Curve', 'スマイルカーブ'],
+  '전화기 너머 목소리': ['Voice on the Phone', '電話越しの声'],
+  '깃털처럼 가볍게': ['Light as a Feather', '羽のように軽く'],
+  '포근한 솜이불': ['Cozy Quilt', 'ふかふかの綿布団'],
 };
 
 // words that turn up in an orb's small "kind" line
@@ -127,6 +136,11 @@ const KIND_WORDS = {
   먹먹: ['muffled', 'こもった'], 숨쉬는: ['breathing', '呼吸する'], 얇은: ['thin', '薄い'], '8비트': ['8-bit', '8ビット'],
   깨진: ['broken', '割れた'], 넓은: ['wide', '広い'], 메아리: ['echo', 'こだま'], 빙글: ['swirl', 'ぐるり'],
   찌그러진: ['crushed', 'ひしゃげた'], 말하는: ['talking', 'しゃべる'], 거울: ['mirror', '鏡'], 구멍: ['holes', '穴あき'], 스윙: ['swing', 'スイング'],
+  저음: ['bass', '低音'], 초저음: ['sub', '超低音'], 중저음: ['low-mid', '中低音'], 고음: ['treble', '高音'], 중음만: ['mids only', '中音だけ'],
+  강화: ['boost', 'ブースト'], 줄이기: ['cut', 'カット'], 공기감: ['air', '空気感'],
+  필터: ['filter', 'フィルター'], 공간: ['space', '空間'], 질감: ['texture', '質感'], 움직임: ['motion', '動き'], 밸런스: ['balance', 'バランス'],
+  드럼: ['drums', 'ドラム'], 베이스: ['bass', 'ベース'], 멜로디: ['melody', 'メロディ'], 리듬: ['rhythm', 'リズム'],
+  줄임: ['down', '控えめ'], 강조: ['up front', '強調'],
 };
 
 const ADJ_KEYS = Object.keys(ADJ).sort((a, b) => b.length - a.length); // longest first: "고장 난" before "고장"

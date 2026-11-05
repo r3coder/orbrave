@@ -5,9 +5,9 @@ import {
 import { loadSampleBanks, preloadSamples, preloadDrums } from './samples.js';
 import './orbs.css';
 import {
-  LAYERS, CAT_SHARE, BASE_BPM, KEYS, BAR_CHORDS, snap, rng, hash, byId, role, ROLE_TEXT, setMode, keyLabel,
+  LAYERS, CAT_SHARE, BASE_BPM, KEYS, BAR_CHORDS, snap, rng, hash, byId, role, ROLE_TEXT, setMode, keyLabel, MOOD_SUBS,
 } from './orbCatalog.js';
-import { BARS, STEPS, ROWS, packRaw, unpackRaw, sheetCode, quantize, notesAt, stepOf, songToWire, songFromWire, toWire, cleanGains, scaleFx, fxScalable } from './orbPreset.js';
+import { BARS, STEPS, ROWS, packRaw, unpackRaw, sheetCode, quantize, notesAt, stepOf, songToWire, songFromWire, toWire, cleanGains, fxScalable, songFx, duckOf, eqClash } from './orbPreset.js';
 import { uploadPreset, fetchPresets, weightedOrder } from './presetApi.js';
 import { mountVote } from './vote.js';
 import { lite, setLite, onLite, watchFrame } from './liteMode.js';
@@ -16,8 +16,10 @@ import { ot, secName, allLangs, mountLangButtons } from './orbsI18n.js';
 import { isPhone } from './phoneLayout.js';
 import { mountLicenses, attributionsFor, creditLine, soundName } from './licenses.js';
 import { copyText } from './copyBox.js';
+import { mountChangelog } from './changelog.js';
 import { spotlight, banner } from './tutorial.js';
 import { saveFile } from './saveFile.js';
+import * as taste from './orbTaste.js';
 import { LIMITS, validatePreset } from '../server/presetSchema.mjs';
 
 // Gate a pattern to one window of a looping song: the song starts at cycle `s0`, is `len`
@@ -250,6 +252,8 @@ function warm(list) {
 
 const nowCycle = () => repl.scheduler.now();
 const layers = () => [...active.values()].map((a) => a.layer);
+taste.setSong(layers);
+taste.setFalling(() => rain.map((o) => o.id));
 // The orb under the mouse in the field (or held) is auditioned on its own: the song goes quiet.
 // While a held orb is over the player it is heard together with the song instead.
 let hover = null;
@@ -266,7 +270,17 @@ const bpm = () => {
   const f = [...layers(), hoverOrb()].filter((l) => l?.bpm && !(l === hoverOrb() && active.has(l.id))).reduce((p, l) => (p * l.bpm) / BASE_BPM, 1);
   return Math.round(Math.min(220, Math.max(40, BASE_BPM * f)));
 };
-const mood = () => (hoverOrb()?.cat === 'mood' ? hoverOrb() : layers().find((l) => l.cat === 'mood'));
+// Mood orbs stack: every one in the song applies, in the order they went in. EQ moods and the
+// other moods are counted apart (capOf / CAPS: three each; EQ orbs on the same range also bounce each other). An auditioned one is heard
+// on top, as if it were thrown in (bouncing the oldest of its kind when full).
+function fxOrbs() {
+  const on = layers().filter((l) => l.cat === 'mood');
+  const h = hoverOrb();
+  if (h?.cat !== 'mood' || on.includes(h)) return on;
+  const same = on.filter((l) => capOf(l) === capOf(h));
+  const out = same.slice(0, Math.max(0, same.length - (CAPS[capOf(h)] ?? 1) + 1));
+  return [...on.filter((l) => !out.includes(l) && !eqClash(l, h)), h];
+}
 // The key: A minor unless a key orb (in the song, or being auditioned) says otherwise. keyMode is
 // major/minor; keyShift is how many semitones every pitched part moves away from A.
 const keyOrb = () => (hoverOrb()?.cat === 'mode' ? hoverOrb() : layers().find((l) => l.cat === 'mode'));
@@ -275,8 +289,8 @@ const keyShift = () => keyOrb()?.key ?? 0;
 const keyText = (extra = 0) => keyLabel({ key: keyShift() + extra, mode: keyMode() });
 // a line is pitched when it plays notes; drums and noise are left where they are
 const pitchedCode = (l, code) => l.pitched || /\b(scale|chord|note)\(/.test(code);
-// a mood can silence whole roles (no drums, drums only, no bass …)
-const muted = (l) => !!mood()?.mute?.includes(role(l));
+// a balance mood turns whole roles down (drums, everything but the drums, the bass …): the factor
+const ducked = (l) => duckOf(fxOrbs(), role(l), (o) => volStep(o.id));
 const codeOf = (l, v) => {
   setMode(keyMode());
   // a copy (복제 slot) plays its source orb's notes: it hashes under that orb's id
@@ -309,19 +323,19 @@ function chanOf(id) {
 }
 
 function lineFor(l, v, extra = '', { preview = false } = {}) {
-  const m = mood();
-  if (!l.code || muted(l)) return null;
+  if (!l.code) return null;
   // hovering an orb in the song's list solos it
   const quiet = !(preview || offline) && solo && solo !== l.id && byId[solo]?.code;
-  // the orb's own volume (음량 slots), times the solo dip; one postgain, since a second would replace the first
-  const g = gainOf(l) * (quiet ? 0.12 : 1);
+  // the orb's own volume (음량 slots), times a balance mood's dip and the solo dip; one postgain,
+  // since a second would replace the first
+  const g = gainOf(l) * ducked(l) * (quiet ? 0.12 : 1);
   const post = Math.abs(g - 1) < 0.005 ? '' : `.postgain(${+g.toFixed(3)})`;
   // fft(5): superdough sizes the analyser 2^(5+5) = 1024, the size the equaliser reads it at
   const chan = preview || offline ? '' : `.analyze(${chanOf(l.id)}).fft(5)`;
   const code = codeOf(l, v);
   const key = keyShift() && pitchedCode(l, code) ? `.transpose(${keyShift()})` : '';
-  // a mood's effects at the strength the 약하게 / 세게 slots gave it
-  const fx = m ? scaleFx(m.fx, volStep(m.id)) : '';
+  // the EQ and mood orbs' effects, each at the strength the 약하게 / 세게 slots gave it
+  const fx = songFx(fxOrbs(), code + extra, (o) => volStep(o.id));
   return `// ${preview ? '미리듣기: ' : ''}${l.name}\n$: ${code}${key}${extra}${fx}${post}${chan}`;
 }
 
@@ -392,13 +406,18 @@ const nextBar = () => (playing ? Math.ceil(nowCycle() + 0.15) : 0);
 const nextPhrase = () => (playing ? Math.ceil((nowCycle() + 0.15) / BARS) * BARS : 0);
 
 // how many orbs of one kind may play together; one more bounces the oldest out
-const CAPS = { lead: 3, bass: 3, perc: 3, fx: 3, tempo: 4 }; // everything else: one at a time
+// EQ orbs also bounce each other by range (put / eqClash): low, high and middle, so three at most
+const CAPS = { lead: 3, bass: 3, perc: 3, fx: 3, tempo: 4, mood: 3, eq: 3 }; // everything else: one at a time
+// EQ moods have their own count
+const capOf = (l) => (l.eq ? 'eq' : l.cat);
 
 // Put one layer into the mix (no evaluation), bouncing out what it pushes over the limit.
 function put(layer, at, home = null) {
   if (active.has(layer.id)) return;
-  const same = [...active.values()].filter((a) => a.layer.cat === layer.cat);
-  for (const a of same.slice(0, Math.max(0, same.length - (CAPS[layer.cat] ?? 1) + 1))) removeLayer(a.layer.id, { silent: true });
+  // an EQ orb bounces out the EQ orbs on its range (only one filter of each kind can sound)
+  for (const a of [...active.values()]) if (eqClash(a.layer, layer)) removeLayer(a.layer.id, { silent: true });
+  const same = [...active.values()].filter((a) => capOf(a.layer) === capOf(layer));
+  for (const a of same.slice(0, Math.max(0, same.length - (CAPS[capOf(layer)] ?? 1) + 1))) removeLayer(a.layer.id, { silent: true });
   warm([layer]);
   heldSeed.delete(layer.id);
   active.set(layer.id, { layer, at, home, sat: makeSat(layer) });
@@ -410,16 +429,19 @@ function put(layer, at, home = null) {
 // of the page (a body class) and points at it once (tutorial.js spotlight: the rest dims for a
 // moment), except the preset step, which keeps a note under the title instead.
 //   1  3 thrown                      the stash on the right (nothing new unlocks: it is always there)
-//   2  5 thrown                      the slots under the field: 약하게 / 세게 / 변주 / 복제  (.roll-ready)
-//   3  7 thrown                      the 편집 slot (piano roll)                                 (.midi-ready)
-//   4  9 thrown                      "save it as a preset" under the title, until a preset is saved or 4 more moves
+//   2  5 thrown / 1 min after 1        the slots under the field: 약하게 / 세게 / 변주 / 복제  (.roll-ready)
+//   3  7 thrown / 1 min after 2        the 편집 slot (piano roll)                                 (.midi-ready)
+//   4  9 thrown / 1 min after 3        "save it as a preset" under the title, until a preset is saved or 4 more moves
 //   5  preset saved / 15 moves / 1 min without a change after 4
 //                                    loop WAV / loop share / server share                      (.share-ready)
-//   6  one of those used / 5 more thrown / 3 min after 5
+//   6  one of those used / 5 more thrown / 1 min after 5
 //                                    📂 스템 열기 (full-song stems)                              (.song-ready)
 // The progress is remembered across reloads; the volume-knob tip after the first orb is separate.
 const TUT_KEY = 'orbTutorial';
-const IDLE_MS = 60_000, SONG_AFTER_MS = 180_000;
+const IDLE_MS = 60_000, SONG_AFTER_MS = 60_000;
+// steps 2–4 also come by themselves this long after the step before
+const STEP_AFTER_MS = 60_000;
+const stepTimeUp = () => Date.now() - tut.at >= STEP_AFTER_MS;
 const tut = { step: 0, thrown: 0, moves: 0, thrownAt: 0, movesAt: 0, at: 0, banner: false, bannerMoves: 0, used: false, combo: false };
 try {
   Object.assign(tut, JSON.parse(localStorage.getItem(TUT_KEY)) ?? {});
@@ -468,14 +490,14 @@ const TUT = [
   null,
   { when: () => tut.combo, show: () => spotlight(ui.stash, ot(isPhone.matches ? 'tutStashPhone' : 'tutStash'), { wait: 300 }) },
   {
-    when: () => tut.thrown >= 5, cls: 'roll-ready',
+    when: () => tut.thrown >= 5 || stepTimeUp(), cls: 'roll-ready',
     show: () => {
       bump(ui.slots, 'intro');
       spotlight(ui.slots, ot('tutSlots'), { wait: 800 });
     },
   },
   {
-    when: () => tut.thrown >= 7, cls: 'midi-ready',
+    when: () => tut.thrown >= 7 || stepTimeUp(), cls: 'midi-ready',
     // 편집 is for wide screens: on a phone the step unlocks it quietly (for a later wide screen)
     show: () => {
       if (isPhone.matches) return;
@@ -484,7 +506,7 @@ const TUT = [
     },
   },
   {
-    when: () => tut.thrown >= 9,
+    when: () => tut.thrown >= 9 || stepTimeUp(),
     show: () => {
       tut.banner = true;
       tut.bannerMoves = tut.moves;
@@ -550,6 +572,7 @@ async function addLayer(id, home, seed = null) {
   heldSeed.delete(id);
   tut.thrown++;
   countMove();
+  taste.add(id);
   previewOnly = false; // putting an orb in means the song plays on
   if (!playing) await play();
   const layer = byId[id];
@@ -603,6 +626,7 @@ function eject(id, home, x, y) {
 function returnOrb(id, home) {
   if (home?.kind === 'stash' || (!home && byId[id].raw)) {
     if (stash.length < STASH_MAX) {
+      taste.clear(id);
       stash.splice(Math.min(home?.index ?? stash.length, stash.length), 0, id);
       renderStash();
       return;
@@ -879,7 +903,8 @@ function describe(l, prefix = '') {
   }
   const what = l.bpm
     ? ot('tempoWhat', { x: (l.bpm / BASE_BPM).toFixed(2), dir: ot(l.bpm < BASE_BPM ? 'slower' : 'faster') })
-    : l.cat === 'mood' ? ot('moodWhat')
+    : l.eq ? ot('eqWhat')
+      : l.cat === 'mood' ? ot('moodWhat')
       : l.cat === 'mode' ? ot('modeWhat', { key: keyLabel(l), mode: ot(l.mode) })
         : l.combo ? ot('comboWhat', { n: l.combo.length }) : roleText(role(l));
   ui.soloHint.innerHTML = `${prefix ? prefix + ' ' : ''}<b>${l.name}</b> — ${what}`;
@@ -921,6 +946,7 @@ function paint(el, l) {
   if (l.mode === 'major' || l.modeTag === 'major') el.classList.add('major');
   // moods and keys are both colour swirls: a mood's rim is dashed, a key's is solid
   if (l.cat === 'mood') el.classList.add('mood');
+  if (l.eq) el.classList.add('eq');
   if (l.id && byId[l.id] === l) decorate(el, l.id);
 }
 
@@ -1106,7 +1132,7 @@ function makeOrbEl(id) {
   el.innerHTML = `<div class="fade"><div class="float"><span class="label">${l.name}</span><div class="ball">${orbInner(l)}</div><span class="kind">${l.kind ?? ''}</span></div></div>`;
   const ball = el.querySelector('.ball');
   ball.addEventListener('pointerdown', (e) => grabFromRain(e, el));
-  ball.addEventListener('mouseenter', () => hoverOn(el.dataset.id));
+  ball.addEventListener('mouseenter', () => hoverOn(el.dataset.id, 'field'));
   ball.addEventListener('mouseleave', hoverOff);
   return el;
 }
@@ -1116,6 +1142,7 @@ function rainAdd(id, x, y, { pop = false, el = makeOrbEl(id) } = {}) {
   el.classList.toggle('spawn', pop);
   if (pop) setTimeout(() => el.classList.remove('spawn'), 600);
   ui.field.append(el);
+  taste.landed(id); // back in the field after being picked up: turned down
   const o = { id, el, x, y, v: 14 + Math.random() * 10 };
   rain.push(o);
   placeRain(o, rainSize());
@@ -1139,10 +1166,10 @@ function vanish(o) {
 }
 
 // Dev only, for listening tests: ?only=new drops just the newest orbs (block FX, dub techno and
-// the sampled instruments and other scales), ?only=fx, ?only=dub, ?only=inst or ?only=scale one of those sets, ?only=id1,id2 just those orbs. Every other orb can
+// the sampled instruments, other scales, line variations, concert percussion and the chip / ambient / world batch), ?only=fx, ?only=dub, ?only=inst, ?only=scale, ?only=var, ?only=ac or ?only=vibe one of those sets, ?only=id1,id2 just those orbs. Every other orb can
 // still be found with the search.
 const ONLY = import.meta.env.DEV ? new URLSearchParams(location.search).get('only') : null;
-const ONLY_SETS = { new: (l) => l.spot || !!l.tag, fx: (l) => l.spot, dub: (l) => l.tag === 'dubtechno', inst: (l) => l.tag === 'instruments', scale: (l) => l.tag === 'scales' };
+const ONLY_SETS = { new: (l) => l.spot || !!l.tag, fx: (l) => l.spot, dub: (l) => l.tag === 'dubtechno', inst: (l) => l.tag === 'instruments', scale: (l) => l.tag === 'scales', var: (l) => l.tag === 'variations', ac: (l) => l.tag === 'acoustic', vibe: (l) => l.tag === 'vibes' };
 const onlyIds = ONLY && new Set(ONLY_SETS[ONLY] ? LAYERS.filter(ONLY_SETS[ONLY]).map((l) => l.id) : ONLY.split(','));
 
 // what may fall before the first orb ever goes in: 리드 · 아르페지오 · 베이스 · 코드 · 킥 · 스네어 · 하이햇
@@ -1186,12 +1213,14 @@ function spawnWeights(pool, activeCats) {
     return [cat, w];
   }));
   const catTotal = new Map([...famWeights].map(([cat, w]) => [cat, [...w.values()].reduce((s, x) => s + x, 0)]));
-  return pool.map((l) => {
-    if (onlyIds) return 1;
+  if (onlyIds) return pool.map(() => 1);
+  const w = pool.map((l) => {
     const n = fams.get(l.cat).get(l.family);
-    const cat = (CAT_SHARE[l.cat] ?? 20) * (activeCats.has(l.cat) ? 1 : 4) * (l.combo || l.fx || l.mute || l.bpm || l.mode ? 0.25 : 1);
+    const cat = (CAT_SHARE[l.cat] ?? 20) * (activeCats.has(l.cat) ? 1 : 4) * (l.combo || l.fx || l.duck || l.bpm || l.mode ? 0.25 : 1);
     return (cat * famWeights.get(l.cat).get(l.family)) / catTotal.get(l.cat) / n;
   });
+  // then, inside each category, towards orbs that fit the song, or away from it after turn-downs
+  return taste.reweigh(pool, w);
 }
 
 // a spot near the top, away from the orbs that just came in
@@ -1211,12 +1240,15 @@ let hoverTimer;
 // true while playback was started only to preview a hovered orb (the song was stopped): only
 // that orb sounds, and it stops again when the mouse leaves
 let previewOnly = false;
-function hoverOn(id) {
+// a falling orb heard on hover and then left alone counts as turned down (src/orbTaste.js)
+let heard = null; // { id, from, at }
+function hoverOn(id, from = null) {
   clearTimeout(hoverTimer);
   warm([byId[id]]);
   hoverTimer = setTimeout(async () => {
     if (hover === id) return;
     hover = id;
+    heard = { id, from, at: performance.now() };
     if (!started) {
       // browsers only let audio start after the page has been clicked or typed into once
       if (!audioUnlocked()) {
@@ -1237,6 +1269,8 @@ function hoverOn(id) {
 function hoverOff() {
   clearTimeout(hoverTimer);
   if (!hover) return;
+  if (heard?.id === hover && heard.from === 'field' && started) taste.previewLeft(hover, (performance.now() - heard.at) / 1000);
+  heard = null;
   hover = null;
   hoverMix = false;
   describe(solo && byId[solo]);
@@ -1394,6 +1428,7 @@ function storeInStash(el, home) {
     bump(ui.stash, 'reject');
     return false;
   }
+  taste.clear(el.dataset.id); // kept for later: neither for nor against
   stash.push(home?.kind === 'roll' ? takeFromRoll().id : el.dataset.id);
   el.remove();
   renderStash();
@@ -1437,7 +1472,7 @@ function accepts(mode, l) {
   if (mode === 'midi') return !!l.voice;
   if (mode === 'vary') return seeded(l);
   // a mood orb: 약하게 / 세게 turn its effects down / up instead of a volume
-  if (!l.code && (mode === 'quieter' || mode === 'louder') && fxScalable(l.fx)) {
+  if (!l.code && (mode === 'quieter' || mode === 'louder') && fxScalable(l)) {
     return mode === 'quieter' ? volStep(l.id) > -VOL_STEPS : volStep(l.id) < VOL_STEPS;
   }
   if (!l.code) return false;
@@ -1459,6 +1494,7 @@ function grabFromRain(e, el) {
   const o = rain.find((q) => q.el === el);
   if (!o) return;
   rain.splice(rain.indexOf(o), 1);
+  taste.grab(o.id); // before hoverOff: picking it up isn't leaving it
   hoverOff();
   const { w, h } = fieldSize();
   const fr = ui.field.getBoundingClientRect();
@@ -1781,10 +1817,11 @@ function pickForSlot(id, home = null, mode = 'midi', { apply = true } = {}) {
   if (!accepts(mode, l)) {
     slotSay(mode === 'midi'
       ? ot(!l.code && !l.combo ? 'rollWholeSong' : 'rollNotInstrument', { name: l.name })
-      : ot(mode === 'vary' ? 'slotVaryNo' : mode === 'copy' ? 'slotCopyNo' : !l.code && !fxScalable(l.fx) ? 'slotGainNo' : mode === 'quieter' ? 'slotQuieterMax' : 'slotLouderMax', { name: l.name }));
+      : ot(mode === 'vary' ? 'slotVaryNo' : mode === 'copy' ? 'slotCopyNo' : !l.code && !fxScalable(l) ? 'slotGainNo' : mode === 'quieter' ? 'slotQuieterMax' : 'slotLouderMax', { name: l.name }));
     bump(slotEls[mode], 'reject');
     return false;
   }
+  taste.slot(id); // tried out: if it goes back to the field, only a weak turn-down
   if (mode !== 'midi') return putInSlot(id, home, mode, apply);
   if (rollOrb && rollOrb.id !== id) returnOrb(rollOrb.id, rollOrb.home);
   // an orb left in 편집 by 수정 완료 makes room (back where it came from, unless it is this one)
@@ -1883,6 +1920,7 @@ function takeFromRoll() {
     if (l.raw) l.raw = [...draft.raw];
     else {
       const n = volStep(id);
+      taste.clear(id); // its sound goes on in the drawing: not turned down
       returnOrb(id, home);
       id = makeDrawn(draft.src, draft.raw).id;
       setStep(id, n); // the drawing keeps the orb's volume
@@ -3509,7 +3547,6 @@ function frame(ts) {
   const sats = [...active.values()];
   const cr = ui.core.getBoundingClientRect();
   const now = repl && playing ? nowCycle() : 0;
-  const m = mood();
   sats.forEach((a, i) => {
     const tilt = (i / sats.length) * Math.PI + 0.35;
     const rx = cr.width / 2 + 26 + (i % 3) * 12 + level * 10, ry = rx * 0.32;
@@ -3519,7 +3556,7 @@ function frame(ts) {
     const x = lx * Math.cos(tilt) - ly * Math.sin(tilt), y = lx * Math.sin(tilt) + ly * Math.cos(tilt);
     const depth = Math.sin(ang);
     const soloed = solo === a.layer.id;
-    const dim = (playing && now < a.at) || muted(a.layer) || (solo && !soloed);
+    const dim = (playing && now < a.at) || (!!a.layer.code && ducked(a.layer) < 1) || (solo && !soloed);
     a.sat.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) scale(${((0.8 + depth * 0.25) * (soloed ? 1.5 : 1)).toFixed(3)})`;
     // restacking costs more than moving: only when the orb actually passes behind / in front
     const z = depth > 0 ? 3 : 1;
@@ -3562,7 +3599,7 @@ function bandsOf(id) {
 }
 function drawEq(c, cr, ts) {
   if (!started || !playing) return;
-  const sounding = layers().filter((l) => l.code && !muted(l));
+  const sounding = layers().filter((l) => l.code);
   if (!sounding.length) return;
   const inner = cr.width / 2 + 40;
   const span = (Math.PI * 2) / sounding.length;
@@ -3635,7 +3672,7 @@ function parseKey(term) {
 // a combo's key is the key orb inside it
 const keyOf = (l) => (l.cat === 'mode' ? l : l.combo?.map((c) => byId[c]).find((x) => x.cat === 'mode'));
 const partText = (l) => `${ROLE_TEXT[role(l)] ?? ''} ${allLangs(`role.${role(l)}`)} ${allLangs(`slot.${role(l)}`)}`;
-const orbText = (l) => [l.name, l.kind, l.cat, partText(l), ...(l.combo ?? []).map((c) => `${byId[c].name} ${byId[c].kind} ${partText(byId[c])}`)].join(' ').toLowerCase();
+const orbText = (l) => [l.name, l.kind, l.cat, partText(l), TYPE_EXTRA[role(l)] ?? '', ...(l.combo ?? []).map((c) => `${byId[c].name} ${byId[c].kind} ${partText(byId[c])}`)].join(' ').toLowerCase();
 function matchesTerm(l, term) {
   if (/^(bpm|tempo|템포|テンポ)$/.test(term)) return !!l.bpm;
   // a number finds tempos near it, and also drum machines by name (808, 909 …)
@@ -3645,9 +3682,72 @@ function matchesTerm(l, term) {
   if (k) return !!keyOf(l) && (keyOf(l).key + 12) % 12 === k.tonic && keyOf(l).mode === k.mode;
   return orbText(l).includes(term);
 }
+// Operators: "-term" (or "!term") leaves out what the term finds, and "field:value" looks in one
+// field only — t: the orb's own part (a combo is "combo", not its parts), s: its scale (a combo
+// has its parts' scales), k: its key, bpm: its tempo (120, >120, <90, 120-140).
+const FIELDS = {
+  type: ['t', 'type', 'part', '종류', '타입', '파트', '種類', 'タイプ'],
+  scale: ['s', 'scale', '스케일', '음계', 'スケール', '音階'],
+  key: ['k', 'key', '키', '조성', '調', 'キー'],
+  bpm: ['bpm', 'tempo', '템포', 'テンポ'],
+};
+const FIELD_OF = Object.fromEntries(Object.entries(FIELDS).flatMap(([f, ws]) => ws.map((w) => [w, f])));
+const DRUM_WORDS = 'drum drums 드럼 ドラム';
+const TYPE_EXTRA = {
+  kick: DRUM_WORDS, snare: `${DRUM_WORDS} clap 클랩`, hat: DRUM_WORDS, perc: DRUM_WORDS,
+  combo: 'combo 콤보 コンボ', mode: 'key mode 키 조성 調 キー', mood: 'mood 무드', tempo: 'bpm',
+};
+// a mood's sub-type (MOOD_SUBS), in every language: t:공간, t:eq, t:balance …
+const SUB_EXTRA = {
+  eq: 'eq equalizer tone 이퀄라이저 이큐 음색 저음 고음 イコライザー 音色 低音 高音',
+  filter: 'filter 필터 먹먹 フィルター', space: 'space reverb echo 공간 리버브 메아리 空間 リバーブ',
+  texture: 'texture distortion 질감 지글 왜곡 質感 歪み', motion: 'motion pan rhythm 움직임 패닝 리듬 動き',
+  mix: 'balance mix 밸런스 볼륨 줄임 バランス',
+};
+const typeText = (l) => {
+  const r = role(l);
+  const sub = l.sub ? `${l.sub} ${MOOD_SUBS[l.sub] ?? ''} ${SUB_EXTRA[l.sub] ?? ''}` : '';
+  return `${r} ${ROLE_TEXT[r] ?? ''} ${allLangs(`role.${r}`)} ${allLangs(`slot.${r}`)} ${TYPE_EXTRA[r] ?? ''} ${sub}`.toLowerCase();
+};
+// orbs without their own scale family play the plain seven-note scale of the key
+const SCALE_WORDS = {
+  natural: 'natural diatonic aeolian ionian minor major 자연 기본 단조 장조 自然',
+  pentatonic: 'pentatonic penta 펜타토닉 펜타 ペンタトニック ペンタ',
+  blues: 'blues 블루스 ブルース',
+  japanese: 'japanese hirajoshi 일본 히라조시 和風 日本 平調子',
+  suspended: 'suspended sus egyptian 서스펜디드 서스 이집트 サス',
+  malkos: 'malkos malkauns raga 말코스 라가 マルコス',
+  vietnamese: 'vietnamese 베트남 ベトナム',
+};
+const MELODIC = new Set(['bass', 'arp', 'lead', 'pad']);
+const scalesOf = (l) =>
+  l.combo ? l.combo.flatMap((c) => scalesOf(byId[c])) : l.scaleFamily ? [l.scaleFamily] : MELODIC.has(role(l)) ? ['natural'] : [];
+function matchesBpm(l, v) {
+  if (!l.bpm) return false;
+  let m;
+  if ((m = /^([<>])=?(\d+)$/.exec(v))) return m[1] === '>' ? l.bpm >= +m[2] : l.bpm <= +m[2];
+  if ((m = /^(\d+)[-~](\d+)$/.exec(v))) return l.bpm >= Math.min(+m[1], +m[2]) && l.bpm <= Math.max(+m[1], +m[2]);
+  return /^\d+$/.test(v) ? Math.abs(l.bpm - +v) <= 6 : false;
+}
+function matchesField(l, field, v) {
+  if (field === 'type') return typeText(l).includes(v);
+  if (field === 'scale') return scalesOf(l).some((f) => `${f} ${SCALE_WORDS[f] ?? ''}`.toLowerCase().includes(v));
+  if (field === 'key') return (Object.values(MODE_WORDS).some((ws) => ws.includes(v)) || !!parseKey(v)) && matchesTerm(l, v);
+  return matchesBpm(l, v);
+}
+// "-t:킥" -> { neg: true, field: 'type', value: '킥' }; a half-typed "t:" or "-" is dropped
+function parseTerm(raw) {
+  const neg = /^[-!]/.test(raw);
+  const body = neg ? raw.slice(1) : raw;
+  const m = /^([^:：]+)[:：](.*)$/.exec(body);
+  const field = m && FIELD_OF[m[1]];
+  const value = field ? m[2] : body;
+  return value ? { neg, field, value } : null;
+}
 const searchOrbs = (q) => {
-  const terms = q.toLowerCase().split(/[\s/,]+/).filter(Boolean);
-  return terms.length ? LAYERS.filter((l) => terms.every((t) => matchesTerm(l, t))).slice(0, 48) : [];
+  const terms = q.toLowerCase().split(/[\s/,]+/).map(parseTerm).filter(Boolean);
+  const ok = (l, t) => (t.field ? matchesField(l, t.field, t.value) : matchesTerm(l, t.value)) !== t.neg;
+  return terms.length ? LAYERS.filter((l) => terms.every((t) => ok(l, t))).slice(0, 96) : [];
 };
 function renderSearch() {
   const q = ui.searchInput.value;
@@ -3742,6 +3842,7 @@ function applyLangUI() {
   if (!renderingWav) for (const b of [wavBtn, wavStemBtn]) b.textContent = wavLabel(b);
 }
 mountLicenses($('licenseBtn'));
+mountChangelog($('verBtn'));
 $('feedbackBtn').addEventListener('click', () => window.open('https://forms.gle/gvjXSkEM7W6ug6US9', '_blank', 'noopener'));
 // ↺ 튜토리얼 재실행: forget the guide's progress and the current set (presets, language, volume and
 // low-spec mode stay), then reload so everything starts as on a first visit
@@ -3810,4 +3911,4 @@ requestAnimationFrame(() => {
   leaveMidiOnPhone(); // a set saved on a wide screen may have an orb in 편집: back into the fresh rain
   requestAnimationFrame(frame);
 });
-if (import.meta.env.DEV) window.__orbs = { spawnWeights, replReady, codeOf, active, rain, stash, byId, addLayer, removeLayer, buildCode, pickForSlot, finishDraft, orbStep, heldSeed, revealRoll, slotOrbs, decorate, get rollOrb() { return rollOrb; }, get draft() { return draft; }, get song() { return song; }, get variation() { return variation; }, patternToRaw, keyMode, LAYERS };
+if (import.meta.env.DEV) window.__orbs = { spawnWeights, taste: taste.debug, replReady, codeOf, active, rain, stash, byId, addLayer, removeLayer, buildCode, pickForSlot, finishDraft, orbStep, heldSeed, revealRoll, slotOrbs, decorate, get rollOrb() { return rollOrb; }, get draft() { return draft; }, get song() { return song; }, get variation() { return variation; }, patternToRaw, keyMode, LAYERS };

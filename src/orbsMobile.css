@@ -240,6 +240,7 @@
 @media (max-width: 380px) {
   .logo .nav-btn { font-size: 0; padding: 7px 11px; }
   .logo .nav-btn::before { content: '∞'; font-size: 14px; }
+  .logo .ver-btn { margin-left: 4px; font-size: 10px; }
 }
 /* the smallest phones (iPhone SE 1st gen, 568px tall): lower slots, a smaller player and song row */
 @media (max-width: 760px) and (max-height: 600px) {

@@ -59,10 +59,18 @@ export function preloadDrums(onProgress) {
   })());
 }
 
+// vcsl.json lists tom_mallet without its top folder ("Struck Membranophones/…" instead of
+// "Membranophones/Struck Membranophones/…"), so every hit was a 404 and its orbs stayed silent.
+// Registered again, after the map, with the full paths (same order, so tom_mallet:n is the same hit).
+const VCSL = 'https://raw.githubusercontent.com/sgossner/VCSL/master/';
+const TOM_MALLET = [
+  ...['v2_rr1', 'v2_rr2', 'v3_rr1', 'v3_rr2', 'v4_rr1', 'v4_rr2'].map((v) => `HitM_${v}`), 'RollM_v1_rr1', 'RollM_v2_rr1',
+].map((h) => `Membranophones/Struck%20Membranophones/Tom%201/Mallet/TomH_${h}_Mid.wav`);
+
 export const loadSampleBanks = () =>
   Promise.all([
     loadDrums(),
-    samples(DOUGH + 'vcsl.json'),
+    samples(DOUGH + 'vcsl.json').then(() => samples({ tom_mallet: TOM_MALLET }, VCSL)),
     samples(DOUGH + 'piano.json'),
   ]);
 

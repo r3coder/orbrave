@@ -131,12 +131,18 @@ const FX_SCALE = {
   delayfeedback: (x, s) => clamp(x * s, 0, 0.85),
   shape: (x, s) => clamp(x * s, 0, 0.9),
   degradeBy: (x, s) => clamp(x * s, 0, 0.9),
+  // filter resonance (EQ orbs): the boost at the cutoff, in dB
+  lpq: (x, s) => clamp(x * s, 0, 18),
+  hpq: (x, s) => clamp(x * s, 0, 18),
+  bpq: (x, s) => clamp(x * s, 0.1, 10),
 };
 const NUM = /^-?\d*\.?\d+$/;
 // the strength a step stands for: three steps down nearly switch the effect off
 export const fxStrength = (step) => (step < 0 ? 0.6 ** -step : 1.25 ** step);
-// whether the strength slots change anything (a mood that only mutes parts or speaks a vowel does not)
-export const fxScalable = (fx) => !!fx && (scaleFx(fx, -1) !== fx || scaleFx(fx, 1) !== fx);
+// whether the strength slots change anything (a mood that only speaks a vowel does not; one that
+// turns parts down does: its strength is how far)
+const fxScalableCode = (fx) => !!fx && (scaleFx(fx, -1) !== fx || scaleFx(fx, 1) !== fx);
+export const fxScalable = (l) => !!l && (!!l.duck?.length || fxScalableCode(l.fx));
 // `fx` (a mood's effect chain, e.g. `.lpf(650).room(.5)`) at `step`
 export function scaleFx(fx, step) {
   if (!fx || !step) return fx ?? '';
@@ -162,6 +168,60 @@ export function scaleFx(fx, step) {
     i = j;
   }
   return out;
+}
+
+// ---------- EQ orbs ----------
+// Strudel gives every sound one low-pass, one high-pass and one band-pass, so an EQ orb works
+// with those: a resonant high-pass just under the bass lifts the lows (the resonance, in dB, is the
+// boost), a resonant low-pass up top lifts the highs, a plain one cuts. A later filter of the same
+// kind replaces an earlier one, so an EQ orb leaves alone the filter a part already sets itself
+// (hats keep their high-pass, a dark pad its low-pass) and only touches the parts that have none.
+const FILTER_GROUPS = [
+  { calls: /^(lpf|lp|cutoff|ctf|lpq|resonance)$/, used: /\.(lpf|lp|cutoff|ctf|djf)\(/ },
+  { calls: /^(hpf|hp|hcutoff|hpq|hresonance)$/, used: /\.(hpf|hp|hcutoff|djf)\(/ },
+  { calls: /^(bpf|bp|bandf|bpq|bandq)$/, used: /\.(bpf|bp|bandf)\(/ },
+];
+// `fx` (an EQ orb's chain) without the filters `code` already sets
+export function eqFx(fx, code) {
+  if (!fx) return '';
+  const taken = FILTER_GROUPS.filter((g) => g.used.test(code));
+  if (!taken.length) return fx;
+  return fx.replace(/\.(\w+)\(([^()]*)\)/g, (call, name) => (taken.some((g) => g.calls.test(name)) ? '' : call));
+}
+// An EQ orb at a strength: a boost (a filter with its resonance) keeps its frequency and only
+// its boost grows or shrinks; a plain cut moves its cutoff like a mood's filter does.
+const Q_OF = { lpf: 'lpq', hpf: 'hpq', bpf: 'bpq' };
+function scaleEq(fx, step) {
+  if (!step) return fx;
+  return fx.replace(/\.(\w+)\(([^()]*)\)/g, (call, name) => (Q_OF[name] && fx.includes(`.${Q_OF[name]}(`) ? call : scaleFx(call, step)));
+}
+// What the whole-song orbs add to one part's line: the EQ orbs (in the order they went in),
+// then the moods on top, each at the strength its 약하게 / 세게 steps gave it.
+// `orbs`: the song's EQ and mood orbs; `stepOf(orb)`: its strength step.
+// A sound has one filter of each kind, so of several EQ orbs on the same kind (two low boosts …)
+// only the last one put in is heard: the earlier ones are left out of the code.
+const CALL = /\.(\w+)\(([^()]*)\)/g;
+const groupOf = (name) => FILTER_GROUPS.findIndex((g) => g.calls.test(name));
+// the filter kinds an EQ orb uses (0 low-pass / top, 1 high-pass / bottom, 2 band-pass / middle)
+const eqGroups = (fx) => new Set([...(fx ?? '').matchAll(CALL)].map((m) => groupOf(m[1])).filter((g) => g >= 0));
+// two EQ orbs on the same range can't both be heard: the orb page bounces the older one out
+export const eqClash = (a, b) => !!(a?.eq && b?.eq && a !== b) && [...eqGroups(a.fx)].some((g) => eqGroups(b.fx).has(g));
+export function songFx(orbs, code, stepOf) {
+  const eqs = orbs.filter((o) => o.eq).map((o) => scaleEq(eqFx(o.fx, code), stepOf(o)));
+  const owner = new Map(); // filter group -> index of the last EQ that sets it
+  eqs.forEach((fx, i) => [...fx.matchAll(CALL)].forEach((m) => owner.set(groupOf(m[1]), i)));
+  const eq = eqs.map((fx, i) => fx.replace(CALL, (call, name) => (owner.get(groupOf(name)) === i ? call : ''))).join('');
+  const mood = orbs.filter((o) => !o.eq).map((o) => scaleFx(o.fx, stepOf(o))).join('');
+  return eq + mood;
+}
+// A balance mood (`duck`: the roles it names) turns those parts down instead of muting them:
+// to DUCK of their volume, less far when weaker and further when stronger. Several multiply,
+// down to DUCK_MIN, so a part is always still there.
+export const DUCK = 0.25;
+const DUCK_MIN = 0.05;
+export function duckOf(orbs, r, stepOf) {
+  const f = orbs.filter((o) => o.duck?.includes(r)).reduce((g, o) => g * DUCK ** fxStrength(stepOf(o)), 1);
+  return Math.max(DUCK_MIN, f);
 }
 
 const clip = (s, n) => (typeof s === 'string' ? s.trim().slice(0, n) : '');
@@ -281,29 +341,31 @@ export function presetColors(p) {
 
 // One `$:` line per sounding part, exactly as the orb page builds them for a WAV render:
 // tempo orbs scale the tempo, a key orb moves the pitched parts, a mood adds its effects to
-// every line or silences whole roles.
+// every line or turns whole roles down.
 export function presetLines(p) {
   const ls = presetLayers(p);
   const bpm = Math.round(Math.min(220, Math.max(40, ls.filter((l) => l.bpm).reduce((f, l) => (f * l.bpm) / BASE_BPM, 1) * BASE_BPM)));
-  const mood = ls.find((l) => l.cat === 'mood');
+  // moods, EQ ones included (several may stack), at the strength set in the orb page's 약하게 / 세게 slots
+  const fxOrbs = ls.filter((l) => l.cat === 'mood');
+  const fxStep = (o) => pctStep(p.gains?.[o.id]);
   const keyOrb = ls.find((l) => l.cat === 'mode');
   const mode = keyOrb?.mode ?? 'minor', shift = keyOrb?.key ?? 0;
   const dt = (((60 / bpm) * 3) / 4).toFixed(3); // dotted-eighth delay in seconds
   const lines = [];
-  // the mood's effects at the strength set in the orb page's 약하게 / 세게 slots
-  const moodFx = mood ? scaleFx(mood.fx, pctStep(p.gains?.[mood.id])) : '';
   setMode(mode);
   try {
     for (const l of ls) {
-      if (!l.code || mood?.mute?.includes(role(l))) continue;
+      if (!l.code) continue;
       const v = p.seeds?.[l.id] ?? p.variation; // an orb may carry its own seed
       let code = typeof l.code === 'function' ? l.code(rng(hash(l.id) + v * 7919)) : l.code;
       if (mode !== 'minor') code = code.replaceAll(':minor"', `:${mode}"`);
       const pitched = l.pitched || /\b(scale|chord|note)\(/.test(code);
       const key = shift && pitched ? `.transpose(${shift})` : '';
-      const g = p.gains?.[l.id]; // the orb's own volume (orb page volume slots)
-      const gain = Number.isSafeInteger(g) && g !== 100 ? `.postgain(${g / 100})` : '';
-      lines.push({ layer: l, role: role(l), code: `// ${l.name}\n$: ${code}${key}${moodFx}${gain}`.replaceAll('__DT__', dt) });
+      const g = p.gains?.[l.id]; // the orb's own volume (orb page volume slots), times a balance mood's dip
+      const gv = (Number.isSafeInteger(g) ? g / 100 : 1) * duckOf(fxOrbs, role(l), fxStep);
+      const gain = Math.abs(gv - 1) < 0.005 ? '' : `.postgain(${+gv.toFixed(3)})`;
+      const fx = songFx(fxOrbs, code, fxStep);
+      lines.push({ layer: l, role: role(l), code: `// ${l.name}\n$: ${code}${key}${fx}${gain}`.replaceAll('__DT__', dt) });
     }
   } finally {
     setMode('minor');
