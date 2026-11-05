@@ -453,7 +453,9 @@ const FORMS = {
   },
   house: (r) => {
     const main = r.pick([32, 48]);
-    const f = [['intro', r.pick([16, 32])], ['groove', 16], ['main', main], ['break', 8]];
+    const f = [['intro', r.pick([16, 32])], ['groove', 16], ['main', main]];
+    // most tracks take an 8-bar break between the peaks; some just roll on through
+    if (r.chance(0.7)) f.push(['break', 8]);
     if (r.chance(0.35)) f.push(['build', 4]);
     f.push(['main2', main]);
     if (r.chance(0.5)) f.push(['groove', 8]);

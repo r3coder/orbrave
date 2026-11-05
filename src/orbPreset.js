@@ -312,18 +312,21 @@ export function presetLines(p) {
 }
 
 // A preset as a song for the main player (same shape as composer.generateSong): the user's set
-// is the main part, with an intro, a break and an outro made by leaving parts of it out.
+// is the main part, with an intro, an optional break and an outro made by leaving parts of it
+// out. Whether the break comes is rolled per play (from the preset and its start cycle).
+const BREAK_CHANCE = 0.6;
 export function presetSong(p, start) {
   const { bpm, key, mode, lines } = presetLines(p);
   const drums = lines.filter((l) => DRUM_CATS.includes(l.role));
   const rest = lines.filter((l) => !drums.includes(l));
   const of = (...roles) => lines.filter((l) => roles.includes(l.role));
   const calm = lines.filter((l) => !['lead', 'arp'].includes(l.role));
+  const withBreak = rng(hash(p.id) + start * 7919).chance(BREAK_CHANCE);
   const form = drums.length && rest.length
     ? [
       ['intro', 8, [...drums, ...of('bass')]],
       ['main', 16, lines],
-      ['break', 8, rest],
+      ...(withBreak ? [['break', 8, rest]] : []),
       ['main2', 16, lines],
       ['outro', 8, [...drums, ...of('pad', 'texture')]],
     ]

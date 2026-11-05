@@ -14,7 +14,7 @@ Each genre has its own form (`FORMS` in `src/composer.js`) and decides which par
 | Genre | Form | What changes between sections |
 |---|---|---|
 | techno | intro [16/32] → groove 16 → main [16/24] → (strip or breakdown 8 → main) ×2–3 → outro 16 | Layers come and go one at a time. **strip** drops the kick while hats, bass and stabs keep rolling. **breakdown** is a filtered stab + noise sweep. No builds, risers or rolls |
-| house | intro [16/32] → groove 16 → main [32/48] → break 8 → (build 4) → main2 → (groove 8) → outro 16 | Drums-only intro and outro for DJs. The break keeps bass + chords. The rare build is 4 bars |
+| house | intro [16/32] → groove 16 → main [32/48] → (break 8) → (build 4) → main2 → (groove 8) → outro 16 | Drums-only intro and outro for DJs. The break keeps bass + chords. The rare build is 4 bars |
 | acid | intro [16/32] → groove 16 → main → (break or strip [8/16] → main) ×1–2 → (groove 16) → outro 16 | The 303 starts alone and never stops. Drums come and go around it |
 | trance | intro 16 → groove 32 → (breakdown) → build 8 → drop 32 → (groove 16) → breakdown [16/32] → build 8 → drop2 32 → outro 16 | Kick + rolling bass groove first. The breakdown introduces the melody, and the drop brings it back on the lead |
 | dnb | intro [16/32] → groove [16/32] → (build 8) → drop [32/48] → (groove 16 → drop 16) → breakdown or groove → build 8 → drop2 → outro or groove | The bass is the switch: grooves are drums + pads only. Some drops come in without a build |
