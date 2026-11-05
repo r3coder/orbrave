@@ -312,7 +312,7 @@ button.loop-mode:hover { background: color-mix(in srgb, var(--acc) 24%, var(--de
 .volring .knob { fill: var(--cursor); }
 .volring #volTicks line { stroke: color-mix(in srgb, var(--fg) 18%, transparent); stroke-width: 1.5; }
 .volring #volTicks line.lit { stroke: color-mix(in srgb, var(--acc) 75%, transparent); }
-/* while the volume is turned: everything but the dial dims (orbs.js volFocus) */
+/* first-orb volume tip: everything but the dial dims (orbs.js volFocus) */
 .vol-dim {
   position: fixed; z-index: 59; pointer-events: none; border-radius: 50%;
   box-shadow: 0 0 0 200vmax var(--scrim);
@@ -1184,7 +1184,7 @@ body.has-orbs .empty-hint, body.first-orb-done .empty-hint { opacity: 0; visibil
 
 /* after the first orb: "turn the knob" tip at the volume ring's bottom-right, fades out */
 .vol-tip {
-  position: fixed; z-index: 6; pointer-events: none; white-space: nowrap;
+  position: fixed; z-index: 60; pointer-events: none; white-space: nowrap; /* above the .vol-dim */
   padding: 8px 16px; font-size: 14px; font-weight: 700; color: var(--acc);
   background: var(--panel); border: 2px solid var(--acc); border-radius: 4px;
   text-shadow: 0 0 8px color-mix(in srgb, var(--acc) 70%, transparent);

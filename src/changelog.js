@@ -7,6 +7,11 @@ import './licenses.css';
 
 // [version, date, { ko: [...], en: [...], ja: [...] }]
 const NOTES = [
+  ['0.4.7', '2026-11-06', {
+    ko: ['음량 다이얼 주변이 어두워지는 건 첫 오브 뒤 튜토리얼 안내 때만 나와요. 평소에 음량을 돌릴 때는 화면이 그대로예요'],
+    en: ['The dim around the volume dial now only shows with the guide\'s volume tip after the first orb; turning the volume normally leaves the screen as it is'],
+    ja: ['音量ダイヤルの周りが暗くなるのは、最初のオーブのあとのガイドの案内のときだけになりました。普段音量を回しても画面はそのままです'],
+  }],
   ['0.4.6', '2026-11-06', {
     ko: ['튜토리얼 안내는 한 번에 하나씩만 떠요: 다음 안내는 지금 안내가 닫힌 뒤에 나와요', '스템을 처음 열면 오른쪽 위 ↩ 루프 모드로 버튼으로 돌아가는 법을 알려 줘요', '코드 안내에 아무 곳이나 누르면 닫힌다는 설명을 더했어요'],
     en: ['Guide notes come one at a time: the next waits until the one on screen has closed', 'The first time the stems open, the guide shows how to get back with ↩ Loop mode at the top right', 'The code note now says a click anywhere closes it'],

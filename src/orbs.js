@@ -184,13 +184,13 @@ function volFromPointer(e) {
   if (rel > VSWEEP) rel = rel > VSWEEP + 45 ? 0 : VSWEEP;
   return rel / VSWEEP;
 }
-// while the volume is being turned, everything but the dial dims (a round hole whose huge shadow
-// is the dimming; it takes no clicks). Dragging keeps it up; wheel / keys let it linger a moment.
+// during the first-orb volume tip, everything but the dial dims for `ms` (a round hole whose huge
+// shadow is the dimming; it takes no clicks, so the dial can be turned right away)
 const volDim = document.createElement('div');
 volDim.className = 'vol-dim';
 document.body.append(volDim);
 let volDimTimer = 0;
-function volFocus(linger) {
+function volFocus(ms) {
   clearTimeout(volDimTimer);
   const r = volRing.getBoundingClientRect();
   const pad = 6;
@@ -198,13 +198,12 @@ function volFocus(linger) {
     left: `${r.left - pad}px`, top: `${r.top - pad}px`, width: `${r.width + pad * 2}px`, height: `${r.height + pad * 2}px`,
   });
   volDim.classList.add('on');
-  if (linger) volDimTimer = setTimeout(() => volDim.classList.remove('on'), linger);
+  volDimTimer = setTimeout(() => volDim.classList.remove('on'), ms);
 }
 let volDrag = false;
 volRing.addEventListener('pointerdown', (e) => {
   e.stopPropagation();
   volDrag = true;
-  volFocus(0);
   volRing.classList.add('drag');
   volRing.setPointerCapture(e.pointerId);
   setVolume(volFromPointer(e));
@@ -217,21 +216,18 @@ volRing.addEventListener('pointermove', (e) => {
 const volUp = () => {
   volDrag = false;
   volRing.classList.remove('drag');
-  volFocus(450);
 };
 volRing.addEventListener('pointerup', volUp);
 volRing.addEventListener('pointercancel', volUp);
 document.getElementById('core').addEventListener('wheel', (e) => {
   e.preventDefault();
   setVolume(volValue - Math.sign(e.deltaY) * 0.04);
-  volFocus(900);
 }, { passive: false });
 volRing.addEventListener('keydown', (e) => {
   const d = { ArrowUp: 0.05, ArrowRight: 0.05, ArrowDown: -0.05, ArrowLeft: -0.05 }[e.key];
   if (d) {
     e.preventDefault();
     setVolume(volValue + d);
-    volFocus(900);
   }
 });
 setVolume(volValue);
@@ -760,6 +756,7 @@ function showVolumeTip() {
   volDemo = requestAnimationFrame(step);
   const r = volRing.getBoundingClientRect();
   if (!r.width) return;
+  volFocus(5000); // the note is up ~5s (volTip keyframes)
   const tip = document.createElement('div');
   tip.className = 'vol-tip';
   tip.textContent = ot('volHint');
