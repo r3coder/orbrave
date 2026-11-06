@@ -1291,7 +1291,8 @@ function generateScales(existing, orbs = ALT_ORBS, seed = 2618) {
     }[o.cat];
     return {
       id: nextId(o.cat), cat: o.cat, name: name(o.cat), color: color(o.cat), tag: 'scales', scaleFamily: o.fam,
-      kind: `${o.cat} · ${o.fam}`, ...(o.samples && { samples: o.samples }),
+      // inst: what it is played on; orbTaste reads its vibe from this, not from the scale
+      kind: `${o.cat} · ${o.fam}`, inst: o.s, ...(o.samples && { samples: o.samples }),
       code: (v) => `n(${line(v)})${altScale(o.fam, root)}${snd}`,
       voice: melodic(root, snd, o.cat === 'bass' ? 'triad' : 'tones'),
     };
@@ -2193,7 +2194,8 @@ function familyOf(l) {
   if (!DRUM_CATS.includes(l.cat) && !PITCHED_CATS.includes(l.cat) && !['fx', 'texture'].includes(l.cat)) return l.cat;
   if (l.spot) return 'block fx';
   // the other-scale orbs fall as one family per category, whatever they are played on; spawnWeights
-  // (src/orbs.js) holds that family at 30% of its category however many are added
+  // (src/orbs.js) holds that family at 30% of its category however many are added (less after
+  // turn-downs, see scaleKeep in orbTaste.js)
   if (l.scaleFamily) return 'other scales';
   const code = typeof l.code === 'function' ? l.code(rng(1)) : l.code ?? '';
   const text = `${(l.samples ?? []).join(' ')} ${code}`;

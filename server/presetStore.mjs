@@ -24,8 +24,11 @@ const pad = (n) => String(n).padStart(2, '0');
 const ALPHA = 'abcdefghijklmnopqrstuvwxyz0123456789';
 const randomId = (n) => [...randomBytes(n)].map((b) => ALPHA[b % 36]).join('');
 
-export function createPresetStore(dataDir, { maxPerDay = 2000 } = {}) {
-  const root = join(dataDir, 'presets');
+// `folder` / `check`: the same store holds uploaded custom orbs (folder 'orbs', checked with
+// validateOrbUpload) next to the presets; `check` turns a stored record back into its clean fields.
+const checkPreset = (rec) => validatePreset({ ...rec, agree: true });
+export function createPresetStore(dataDir, { maxPerDay = 2000, folder = 'presets', check = checkPreset, votesName = 'votes.json' } = {}) {
+  const root = join(dataDir, folder);
   const dirOf = (id) => {
     const m = ID.exec(id);
     return m && join(root, `20${m[1]}-${m[2]}`, m[3]);
@@ -35,7 +38,7 @@ export function createPresetStore(dataDir, { maxPerDay = 2000 } = {}) {
 
   // Votes: one file, <dataDir>/votes.json = { presetId: { voterId: 1 | -1 } }, kept in memory
   // and written back (temp file + rename) a moment after the last change.
-  const votesFile = join(dataDir, 'votes.json');
+  const votesFile = join(dataDir, votesName);
   let votes = null;
   let voteTimer = null;
   let voteWrite = Promise.resolve();
@@ -86,7 +89,7 @@ export function createPresetStore(dataDir, { maxPerDay = 2000 } = {}) {
     try {
       const rec = JSON.parse(await readFile(file, 'utf8'));
       if (!ID.test(rec?.id ?? '')) return null;
-      return { id: rec.id, createdAt: String(rec.createdAt ?? ''), ...validatePreset({ ...rec, agree: true }) };
+      return { id: rec.id, createdAt: String(rec.createdAt ?? ''), ...check(rec) };
     } catch {
       return null;
     }

@@ -37,7 +37,25 @@ function next() {
   setTimeout(() => show(item), item.wait);
 }
 
+// Take every note down at once: the one on screen fades, the queued ones never show (their onDone
+// still runs, so whatever waited on them lets go), and the banner goes. Used by the guide skip.
+export function dismissAll() {
+  const waiting = queue.splice(0);
+  for (const item of waiting) item.onDone?.();
+  if (current) {
+    if (current.close) current.close();
+    else current.cancelled = true; // still in its `wait`: show() drops it
+  }
+  banner(null);
+}
+
 function show(item) {
+  if (item.cancelled) {
+    current = null;
+    item.onDone?.();
+    next();
+    return;
+  }
   const el = typeof item.target === 'function' ? item.target() : item.target;
   const r0 = el?.getBoundingClientRect();
   // nothing to point at (hidden on this layout): skip it
@@ -105,6 +123,7 @@ function show(item) {
     }, 400);
   };
   const onPress = () => performance.now() - shownAt > GRACE_MS && close();
+  item.close = close;
   const timer = setTimeout(close, SHOW_MS);
   addEventListener('pointerdown', onPress, true);
 }

@@ -52,7 +52,16 @@
     </aside>
 
     <section class="left">
-      <button id="clear" class="clear-all" data-i18n="clearAll" data-i18n-title="clearAllTip">전부 비우기</button>
+      <!-- the save / share buttons, above 전부 비우기: the loop's, or with the stems open the stems'
+           (swapped in, and on a wide screen moved up into the stems' head; a phone moves the whole
+           row into its ⇪ popover) -->
+      <div class="actions share-row" id="shareRow">
+        <button id="wavBtn" class="loop-only" data-i18n="wav" data-i18n-title="wavTip">💾 루프 WAV 저장</button>
+        <button id="wavStemBtn" class="stem-only" data-i18n="wavStem" data-i18n-title="wavStemTip">💾 스템 WAV 저장</button>
+        <button id="shareBtn" class="loop-only" data-i18n="shareOrbs" data-i18n-title="shareOrbsTip">🔗 루프 공유</button>
+        <button id="stemShareBtn" class="stem-only" data-i18n="shareStems" data-i18n-title="shareStemsTip" disabled>🔗 스템 공유</button>
+        <button id="serverShareBtn">☁ 서버 공유</button>
+      </div>
       <div class="roles" id="roles"></div>
       <div class="core" id="core">
         <div class="ring"></div>
@@ -80,20 +89,17 @@
         <div class="sats" id="sats"></div>
         <div id="vote"></div>
       </div>
-      <p class="status" id="status"></p>
+      <!-- under the player: 전부 비우기 · BPM and key · 되돌리기 -->
+      <div class="core-foot">
+        <button id="clear" class="clear-all" data-i18n="clearAll" data-i18n-title="clearAllTip">전부 비우기</button>
+        <p class="status" id="status"></p>
+        <button id="undo" class="undo" data-i18n="undo" data-i18n-title="undoTip" disabled>↶ 되돌리기</button>
+      </div>
       <div class="chips" id="chips"></div>
       <p class="solo-hint" id="soloHint"></p>
-      <!-- empty on wide screens; a phone puts its ⇪ button here (orbsMobile.js) -->
-      <div class="actions"></div>
-      <!-- loop mode: the loop's buttons and 📂 스템 열기; with the stems open, the stems' save /
-           share buttons are swapped in (and on a wide screen moved up into the stems' head) -->
-      <div class="actions">
-        <button id="wavBtn" class="loop-only" data-i18n="wav" data-i18n-title="wavTip">💾 루프 WAV 저장</button>
-        <button id="wavStemBtn" class="stem-only" data-i18n="wavStem" data-i18n-title="wavStemTip">💾 스템 WAV 저장</button>
-        <button id="shareBtn" class="loop-only" data-i18n="shareOrbs" data-i18n-title="shareOrbsTip">🔗 루프 공유</button>
-        <button id="stemShareBtn" class="stem-only" data-i18n="shareStems" data-i18n-title="shareStemsTip" disabled>🔗 스템 공유</button>
-        <button id="serverShareBtn">☁ 서버 공유</button>
-        <button id="stemReopen" class="loop-only" data-i18n="openStems" data-i18n-title="openStemsTip">📂 스템 열기</button>
+      <!-- loop mode: 📂 스템 열기 (wide screens only) -->
+      <div class="actions stem-row">
+        <button id="stemReopen" class="loop-only" data-i18n="openStems" data-i18n-title="openStemsTip">📂 스템 열기 (곡 전체 만들기)</button>
       </div>
       <div class="song" id="song">
         <button id="songOff" class="loop-mode" data-i18n="toLoop">↩ 루프 모드로</button>
@@ -104,12 +110,14 @@
       <div class="field" id="field">
         <div class="field-tools">
           <button id="searchBtn" data-i18n="search" data-i18n-title="searchTip">🔍 오브 검색</button>
+          <button id="customBtn" data-i18n="customOrbs" data-i18n-title="customOrbsTip">✦ 커스텀 오브</button>
         </div>
       </div>
       <section class="stems" id="stems">
         <div class="stem-head">
           <b data-i18n="stems">스템</b>
           <button id="songBtn" data-i18n="otherSong" data-i18n-title="otherSongTip">🎲 곡 구성 랜덤화</button>
+          <button id="stemHelp" class="stem-help" data-i18n-title="stemHelpTip" aria-label="?">?</button>
           <button id="stemClose" class="loop-mode" data-i18n="toLoop">↩ 루프 모드로</button>
         </div>
         <div class="stem-body" id="stemBody">
@@ -118,28 +126,46 @@
           <b class="stem-count" id="stemCount"></b>
         </div>
       </section>
-      <!-- 편집's tab: the piano roll, sliding up above the slots with the orb that was thrown in -->
+      <!-- 편집's tab: the piano roll, sliding up above the slots on the 변주 slot's orb -->
       <section class="roll" id="roll">
         <div class="roll-head">
+          <!-- the orb being edited, with the number of its variation -->
           <div class="roll-slot" id="rollSlot"></div>
           <div class="roll-name" id="rollName"></div>
           <span class="roll-hint" id="rollHint"></span>
           <button id="rollDice" data-i18n="rollDice" data-i18n-title="rollDiceTip">🎲 변주</button>
-          <!-- 수정 완료: the tab goes down and the orb waits, jiggling, in the 편집 slot -->
+          <button id="rollFull" aria-pressed="false" data-i18n="rollFull" data-i18n-title="rollFullTip">🎹 풀 스케일</button>
+          <!-- 수정 완료: the tab goes down, the drawing kept as the variation; the orb stays in 변주 -->
           <div class="roll-tools">
             <button id="rollDone" class="go" data-i18n="rollDone" data-i18n-title="rollDoneTip">✓ 수정 완료</button>
           </div>
         </div>
-        <canvas id="rollCanvas"></canvas>
+        <!-- 풀 스케일 makes the canvas 4 octaves tall: it scrolls in here -->
+        <div class="roll-scroll" id="rollScroll"><canvas id="rollCanvas"></canvas></div>
       </section>
+      <!-- 🎛 편집's panel: covers the field (down to the slots) while an orb's sound is being changed
+           (filled by src/orbEditor.js) -->
+      <section class="orbedit" id="orbEdit" aria-label="orb editor"></section>
       <!-- empty orb slots to throw an orb into (ids / data-slot are stable: the tutorial points at them).
-           편집 opens the piano roll; the others change the orb and keep it, jiggling, until it is grabbed -->
+           약하게 · 세게 · 복제 change the orb and keep it, jiggling, until it is grabbed; apart from them
+           변주 keeps an orb with its variations: 변주 제거 · ◀ · ▶ · 편집 show up while it has one -->
       <nav class="slots" id="slots">
-        <div class="orb-slot" id="slotMidi" data-i18n-title="slotMidiTip" data-slot="midi"><span class="slot-label"><i>✎</i><b data-i18n="slotMidi">편집</b></span></div>
-        <div class="orb-slot" id="slotQuieter" data-i18n-title="slotQuieterTip" data-slot="quieter"><span class="slot-label"><i>🔉</i><b data-i18n="slotQuieter">약하게</b></span></div>
-        <div class="orb-slot" id="slotLouder" data-i18n-title="slotLouderTip" data-slot="louder"><span class="slot-label"><i>🔊</i><b data-i18n="slotLouder">세게</b></span></div>
-        <div class="orb-slot" id="slotVary" data-i18n-title="slotVaryTip" data-slot="vary"><span class="slot-label"><i>🎲</i><b data-i18n="slotVary">변주</b></span></div>
-        <div class="orb-slot" id="slotCopy" data-i18n-title="slotCopyTip" data-slot="copy"><span class="slot-label"><i>⧉</i><b data-i18n="slotCopy">복제</b></span></div>
+        <div class="orb-slot" id="slotQuieter" data-i18n-title="slotQuieterTip" data-slot="quieter"><span class="slot-label"><b data-i18n="slotQuieter">약하게</b></span></div>
+        <div class="orb-slot" id="slotLouder" data-i18n-title="slotLouderTip" data-slot="louder"><span class="slot-label"><b data-i18n="slotLouder">세게</b></span></div>
+        <span class="slot-sep" aria-hidden="true"></span>
+        <div class="vary-wrap" id="varyWrap">
+          <button id="varyDel" class="vbtn" data-i18n="varyDel" data-i18n-title="varyDelTip">변주 제거</button>
+          <button id="varyPrev" class="vbtn varrow" data-i18n-title="varyPrevTip">◀</button>
+          <div class="orb-slot" id="slotVary" data-i18n-title="slotVaryTip" data-slot="vary"><span class="slot-label"><i>🎲</i><b data-i18n="slotVary">변주</b></span></div>
+          <button id="varyNext" class="vbtn varrow" data-i18n-title="varyNextTip">▶</button>
+          <button id="varyEdit" class="vbtn" data-i18n="varyEdit" data-i18n-title="varyEditTip">✎ 악보</button>
+        </div>
+        <span class="slot-sep" aria-hidden="true"></span>
+        <!-- 🎛 편집: an orb thrown in opens the knobs panel; ✓ 완료 makes a custom orb of it -->
+        <div class="edit-wrap" id="editWrap">
+          <div class="orb-slot" id="slotEdit" data-i18n-title="slotEditTip" data-slot="edit"><span class="slot-label"><b data-i18n="slotEdit">편집</b><small data-i18n="slotEditPro">(전문가용)</small></span></div>
+          <button id="editOpen" class="vbtn" data-i18n-title="editOpenTip">🎛 열기</button>
+        </div>
         <span class="slot-hint" id="slotHint" role="status" aria-live="polite"></span>
       </nav>
     </section>
@@ -182,7 +208,7 @@
       </label>
       <div class="fld"><span data-i18n="shKind">종류</span>
         <div class="kinds">
-          <label><input type="radio" name="shKind" value="orb" /> <span data-i18n="shOrb">오브</span> <small data-i18n="shOrbSub">지금 넣은 오브 조합</small></label>
+          <label><input type="radio" name="shKind" value="orb" /> <span data-i18n="shOrb">루프</span> <small data-i18n="shOrbSub">지금 넣은 오브 조합</small></label>
           <label><input type="radio" name="shKind" value="stem" /> <span data-i18n="shStem">스템</span> <small data-i18n="shStemSub">전체 곡 구성까지</small></label>
         </div>
       </div>
@@ -205,6 +231,25 @@
       <div class="import-btns">
         <button type="button" class="ghost" id="shCancel" data-i18n="cancel">취소</button>
         <button id="shOk" class="go" disabled>☁ 서버에 공유</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog class="import upload" id="orbUpDlg">
+    <form method="dialog" id="orbUpForm" autocomplete="off">
+      <div class="side-head" data-i18n="orbUpTitle">오브를 서버에 올리기</div>
+      <p class="orbup-name" id="orbUpName"></p>
+      <label class="fld"><span data-i18n="orbUpAuthor">만든 사람</span> <small data-i18n="shOptional">(생략 가능)</small>
+        <input id="orbUpAuthor" maxlength="24" />
+      </label>
+      <input class="hp" id="orbUpWebsite" name="website" tabindex="-1" aria-hidden="true" />
+      <p data-i18n-html="orbUpBody">올린 오브는 누구나 쓸 수 있고, 다른 사람들의 오브 비에도 섞여 내려요.
+        저장되는 건 원본 오브, 바꾼 값, 이름, 색과 만든 사람뿐이에요. 한 번 올린 오브는 여기서 지울 수 없어요.</p>
+      <label class="agree"><input type="checkbox" id="orbUpAgree" /> <span data-i18n="orbUpAgree">이 오브를 서버에 업로드하는 것에 동의합니다.</span></label>
+      <p class="import-err" id="orbUpErr"></p>
+      <div class="import-btns">
+        <button type="button" class="ghost" id="orbUpCancel" data-i18n="cancel">취소</button>
+        <button id="orbUpOk" class="go" disabled data-i18n="orbUpOk">☁ 올리기</button>
       </div>
     </form>
   </dialog>

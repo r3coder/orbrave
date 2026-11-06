@@ -99,7 +99,6 @@ window.addEventListener('pointermove', () => {
 }, { passive: true });
 
 // ---------- moving things in and out ----------
-const actions = document.querySelectorAll('.left > .actions');
 const PLACES = [
   [presetsBtn, headBtns],
   [$('searchBtn'), headBtns],
@@ -108,7 +107,7 @@ const PLACES = [
   [credit, document.querySelector('.tools')],
   [emptyHint, stage],
   [$('presetbar'), sheet],
-  [actions[1], exportPop],
+  [$('shareRow'), exportPop],
   [exportBtn, document.querySelector('.left')],
   [stashHint, $('stash')],
 ];

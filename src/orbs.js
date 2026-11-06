@@ -7,8 +7,10 @@ import './orbs.css';
 import {
   LAYERS, CAT_SHARE, BASE_BPM, KEYS, BAR_CHORDS, snap, rng, hash, byId, role, ROLE_TEXT, setMode, keyLabel, MOOD_SUBS,
 } from './orbCatalog.js';
-import { BARS, STEPS, ROWS, packRaw, unpackRaw, sheetCode, quantize, notesAt, stepOf, songToWire, songFromWire, toWire, cleanGains, fxScalable, songFx, duckOf, eqClash } from './orbPreset.js';
-import { uploadPreset, fetchPresets, weightedOrder } from './presetApi.js';
+import { BARS, STEPS, ROWS, SEMI, SEMIS, isSemi, fullScaleRaw, packRaw, unpackRaw, sheetCode, quantize, notesAt, stepOf, songToWire, songFromWire, toWire, VAR_MAX, varsToWire, cleanVars, cleanGains, fxScalable, songFx, duckOf, eqClash } from './orbPreset.js';
+import { uploadPreset, fetchPresets, weightedOrder, fetchOrbs, uploadOrb } from './presetApi.js';
+import { editChain, editGain, editOf, kindOf, rootId, checkCustom, registerCustom, makeDef } from './orbEdit.js';
+import { createOrbEditor } from './orbEditor.js';
 import { mountVote } from './vote.js';
 import { lite, setLite, onLite, watchFrame } from './liteMode.js';
 import { tone, toneHex, ink, onTheme, setPalette, mountThemeButton, theme as themeNow } from './theme.js';
@@ -18,7 +20,7 @@ import { isPhone } from './phoneLayout.js';
 import { mountLicenses, attributionsFor, creditLine, soundName } from './licenses.js';
 import { copyText } from './copyBox.js';
 import { mountChangelog } from './changelog.js';
-import { spotlight, banner, busy as tutBusy, onIdle as onTutIdle } from './tutorial.js';
+import { spotlight, banner, busy as tutBusy, onIdle as onTutIdle, dismissAll as tutDismissAll } from './tutorial.js';
 import { saveFile } from './saveFile.js';
 import * as taste from './orbTaste.js';
 import { LIMITS, validatePreset } from '../server/presetSchema.mjs';
@@ -40,8 +42,9 @@ const ui = {
   play: $('play'), core: $('core'), sats: $('sats'), field: $('field'), right: $('right'), status: $('status'),
   chips: $('chips'), roles: $('roles'), soloHint: $('soloHint'), drawer: $('drawer'), code: $('code'),
   roll: $('roll'), rollCanvas: $('rollCanvas'), rollSlot: $('rollSlot'), rollName: $('rollName'),
-  rollHint: $('rollHint'), rollDone: $('rollDone'), rollDice: $('rollDice'),
-  slots: $('slots'), slotHint: $('slotHint'),
+  rollHint: $('rollHint'), rollDone: $('rollDone'), rollDice: $('rollDice'), rollFull: $('rollFull'), rollScroll: $('rollScroll'),
+  varyWrap: $('varyWrap'), varyDel: $('varyDel'), varyPrev: $('varyPrev'), varyNext: $('varyNext'), varyEdit: $('varyEdit'),
+  slots: $('slots'), slotHint: $('slotHint'), orbEdit: $('orbEdit'), editWrap: $('editWrap'), editOpen: $('editOpen'),
   stash: $('stash'), stashSlots: $('stashSlots'),
   presetList: $('presetList'), presetName: $('presetName'),
   song: $('song'), songBtn: $('songBtn'),
@@ -78,7 +81,73 @@ const active = new Map(); // id -> { layer, at, sat, home }
 let variation = 1 + Math.floor(Math.random() * 9999); // every page load starts from its own seed
 // orbs given their own seed with the 🎲 on their strip; the rest follow `variation`
 const ownSeed = new Map(); // id -> seed
-const seedOf = (l) => ownSeed.get(l.id) ?? variation;
+// Variations (the 변주 slot): an orb that has been in it keeps a numbered list, 01 the way it
+// played before, 02 … added there: a seed, or notes drawn with 편집 ({ raw }). It plays the one
+// selected (vi); the stems pick one per block (cell.k). A seed variation is played through
+// ownSeed / heldSeed like any own seed (applyVar), so presets and the player read it as before.
+const orbVars = new Map(); // id -> { list: [{ seed: n | null, auto? } | { raw }], vi }
+const varOf = (id) => {
+  const s = orbVars.get(id);
+  return s ? s.list[s.vi] : null;
+};
+const varCount = (id) => orbVars.get(id)?.list.length ?? 1;
+const varNum = (k) => String(k + 1).padStart(2, '0');
+// what codeOf plays for a drawn variation: the notes themselves
+const drawnOf = (l) => (varOf(l.id)?.raw ? varOf(l.id) : undefined);
+const seedOf = (l) => drawnOf(l) ?? ownSeed.get(l.id) ?? variation;
+// variation k of an orb as codeOf takes it (a seed, or { raw })
+function varPlay(l, k) {
+  const x = orbVars.get(l.id)?.list[k ?? 0];
+  if (!x) return seedOf(l);
+  return x.raw ? x : x.seed ?? variation;
+}
+// the plain seed of variation k (a drawn one has none: the shared one)
+const varSeed = (l, k) => {
+  const v = varPlay(l, k);
+  return typeof v === 'number' ? v : variation;
+};
+// make the orb play its selected variation (a seed one through ownSeed in the song, heldSeed outside)
+function applyVar(id) {
+  const x = varOf(id);
+  if (!x) return;
+  const m = active.has(id) ? ownSeed : heldSeed;
+  (active.has(id) ? heldSeed : ownSeed).delete(id);
+  if (x.raw || x.seed == null) m.delete(id);
+  else m.set(id, x.seed);
+}
+// a list from a saved session or a preset (page form, see orbPreset.js varsFromWire)
+function setVars(id, v) {
+  if (!v || !Array.isArray(v.list) || !v.list.length) return;
+  const list = v.list.slice(0, VAR_MAX).map((x) => (Array.isArray(x?.raw) && x.raw.length === STEPS
+    ? { raw: [...x.raw] }
+    : { seed: Number.isSafeInteger(x?.seed) && x.seed >= 0 ? x.seed : null, ...(x?.auto ? { auto: String(x.auto) } : {}) }));
+  orbVars.set(id, { list, vi: Number.isSafeInteger(v.vi) && v.vi >= 0 && v.vi < list.length ? v.vi : 0 });
+  applyVar(id);
+}
+// the variation index playing seed v (added to the list when it isn't there yet)
+function varIndexOf(id, v) {
+  const st = ensureVars(id);
+  const k = st.list.findIndex((x) => !x.raw && (x.seed ?? variation) === v);
+  if (k >= 0) return k;
+  if (st.list.length >= VAR_MAX) return st.vi;
+  st.list.push({ seed: v });
+  return st.list.length - 1;
+}
+// the variations of the set's orbs (for presets and share codes), or null
+const presetVars = () => {
+  const ids = [...active.keys()].filter((id) => orbVars.has(id));
+  return ids.length ? Object.fromEntries(ids.map((id) => [id, orbVars.get(id)])) : null;
+};
+// the list, started with 01 = how the orb plays right now
+function ensureVars(id) {
+  let s = orbVars.get(id);
+  if (!s) {
+    const own = active.has(id) ? ownSeed.get(id) : heldSeed.get(id);
+    s = { list: [{ seed: own ?? null }], vi: 0 };
+    orbVars.set(id, s);
+  }
+  return s;
+}
 const ownSeeds = () => (ownSeed.size ? Object.fromEntries(ownSeed) : null);
 // Orbs changed in the slots under the field travel with that change wherever they go (field,
 // stash, song) until they leave the screen: a volume from 약하게 / 세게 (for a mood: how strong its effects are), and a seed from 변주
@@ -107,6 +176,7 @@ const ownGains = () => {
 function forget(id) {
   orbStep.delete(id);
   heldSeed.delete(id);
+  orbVars.delete(id);
 }
 let solo = null; // id of the orb being auditioned from the list
 let song = null; // { seed, s0 } while the full-song arrangement plays
@@ -314,10 +384,12 @@ const keyText = (extra = 0) => keyLabel({ key: keyShift() + extra, mode: keyMode
 const pitchedCode = (l, code) => l.pitched || /\b(scale|chord|note)\(/.test(code);
 // a balance mood turns whole roles down (drums, everything but the drums, the bass …): the factor
 const ducked = (l) => duckOf(fxOrbs(), role(l), (o) => volStep(o.id));
+// v: a seed, or a drawn variation ({ raw }), played on the orb's own instrument
 const codeOf = (l, v) => {
   setMode(keyMode());
-  // a copy (복제 slot) plays its source orb's notes: it hashes under that orb's id
-  const code = typeof l.code === 'function' ? l.code(rng(hash(l.base ?? l.id) + v * 7919)) : l.code;
+  // a copy (a second one of an orb on screen) or a custom orb (🎛 편집) plays its catalogue orb's notes: it hashes under that orb's id
+  const code = v?.raw && l.voice ? sheetCode(v.raw, l.voice)
+    : typeof l.code === 'function' ? l.code(rng(hash(rootId(l, byId)) + (typeof v === 'number' ? v : variation) * 7919)) : l.code;
   return keyMode() === 'minor' ? code : code.replaceAll(':minor"', `:${keyMode()}"`);
 };
 
@@ -345,29 +417,39 @@ function chanOf(id) {
   return chans.get(id);
 }
 
-function lineFor(l, v, extra = '', { preview = false } = {}) {
+// gain: a block's own strength in the stems (a factor, or a fade as Strudel code)
+// analyse: a preview that still gets an analyser channel (the 🎛 편집 panel draws its spectrum)
+function lineFor(l, v, extra = '', { preview = false, gain = null, analyse = false } = {}) {
   if (!l.code) return null;
   // hovering an orb in the song's list solos it
   const quiet = !(preview || offline) && solo && solo !== l.id && byId[solo]?.code;
-  // the orb's own volume (음량 slots), times a balance mood's dip and the solo dip; one postgain,
-  // since a second would replace the first
-  const g = gainOf(l) * ducked(l) * (quiet ? 0.12 : 1);
-  const post = Math.abs(g - 1) < 0.005 ? '' : `.postgain(${+g.toFixed(3)})`;
-  // fft(5): superdough sizes the analyser 2^(5+5) = 1024, the size the equaliser reads it at
-  const chan = preview || offline ? '' : `.analyze(${chanOf(l.id)}).fft(5)`;
   const code = codeOf(l, v);
+  // a custom orb (🎛 편집): its knobs go right after its own line, so its own filters count as the
+  // part's (EQ orbs leave them alone) and moods still go on top
+  const ed = editOf(l, byId);
+  const own = ed ? editChain(ed, kindOf(l, code, ed)) : '';
+  // the orb's own volume (음량 slots, and a custom orb's own), times a balance mood's dip and the
+  // solo dip; one postgain, since a second would replace the first
+  const g = gainOf(l) * editGain(ed) * ducked(l) * (quiet ? 0.12 : 1) * (typeof gain === 'number' ? gain : 1);
+  const post = typeof gain === 'string' ? `.postgain(${gain}.mul(${+g.toFixed(3)}))`
+    : Math.abs(g - 1) < 0.005 ? '' : `.postgain(${+g.toFixed(3)})`;
+  // fft(5): superdough sizes the analyser 2^(5+5) = 1024, the size the equaliser reads it at
+  const chan = (preview && !analyse) || offline ? '' : `.analyze(${chanOf(l.id)}).fft(5)`;
   const key = keyShift() && pitchedCode(l, code) ? `.transpose(${keyShift()})` : '';
   // the EQ and mood orbs' effects, each at the strength the 약하게 / 세게 slots gave it
-  const fx = songFx(fxOrbs(), code + extra, (o) => volStep(o.id));
-  return `// ${preview ? '미리듣기: ' : ''}${l.name}\n$: ${code}${key}${extra}${fx}${post}${chan}`;
+  const fx = songFx(fxOrbs(), code + own + extra, (o) => volStep(o.id));
+  return `// ${preview ? '미리듣기: ' : ''}${l.name}\n$: ${code}${key}${own}${extra}${fx}${post}${chan}`;
 }
 
 function buildCode() {
   const dt = (((60 / bpm()) * 3) / 4).toFixed(3); // dotted-eighth delay in seconds
   const lines = [`setcpm(${bpm()}/4)`];
   // auditioning a sounding orb: it plays alone, unless it is held over the player
-  const audition = !offline && hoverSounds().length > 0 && !hoverMix;
-  for (const l of hoverSounds()) if (!active.has(l.id)) lines.push(lineFor(l, heldSeed.get(l.id) ?? variation, '', { preview: true }));
+  // 🎛 편집 open: the orb being edited plays (alone, with 🎧 솔로) with the knobs as they are
+  const ep = !offline && editPreview();
+  const audition = !offline && ((hoverSounds().length > 0 && !hoverMix) || !!(ep && orbEditing.solo));
+  if (ep) lines.push(lineFor(ep, drawnOf(byId[orbEditing.id]) ?? heldSeed.get(orbEditing.id) ?? variation, '', { preview: true, analyse: true }));
+  for (const l of hoverSounds()) if (!active.has(l.id) && !(ep && orbEditing.solo)) lines.push(lineFor(l, drawnOf(l) ?? heldSeed.get(l.id) ?? variation, '', { preview: true }));
   for (const a of audition ? [] : active.values()) {
     const line = lineFor(a.layer, seedOf(a.layer));
     // each layer waits for the next bar; while a song is queued, the loop hands over at its start
@@ -375,7 +457,7 @@ function buildCode() {
     if (line) lines.push(line + (gate.length ? `\n  .filterWhen((t) => ${gate.join(' && ')})` : ''));
   }
   if (song && !audition) lines.push(...songLines());
-  const pv = !offline && previewLayer();
+  const pv = !offline && !(ep && orbEditing.solo) && previewLayer();
   if (pv) lines.push(lineFor(pv, 0));
   if (lines.length === 1) lines.push('$: silence');
   return lines.filter(Boolean).join('\n\n').replaceAll('__DT__', dt);
@@ -451,23 +533,27 @@ function put(layer, at, home = null) {
 // `thrown` = orbs put into the song, `moves` = orbs put in or taken out. Each step unlocks a part
 // of the page (a body class) and points at it once (tutorial.js spotlight: the rest dims for a
 // moment), except the preset step, which keeps a note under the title instead.
-//   1  3 thrown                      the stash on the right (nothing new unlocks: it is always there)
-//   2  5 thrown / 1 min after 1        the slots under the field: 약하게 / 세게 / 변주 / 복제  (.roll-ready)
-//   3  7 thrown / 1 min after 2        the 편집 slot (piano roll)                                 (.midi-ready)
+//   1  the combo note is over         the stash on the right (nothing new unlocks: it is always there)
+//   2  5 thrown / 1 min after 1        the slots under the field, only 약하게 / 세게 live    (.roll-ready)
+//   3  7 thrown / 1 min after 2        the 변주 slot comes alive (✎ 악보 with it)               (.midi-ready)
 //   4  9 thrown / 1 min after 3        "save it as a preset" under the title, until a preset is saved or 4 more moves
 //   5  preset saved / 15 moves / 1 min without a change after 4
 //                                    loop WAV / loop share / server share                      (.share-ready)
-//   6  one of those used / 5 more thrown / 1 min after 5
-//                                    📂 스템 열기 (full-song stems)                              (.song-ready)
-//   8  the stems opened (wide screens): ↩ 루프 모드로 at the top right takes you back to the loop
+//   6  one of those used / 3 more thrown / 30 s after 5
+//                                    the Strudel code links; 📂 스템 열기 and the 🎛 편집 slot
+//                                    come out quietly with it                                  (.song-ready)
+//   7  3 min of playing after 6 without opening the stems: points at 📂 스템 열기
+//      (opening the stems first skips this note)
+//   8  the stems opened (wide screens): what stem mode is, ? for more, ↩ 루프 모드로 to go back
 // A step never starts while another note is still up (tutorial.js busy): it waits its turn.
 // The progress is remembered across reloads; the volume-knob tip after the first orb is separate.
 const TUT_KEY = 'orbTutorial';
-const IDLE_MS = 60_000, SONG_AFTER_MS = 60_000, CODE_AFTER_MS = 30_000;
+const IDLE_MS = 60_000, SONG_AFTER_MS = 180_000, CODE_AFTER_MS = 30_000;
 // steps 2–4 also come by themselves this long after the step before
 const STEP_AFTER_MS = 60_000;
 const stepTimeUp = () => Date.now() - tut.at >= STEP_AFTER_MS;
-const tut = { step: 0, thrown: 0, moves: 0, thrownAt: 0, movesAt: 0, at: 0, banner: false, bannerMoves: 0, used: false, combo: false };
+// played: ms the song has been playing with the page in view (counted by the 2 s check below)
+const tut = { step: 0, thrown: 0, moves: 0, thrownAt: 0, movesAt: 0, at: 0, banner: false, bannerMoves: 0, used: false, combo: false, played: 0, playedAt: 0 };
 try {
   Object.assign(tut, JSON.parse(localStorage.getItem(TUT_KEY)) ?? {});
   // from before the step-by-step guide: the slots, or everything, were already out
@@ -478,27 +564,43 @@ if (tut.step >= 1) tut.combo = true; // got past the combo note before it existe
 // Combo orbs stay out of the rain until the volume-knob tip after the first orb has run; then
 // one combo is dropped on purpose and, a quarter of the way down the field, it stops and gets
 // explained (tut.combo). The stash note (step 1) follows straight after.
+// The mouse resting on any combo orb (field, stash, slot, search) before then explains it on the spot.
 let comboDue = false; // the volume tip is over: drop the combo
 let comboOrb = null; // the rain entry of that combo while it falls
+let comboTelling = false; // the combo note is up or queued
 const comboHeld = () => !tut.combo && !onlyIds;
-function explainCombo(o) {
-  o.hold = true; // it waits in place while the note is up
-  // the orb element itself has no size (its parts hang off its centre): point at the ball
-  spotlight(() => o.el.querySelector('.ball') ?? o.el, ot('tutCombo'), {
+// o: a rain entry (it waits in place while the note is up), or el: any other orb's ball
+function explainCombo(o, el = null) {
+  if (tut.combo || comboTelling) return;
+  comboTelling = true;
+  if (o) {
+    o.told = true;
+    o.hold = true;
+  }
+  // a rain orb's element has no size (its parts hang off its centre): point at the ball
+  spotlight(() => (o ? o.el.querySelector('.ball') ?? o.el : el), ot('tutCombo'), {
     onDone: () => {
-      o.hold = false;
+      if (o) o.hold = false;
       comboOrb = null;
+      comboTelling = false;
+      // the orb was gone before the note could show (it waited behind another): keep it for next time
+      if (!(o ? o.el : el)?.isConnected) return;
       tut.combo = true;
       saveTut();
       tutCheck();
     },
   });
 }
+function hoverCombo(id, el) {
+  if (tut.combo || comboTelling || !byId[id]?.combo) return;
+  const o = rain.find((r) => r.id === id);
+  explainCombo(o ?? null, o ? null : el);
+}
 function dropCombo(size) {
-  const shown = new Set([...active.keys(), ...rain.map((q) => q.id), ...stash, ...slotIds()]);
+  const shown = new Set(rain.map((q) => rootOf(q.id)));
   const pool = LAYERS.filter((l) => l.combo && !shown.has(l.id) && !l.combo.every((c) => active.has(c)) && (!opening || instant(l)));
   if (!pool.length) return null;
-  const id = pool[Math.floor(Math.random() * pool.length)].id;
+  const id = freshOrb(pool[Math.floor(Math.random() * pool.length)].id);
   forget(id);
   rainAdd(id, pickX(size.w), -40);
   return rain.at(-1);
@@ -511,37 +613,35 @@ const saveTut = () => {
 let lastChange = Date.now(); // the last orb put in or taken out (this visit)
 // the ⇪ button on a phone (one of two, whichever shows), else the loop's save / share row
 const shareTarget = () => [...document.querySelectorAll('.m-export-btn')].find((b) => b.getBoundingClientRect().width) ?? $('wavBtn').parentElement;
-// 코드 · (직접수정) strudel.cc · 라이선스 as one target: the spotlight only reads its box
-const codeLinks = {
+// several elements as one spotlight target: the spotlight only reads its box
+const unionBox = (ids) => ({
   getBoundingClientRect() {
-    const rs = ['codeToggle', 'strudelBtn', 'licenseBtn'].map((id) => $(id).getBoundingClientRect()).filter((r) => r.width);
+    const rs = ids.map((id) => $(id).getBoundingClientRect()).filter((r) => r.width);
     if (!rs.length) return new DOMRect();
     const l = Math.min(...rs.map((r) => r.left)), t = Math.min(...rs.map((r) => r.top));
     return new DOMRect(l, t, Math.max(...rs.map((r) => r.right)) - l, Math.max(...rs.map((r) => r.bottom)) - t);
   },
-};
+});
+// 코드 · (직접수정) strudel.cc · 라이선스
+const codeLinks = unionBox(['codeToggle', 'strudelBtn', 'licenseBtn']);
 const TUT = [
   null,
   { when: () => tut.combo, show: () => spotlight(ui.stash, ot(isPhone.matches ? 'tutStashPhone' : 'tutStash'), { wait: 300 }) },
   {
+    // the slots come out with only 약하게 / 세게 live (변주 and 🎛 편집 stay dimmed for now;
+    // a phone has had the row all along)
     when: () => tut.thrown >= 5 || stepTimeUp(), cls: 'roll-ready',
-    // a phone has had the slots (편집 too) all along: here each of the five gets a short note
     show: () => {
-      if (isPhone.matches) {
-        SLOTS.forEach((m, i) => spotlight(slotEls[m], `${i + 1}/5 · ${ot('tutX' + m)}`, { wait: i ? 0 : 500 }));
-        return;
-      }
-      bump(ui.slots, 'intro');
-      spotlight(ui.slots, ot('tutSlots'), { wait: 800 });
+      if (!isPhone.matches) bump(ui.slots, 'intro');
+      spotlight(unionBox(['slotQuieter', 'slotLouder']), ot('tutSlots'), { wait: isPhone.matches ? 500 : 800 });
     },
   },
   {
+    // 변주 comes alive, ✎ 악보 beside it
     when: () => tut.thrown >= 7 || stepTimeUp(), cls: 'midi-ready',
-    // a phone had 편집 explained with the other slots: the step unlocks it quietly (for a later wide screen)
     show: () => {
-      if (isPhone.matches) return;
-      bump(slotEls.midi, 'intro');
-      spotlight(slotEls.midi, ot('tutMidi'), { wait: 700 });
+      bump(slotEls.vary, 'intro');
+      spotlight($('varyWrap'), ot('tutVary'), { wait: 700 });
     },
   },
   {
@@ -561,20 +661,23 @@ const TUT = [
   {
     // the set is Strudel code underneath: where to see it, and to take it to strudel.cc
     // (on a phone those links sit in the ⋯ menu, so the note points at that)
-    when: () => tut.used || tut.thrown >= tut.thrownAt + 3 || Date.now() - tut.at >= CODE_AFTER_MS,
+    // 📂 스템 열기 and the 🎛 편집 slot come out with it, without a note of their own.
+    when: () => tut.used || tut.thrown >= tut.thrownAt + 3 || Date.now() - tut.at >= CODE_AFTER_MS, cls: 'song-ready',
     show: () => isPhone.matches
       ? spotlight(() => document.querySelector('.m-menu-btn'), ot('tutCodePhone'), { wait: 500 })
       : spotlight(codeLinks, ot('tutCode'), { wait: 500 }),
   },
   {
-    when: () => tut.used || tut.thrown >= tut.thrownAt + 5 || Date.now() - tut.at >= SONG_AFTER_MS, cls: 'song-ready',
-    // the stems are for wide screens: on a phone the button stays hidden and this just passes
+    // 📂 스템 열기 has been out since 6 and still not opened after 3 min of playing: point at it.
+    // Opening the stems before then skips this note (tutEvent). The stems are for wide screens:
+    // on a phone the button stays hidden and this just passes.
+    when: () => tut.played - tut.playedAt >= SONG_AFTER_MS,
     show: () => isPhone.matches || spotlight($('stemReopen'), ot('tutSong'), { wait: 500 }),
   },
   {
-    // the stems were opened: how to get back to the loop (only the close button stays lit)
+    // the stems were opened: what stem mode is, ? for more, and the way back to the loop
     when: () => tut.used && document.body.classList.contains('stem-open'),
-    show: () => spotlight($('stemClose'), ot('tutStemClose'), { wait: 600 }),
+    show: () => spotlight(unionBox(['stemHelp', 'stemClose']), ot('tutStemClose'), { wait: 600 }),
   },
 ];
 const TUT_LAST = TUT.length - 1;
@@ -597,28 +700,39 @@ function tutCheck() {
   // one note at a time: a step that is due waits until the note on screen has gone
   if (!s || tutBusy() || !s.when()) return;
   tut.step++;
-  Object.assign(tut, { at: Date.now(), thrownAt: tut.thrown, movesAt: tut.moves, used: false });
+  Object.assign(tut, { at: Date.now(), thrownAt: tut.thrown, movesAt: tut.moves, playedAt: tut.played, used: false });
   if (s.cls) document.body.classList.add(s.cls);
   saveTut();
   s.show();
   tutCheck(); // the banner may go with this step
 }
 // what the steps wait for besides orbs: a preset saved (step 5), a save / share button used
-// (step 6), the code opened (step 7), the stems opened (step 8)
+// (step 6), the stems opened (step 8; opened during 6, the 📂 note (7) is skipped)
 function tutEvent(name) {
-  if ((name === 'preset' && tut.step === 4) || (name === 'share' && tut.step === 5) || (name === 'code' && tut.step === 6) || (name === 'stems' && tut.step === 7)) {
+  if (name === 'stems' && tut.step === 6) {
+    Object.assign(tut, { step: 7, at: Date.now(), thrownAt: tut.thrown, movesAt: tut.moves, playedAt: tut.played });
+  }
+  if ((name === 'preset' && tut.step === 4) || (name === 'share' && tut.step === 5) || (name === 'stems' && tut.step === 7)) {
     tut.used = true;
+    saveTut();
     tutCheck();
   }
 }
-setInterval(() => tut.step < TUT_LAST && !document.hidden && tutCheck(), 2000);
+setInterval(() => {
+  if (tut.step >= TUT_LAST || document.hidden) return;
+  if (playing) {
+    tut.played += 2000;
+    saveTut();
+  }
+  tutCheck();
+}, 2000);
 // a step held back by a note on screen comes as soon as that note has gone
 onTutIdle(() => tut.step < TUT_LAST && tutCheck());
 // skip ahead to step n without pointing at anything (n = TUT_LAST: everything out at once)
 function tutUpTo(n) {
   for (let i = 1; i <= n; i++) if (TUT[i].cls) document.body.classList.add(TUT[i].cls);
   if (tut.step >= n) return;
-  Object.assign(tut, { step: n, at: Date.now(), thrownAt: tut.thrown, movesAt: tut.moves, used: false });
+  Object.assign(tut, { step: n, at: Date.now(), thrownAt: tut.thrown, movesAt: tut.moves, playedAt: tut.played, used: false });
   if (n > 4) tut.banner = false, banner(null);
   saveTut();
 }
@@ -646,6 +760,7 @@ async function addLayer(id, home, seed = null) {
   else {
     put(layer, at, home);
     if (seed != null && seed !== variation && seeded(layer)) ownSeed.set(id, seed);
+    if (orbVars.has(id)) applyVar(id);
   }
   // a combo may have pulled in parts that are still falling
   for (const o of rain) if (active.has(o.id)) vanish(o);
@@ -663,6 +778,7 @@ function removeLayer(id, { silent = false, respawn = true } = {}) {
   if (ownSeed.has(id)) heldSeed.set(id, ownSeed.get(id));
   else heldSeed.delete(id);
   ownSeed.delete(id);
+  if (orbVars.has(id)) applyVar(id);
   chans.delete(id);
   if (solo === id) setSolo(null);
   if (respawn) eject(id, a.home, r.left + r.width / 2, r.top + r.height / 2);
@@ -722,8 +838,10 @@ function ghostThrow() {
   if (f.width && f.height && !document.hidden) {
     const el = document.createElement('i');
     el.className = 'ghost-orb';
+    // a new colour each throw, from anywhere in the field
+    el.style.setProperty('--acc', `hsl(${Math.floor(Math.random() * 360)} 85% 62%)`);
     document.body.append(el);
-    const x0 = f.left + f.width * (0.3 + Math.random() * 0.25), y0 = f.top + f.height * (0.3 + Math.random() * 0.3);
+    const x0 = f.left + f.width * (0.12 + Math.random() * 0.76), y0 = f.top + f.height * (0.12 + Math.random() * 0.7);
     // a slight arc, like a throw: up a little on the way, then into the player
     const mx = (x0 + c.x) / 2, my = Math.min(y0, c.y) - 40;
     const at = (x, y, s) => `translate(${x}px, ${y}px) scale(${s})`;
@@ -769,6 +887,40 @@ function showVolumeTip() {
   if (over > 0) tip.style.left = parseFloat(tip.style.left) - over + 'px';
   tip.addEventListener('animationend', (e) => e.animationName === 'volTip' && tip.remove());
 }
+// = pressed three times quickly (not while typing): the whole guide is skipped at once — the
+// first-orb hint and volume tip, the combo note and every step, with all their tools out
+function skipTutorial() {
+  clearTimeout(ghostTimer);
+  ghostTimer = 0;
+  if (!firstOrbDone) {
+    firstOrbDone = true;
+    document.body.classList.add('first-orb-done');
+    try {
+      localStorage.setItem(FIRST_ORB_KEY, '1');
+    } catch {}
+  }
+  if (comboOrb) comboOrb.hold = false;
+  comboOrb = null;
+  comboDue = true;
+  tut.combo = true;
+  tut.banner = false;
+  tutUpTo(TUT_LAST);
+  saveTut();
+  // after the step is at the end: the dropped notes' callbacks then find nothing left to show
+  tutDismissAll();
+}
+let eqPresses = [];
+addEventListener('keydown', (e) => {
+  if (e.key !== '=' || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
+  const t = e.target;
+  if (t instanceof HTMLElement && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+  const now = performance.now();
+  eqPresses = eqPresses.filter((at) => now - at < 800);
+  eqPresses.push(now);
+  if (eqPresses.length < 3) return;
+  eqPresses = [];
+  skipTutorial();
+});
 // boot: a restored session with orbs already counts as done (no tip on load)
 function checkFirstOrb({ boot = false } = {}) {
   if (firstOrbDone || !active.size) return;
@@ -780,6 +932,7 @@ function checkFirstOrb({ boot = false } = {}) {
   } catch {}
   if (!boot) {
     afterFirstSound(() => {
+      if (tut.step >= TUT_LAST) return; // the guide was skipped (= = =) before it sounded
       showVolumeTip();
       setTimeout(() => (comboDue = true), 6500); // once the tip has faded
     });
@@ -806,7 +959,7 @@ function renderStatus() {
   checkFirstOrb();
   const key = song ? '' : ` · ${keyText()} (${ot(keyMode())})`;
   ui.status.innerHTML = active.size
-    ? `${bpm()} BPM${key}${layers().some(seeded) ? ` · ${ot('variation')} <b>#${variation}</b>` : ''}`
+    ? `${bpm()} BPM${key}`
     : playing
       ? ot('quiet')
       : ot(isPhone.matches ? 'idlePhone' : 'idle');
@@ -899,20 +1052,8 @@ function renderChips() {
           revertDrawn(l.id);
         });
         strip.append(num, undo);
-      } else if (seeded(l)) {
-        // its own seed (from the 변주 slot): the number, shown only when it differs, goes back to the shared one
-        if (ownSeed.has(l.id)) {
-          const num = document.createElement('button');
-          num.className = 'ghost snum';
-          num.textContent = `#${ownSeed.get(l.id)}`;
-          num.title = ot('ownSeedBack', { v: variation });
-          num.addEventListener('click', (e) => {
-            e.stopPropagation();
-            setOwnSeed(l.id, null);
-          });
-          strip.append(num);
-        }
       }
+      // an orb's own seed (from the 변주 slot) isn't shown on its strip: the 변주 slot handles it
       strip.title = `${l.name}${slotTag(l.id)} — ${ot('stripTip')}`;
       strip.addEventListener('mouseenter', () => setSolo(l.id));
       strip.addEventListener('mouseleave', () => setSolo(null));
@@ -951,8 +1092,7 @@ function revertDrawn(id) {
   for (const k of order) if (all.has(k)) active.set(k, all.get(k));
   for (const [k, v] of all) if (!active.has(k)) active.set(k, v);
   if (cells && !song.cells[src.id]) {
-    let g = 0;
-    song.cells[src.id] = cells.map((sec, i) => sec.map((b) => ({ on: b.on, v: blockSeed(src, seedOf(src) + (song.sections[i].v ?? 0) * 100, g++) })));
+    song.cells[src.id] = cells.map((sec, i) => sec.map((b, j) => ({ ...b, k: blockVar(src, song.sections[i], j) })));
     const row = song.rows.find((r) => r.id === id);
     if (row) row.id = src.id;
     delete song.cells[id];
@@ -1013,28 +1153,44 @@ function paint(el, l) {
   // moods and keys are both colour swirls: a mood's rim is dashed, a key's is solid
   if (l.cat === 'mood') el.classList.add('mood');
   if (l.eq) el.classList.add('eq');
+  // a custom orb (🎛 편집): a diagonal band across the ball's lower right (orbs.css --band)
+  if (l.custom) el.classList.add('custom');
   if (l.id && byId[l.id] === l) decorate(el, l.id);
 }
 
 // What the slots did to an orb, drawn on it wherever it shows (field, stash, slots, song):
 // turned down = smaller, turned up = a bit bigger (.vol, --vol-scale); its own variation = a faint
 // pattern over the ball that changes with the seed (.varied, --vpat, --vpat-rot).
+const volScale = (n) => (n < 0 ? 1 + 0.13 * n : 1 + 0.1 * n).toFixed(2);
 function decorate(el, id) {
   if (!el) return;
   const n = volStep(id);
   el.classList.toggle('vol', !!n);
-  if (n) el.style.setProperty('--vol-scale', (n < 0 ? 1 + 0.13 * n : 1 + 0.1 * n).toFixed(2));
+  if (n) el.style.setProperty('--vol-scale', volScale(n));
   else el.style.removeProperty('--vol-scale');
   // an orb edited by hand gets a pattern too, picked by its notes
-  const raw = byId[id]?.raw;
-  patternOn(el, heldSeed.get(id) ?? ownSeed.get(id) ?? (raw ? rawKey(raw) : null));
+  const raw = byId[id]?.raw ?? varOf(id)?.raw;
+  patternOn(el, raw ? rawKey(raw) : heldSeed.get(id) ?? ownSeed.get(id) ?? null, byId[id]);
 }
 const rawKey = (raw) => 'raw' + JSON.stringify(raw);
-// the variation pattern for `key` (a seed, or rawKey of a drawing) on el; null takes it off
-function patternOn(el, key) {
+// a red / vermilion / orange / yellow ball: rays spreading from its middle would read as a rising
+// sun, so those get no ray patterns (seedPattern)
+function warmOrb(l) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(l?.color ?? l?.colors?.[0] ?? '');
+  if (!m) return false;
+  const n = parseInt(m[1], 16);
+  const [r, g, b] = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => v / 255);
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
+  if (!d || d / (1 - Math.abs(max + min - 1)) < 0.25) return false; // grey-ish
+  const h = (max === r ? ((g - b) / d + 6) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4) * 60;
+  return h >= 340 || h <= 65;
+}
+// the variation pattern for `key` (a seed, or rawKey of a drawing) on el; null takes it off.
+// `l`: the orb it's on (a warm one gets no rays)
+function patternOn(el, key, l) {
   el.classList.toggle('varied', key != null);
   if (key != null) {
-    const [bg, rot] = seedPattern(key);
+    const [bg, rot] = seedPattern(key, warmOrb(l));
     el.style.setProperty('--vpat', bg);
     el.style.setProperty('--vpat-rot', rot + 'deg');
   } else el.style.removeProperty('--vpat');
@@ -1042,8 +1198,8 @@ function patternOn(el, key) {
 
 // A faint pattern picked by the seed, so each variation looks a little different: one of many
 // kinds (checks, stripes, dots, rings, rays, weaves …), in light or dark ink, at its own size,
-// thickness and angle.
-function seedPattern(seed) {
+// thickness and angle. `noRays`: leave out the kinds that fan out from a point (warmOrb)
+function seedPattern(seed, noRays = false) {
   const r = rng(hash('vpat' + seed));
   const a = (lo, hi) => (lo + r() * (hi - lo)).toFixed(2);
   const dark = r() < 0.3;
@@ -1076,9 +1232,9 @@ function seedPattern(seed) {
     // rings around a point off to one side
     () => `repeating-radial-gradient(circle at ${a(10, 90)}% ${a(10, 90)}%, ${w} 0 ${t / 2}%, transparent 0 ${z / 2}%)`,
     // sunburst rays
-    () => `repeating-conic-gradient(from ${a(0, 90)}deg, ${w} 0 ${a(4, 10)}deg, transparent 0 ${a(16, 30)}deg)`,
+    !noRays && (() => `repeating-conic-gradient(from ${a(0, 90)}deg, ${w} 0 ${a(4, 10)}deg, transparent 0 ${a(16, 30)}deg)`),
     // pinwheel (rays from off-centre)
-    () => `repeating-conic-gradient(from 0deg at ${a(25, 75)}% ${a(25, 75)}%, ${w} 0 ${a(8, 16)}deg, transparent 0 ${a(24, 45)}deg)`,
+    !noRays && (() => `repeating-conic-gradient(from 0deg at ${a(25, 75)}% ${a(25, 75)}%, ${w} 0 ${a(8, 16)}deg, transparent 0 ${a(24, 45)}deg)`),
     // diamonds
     () => `conic-gradient(from 45deg, ${w} 0 25%, transparent 0 50%, ${w} 0 75%, transparent 0) ${tile}`,
     // triangles / sawtooth
@@ -1097,22 +1253,27 @@ function seedPattern(seed) {
     () => `repeating-linear-gradient(0deg, transparent 0, ${w} ${z / 4}%, transparent ${z / 2}%)`,
     // half the ball shaded, a split
     () => `linear-gradient(0deg, ${w} 0 ${a(35, 65)}%, transparent 0)`,
-  ];
+  ].filter(Boolean);
   return [kinds[Math.floor(r() * kinds.length)](), Math.round(r() * 180)];
 }
 
 // what goes inside a ball: the colour swirl, or for a combo its orbs, packed in a circle
 function orbInner(l) {
   if (!l?.combo) return '<i class="swirl"></i>';
-  const parts = l.combo.map((id) => byId[id]).filter(Boolean);
+  return bubbles(l.combo.map((id) => byId[id]).filter(Boolean), l.id);
+}
+
+// orbs packed in a circle (a combo's ball, a preset tile). `core`: a stem's tile, where every orb
+// goes around one bright orb in the middle, like the nucleus of an atom
+function bubbles(parts, seed, core = false) {
   const n = parts.length;
   // up to five around the middle; more get one in the middle and the rest around it
-  const mid = n > 5;
+  const mid = !core && n > 5;
   const ring = mid ? n - 1 : n;
-  const d = n === 1 ? 70 : mid ? 36 : [0, 0, 52, 48, 44, 40][n];
-  const R = n === 1 ? 0 : mid ? 33 : [0, 0, 25, 27, 29, 31][n];
-  const r = rng(hash(l.id));
-  return parts.map((p, i) => {
+  const d = core ? ([0, 50, 46, 44, 42, 40, 38][n] ?? 36) : n === 1 ? 70 : mid ? 36 : [0, 0, 52, 48, 44, 40][n];
+  const R = core ? (n === 1 ? 24 : 31) : n === 1 ? 0 : mid ? 33 : [0, 0, 25, 27, 29, 31][n];
+  const r = rng(hash(seed));
+  const html = parts.map((p, i) => {
     const k = mid ? i - 1 : i;
     const ang = (k / ring) * Math.PI * 2 - Math.PI / 2 + (r() - 0.5) * 0.3;
     const rad = mid && i === 0 ? 0 : R;
@@ -1124,6 +1285,7 @@ function orbInner(l) {
     const loop = `--ax:${w()};--ay:${w()};--as:${sz()};--bx:${w()};--by:${w()};--bs:${sz()};--cx:${w()};--cy:${w()};--cs:${sz()};--t:${(1.8 + r() * 1.6).toFixed(2)}s`;
     return `<i class="bub${p.dark ? ' dark' : ''}" style="--c:${tone(p.color ?? p.colors?.[0])};--g:${ctint(p)};--x:${x.toFixed(1)}%;--y:${y.toFixed(1)}%;--d:${(d * (0.92 + r() * 0.16)).toFixed(1)}%;--k:${i};${loop}"></i>`;
   }).join('');
+  return core ? html + '<i class="bub core"></i>' : html;
 }
 
 function makeSat(layer) {
@@ -1182,9 +1344,9 @@ const rainSize = () => {
 
 // what the slots did to an orb, for tooltips: " · 음량 80% · #1234"
 function slotTag(id) {
-  const n = volStep(id), seed = heldSeed.get(id) ?? ownSeed.get(id);
+  const n = volStep(id), seed = heldSeed.get(id) ?? ownSeed.get(id), vs = orbVars.get(id);
   const what = byId[id]?.cat === 'mood' ? `${ot('slotFxWhat')} ${n > 0 ? '+' : ''}${n}` : `${ot('slotGainWhat')} ${gainPct(stepGain(n))}%`;
-  return (n ? ` · ${what}` : '') + (seed != null ? ` · #${seed}` : '');
+  return (n ? ` · ${what}` : '') + (vs ? ` · ${ot('slotVary')} ${varNum(vs.vi)}` : seed != null ? ` · #${seed}` : '');
 }
 
 function makeOrbEl(id) {
@@ -1198,7 +1360,10 @@ function makeOrbEl(id) {
   el.innerHTML = `<div class="fade"><div class="float"><span class="label">${l.name}</span><div class="ball">${orbInner(l)}</div><span class="kind">${l.kind ?? ''}</span></div></div>`;
   const ball = el.querySelector('.ball');
   ball.addEventListener('pointerdown', (e) => grabFromRain(e, el));
-  ball.addEventListener('mouseenter', () => hoverOn(el.dataset.id, 'field'));
+  ball.addEventListener('mouseenter', () => {
+    hoverOn(el.dataset.id, 'field');
+    hoverCombo(el.dataset.id, ball);
+  });
   ball.addEventListener('mouseleave', hoverOff);
   return el;
 }
@@ -1245,8 +1410,13 @@ let opening = true;
 let bootDone = false;
 const instant = (l) => (l.combo ? l.combo.map((c) => byId[c]) : [l]).every((x) => x && (x.samples ?? []).every(isBooted));
 // Pick a layer to drop in, favouring parts the song doesn't have yet and orbs not already shown.
+// the chance a falling orb is a custom one, while there are any to drop: 0 for now, custom orbs
+// show only in the ✦ 커스텀 오브 panel (under 🔍)
+const CUSTOM_RAIN = 0;
+// The song, the stash and the slots don't hold an orb back (a second one falls as a copy, freshOrb);
+// only one of each falls at a time.
 function pickCandidate() {
-  const shown = new Set([...active.keys(), ...rain.map((o) => o.id), ...stash, ...slotIds()]);
+  const shown = new Set(rain.map((o) => rootOf(o.id)));
   const activeCats = new Set(layers().map((l) => l.cat));
   const early = active.size < SOUND_FIRST;
   const from = onlyIds ? LAYERS.filter((l) => onlyIds.has(l.id)) : LAYERS;
@@ -1254,8 +1424,13 @@ function pickCandidate() {
   const first = !firstOrbDone;
   if (opening && !bootDone && !onlyIds) return null;
   const allowed = (l) => onlyIds || (!(early && noSound(l)) && !(l.combo && comboHeld()) && (!first || FIRST_CATS.has(l.cat)) && (!opening || instant(l)));
+  // now and then a custom orb (made here, or uploaded by someone) instead of a catalogue one
+  if (CUSTOM_RAIN > 0 && !onlyIds && !first && Math.random() < CUSTOM_RAIN) {
+    const cs = allCustoms().filter((l) => allowed(l) && !shown.has(l.id));
+    if (cs.length) return cs[Math.floor(Math.random() * cs.length)].id;
+  }
   let pool = from.filter((l) => allowed(l) && !shown.has(l.id) && !(l.combo && l.combo.every((c) => active.has(c))));
-  if (!pool.length && !onlyIds) pool = from.filter((l) => allowed(l) && !active.has(l.id));
+  if (!pool.length && !onlyIds) pool = from.filter((l) => allowed(l));
   if (!pool.length) return null;
   const w = spawnWeights(pool, activeCats);
   let x = Math.random() * w.reduce((s, v) => s + v, 0);
@@ -1267,8 +1442,10 @@ function pickCandidate() {
 // parts the song is missing and less for helpers (combos, moods, keys, tempos); split over the
 // category's sound families by √size; split evenly inside a family. Block FX (spot) are accents
 // for one place in a stem song, so their family falls far less often. The other-scale family is
-// held at SCALE_SHARE of its category instead, so it can keep growing without taking over.
+// held at SCALE_SHARE of its category instead, so it can keep growing without taking over; turning
+// those orbs down lowers that share for a while (taste.scaleKeep).
 const SCALE_SHARE = 0.3;
+const MOOD_SHARE = 0.08;
 function spawnWeights(pool, activeCats) {
   const fams = new Map(); // cat -> Map(family -> count)
   for (const l of pool) {
@@ -1277,10 +1454,11 @@ function spawnWeights(pool, activeCats) {
   }
   const famWeight = (fam, n) => Math.sqrt(n) * (fam === 'block fx' && !onlyIds ? 0.15 : 1);
   // the other-scale orbs take a fixed share of their category (SCALE_SHARE), however many there are
+  const scaleShare = SCALE_SHARE * taste.scaleKeep();
   const famWeights = new Map([...fams].map(([cat, m]) => {
     const w = new Map([...m].map(([f, n]) => [f, famWeight(f, n)]));
     const rest = [...w].reduce((s, [f, x]) => s + (f === 'other scales' ? 0 : x), 0);
-    if (w.has('other scales') && rest > 0) w.set('other scales', (rest * SCALE_SHARE) / (1 - SCALE_SHARE));
+    if (w.has('other scales') && rest > 0) w.set('other scales', (rest * scaleShare) / (1 - scaleShare));
     return [cat, w];
   }));
   const catTotal = new Map([...famWeights].map(([cat, w]) => [cat, [...w.values()].reduce((s, x) => s + x, 0)]));
@@ -1290,7 +1468,17 @@ function spawnWeights(pool, activeCats) {
     const cat = (CAT_SHARE[l.cat] ?? 20) * (activeCats.has(l.cat) ? 1 : 4) * (l.combo || l.fx || l.duck || l.bpm || l.mode ? 0.25 : 1);
     return (cat * famWeights.get(l.cat).get(l.family)) / catTotal.get(l.cat) / n;
   });
+  // moods, once the song has one: a fixed MOOD_SHARE of all drops instead of the ¼× (several are
+  // worth trying); their split over the mood families stays as above. Without one, the 4× above.
+  const isMood = (l) => l.cat === 'mood';
+  const moodTot = pool.reduce((s, l, i) => s + (isMood(l) ? w[i] : 0), 0);
+  const restTot = pool.reduce((s, l, i) => s + (isMood(l) ? 0 : w[i]), 0);
+  if (activeCats.has('mood') && moodTot > 0 && restTot > 0) {
+    const k = (restTot * MOOD_SHARE) / (1 - MOOD_SHARE) / moodTot;
+    pool.forEach((l, i) => isMood(l) && (w[i] *= k));
+  }
   // then, inside each category, towards orbs that fit the song, or away from it after turn-downs
+  // (moods have no vibe, so their share stays)
   return taste.reweigh(pool, w);
 }
 
@@ -1466,8 +1654,9 @@ function updateRain(dt, now) {
   if (extra > 0) every = Math.min(every, 700); // the extra orbs come in a little sooner
   if (rain.length < target() && now - lastSpawn > every) {
     lastSpawn = now;
-    const id = pickCandidate();
+    let id = pickCandidate();
     if (id) {
+      id = freshOrb(id);
       forget(id);
       rainAdd(id, pickX(size.w), -40);
     }
@@ -1479,7 +1668,8 @@ function seedRain() {
   const { w, h } = rainSize();
   const n = target();
   for (let i = 0; i < n; i++) {
-    const id = pickCandidate();
+    let id = pickCandidate();
+    if (id) id = freshOrb(id);
     if (id) forget(id);
     if (id) rainAdd(id, 60 + Math.random() * Math.max(1, w - 120), (i / n) * h * 0.85 + 10, { pop: true });
   }
@@ -1505,7 +1695,10 @@ function renderStash() {
       paint(b, byId[id]);
       b.innerHTML = orbInner(byId[id]);
       b.addEventListener('pointerdown', (e) => grabFromStash(e, i));
-      b.addEventListener('mouseenter', () => hoverOn(id));
+      b.addEventListener('mouseenter', () => {
+        hoverOn(id);
+        hoverCombo(id, b);
+      });
       b.addEventListener('mouseleave', hoverOff);
       cell.append(b);
     }
@@ -1519,7 +1712,7 @@ function storeInStash(el, home) {
     return false;
   }
   taste.clear(el.dataset.id); // kept for later: neither for nor against
-  stash.push(home?.kind === 'roll' ? takeFromRoll().id : el.dataset.id);
+  stash.push(el.dataset.id);
   el.remove();
   renderStash();
   bump(ui.stash, 'gulp');
@@ -1545,40 +1738,40 @@ const overCore = (x, y) => {
   const c = coreCenter();
   return Math.hypot(x - c.x, y - c.y) < c.drop;
 };
-// The five orb slots under the field. Throwing an orb into 편집 opens its tab (the piano roll,
-// #roll, above the slots); the volume and variation slots change the orb and keep it, jiggling, in
-// the slot until it is grabbed out again. What a slot did stays with the orb wherever it goes next.
-// 복제 leaves the orb as it is and puts a copy of it (variation and volume included) in the stash.
-const SLOTS = ['midi', 'quieter', 'louder', 'vary', 'copy'];
-// the slots that keep an orb sitting in them (편집 too, once its tab is closed with 수정 완료)
-const FX_SLOTS = ['quieter', 'louder', 'vary', 'copy', 'midi'];
+// The orb slots under the field: 약하게 · 세게, and apart from them 변주. The volume
+// slots change the orb and keep it, jiggling, in the slot until it is grabbed out again; what a
+// slot did stays with the orb wherever it goes next. 변주 keeps the orb still, with its
+// variations around it (변주 제거 · ◀ · ▶ · 편집, which opens the piano roll on the one on show).
+// 🎛 편집, last and apart again, opens the knobs panel over the field on the orb put in it.
+const SLOTS = ['quieter', 'louder', 'vary', 'edit'];
+const FX_SLOTS = SLOTS; // every slot keeps the orb put into it
 const slotOrbs = {}; // mode -> { id, home }: the orb sitting in a slot
 const slotIds = () => FX_SLOTS.map((m) => slotOrbs[m]?.id).filter(Boolean);
 const slotEls = Object.fromEntries(SLOTS.map((m) => [m, ui.slots.querySelector(`[data-slot="${m}"]`)]));
-// which orbs a slot takes: 편집 needs an instrument to draw with, the volume slots an orb that
-// plays a part of its own (up to three steps each way), 변주 an orb whose notes change with the seed
+// which orbs a slot takes: the volume slots an orb that plays a part of its own (up to three
+// steps each way), 변주 an orb whose notes change with the seed or an instrument to draw with
 function accepts(mode, l) {
-  if (!l) return false;
-  if (mode === 'midi') return !!l.voice;
-  if (mode === 'vary') return seeded(l);
+  if (!l || !slotLive(mode)) return false;
+  if (mode === 'vary') return seeded(l) || (!!l.voice && !l.raw);
+  // 🎛 편집: an orb that plays a sound of its own (not a drawing: its notes are its own)
+  if (mode === 'edit') return !!l.code && !l.combo && !l.raw;
   // a mood orb: 약하게 / 세게 turn its effects down / up instead of a volume
   if (!l.code && (mode === 'quieter' || mode === 'louder') && fxScalable(l)) {
     return mode === 'quieter' ? volStep(l.id) > -VOL_STEPS : volStep(l.id) < VOL_STEPS;
   }
   if (!l.code) return false;
-  if (mode === 'copy') return !l.combo;
   return mode === 'quieter' ? volStep(l.id) > -VOL_STEPS : volStep(l.id) < VOL_STEPS;
 }
-// the slot under (x, y): one of the five, or the open tab (the same as its slot)
-// On a phone the slots (편집 included) are always out; on wide screens the guide's steps open them.
+// the slot under (x, y)
+// On a phone the slots (and 편집) are always out; on wide screens the guide's steps open them.
 const hasCls = (c) => document.body.classList.contains(c);
 const slotsOn = () => isPhone.matches || hasCls('roll-ready');
-const midiOn = () => isPhone.matches || hasCls('midi-ready');
+// the guide wakes the slots up a group at a time (dimmed and shut until then, phones too):
+// 약하게 · 세게 with the slots (2), 변주 at 3, 🎛 편집 at 6
+const slotLive = (m) => (m === 'vary' ? hasCls('midi-ready') : m === 'edit' ? hasCls('song-ready') : true);
 function slotAt(x, y) {
   if (!slotsOn()) return null;
-  const midi = midiOn();
-  for (const m of SLOTS) if ((m !== 'midi' || midi) && inRect(slotEls[m], x, y)) return m;
-  if (midi && rollOrb && inRect(ui.roll, x, y)) return 'midi';
+  for (const m of SLOTS) if (slotLive(m) && inRect(slotEls[m], x, y)) return m;
   return null;
 }
 const overStash = (x, y) => inRect(ui.stash, x, y);
@@ -1656,7 +1849,6 @@ function highlight(x, y, id = null) {
     slotEls[m].classList.toggle('hot', at === m && accepts(m, l));
     slotEls[m].classList.toggle('off', !!l && !accepts(m, l));
   }
-  ui.roll.classList.toggle('hot', !!at && at === rollOrb?.mode && inRect(ui.roll, x, y) && accepts(at, l));
   ui.stash.classList.toggle('hot', !core && x !== null && overStash(x, y));
 }
 
@@ -1665,7 +1857,7 @@ function startDrag(e, el, home, anchor) {
   const held = el.dataset.id;
   warm([byId[held]]);
   // a held orb is auditioned on its own; over the player it is heard with the song
-  if (started && home.kind !== 'roll') {
+  if (started) {
     hover = held;
     hoverMix = false;
     syncSoon();
@@ -1709,9 +1901,10 @@ function startDrag(e, el, home, anchor) {
     const dt = (now - old.t) / 1000;
     const vx = dt > 0.012 ? (x - old.x) / dt : 0, vy = dt > 0.012 ? (y - old.y) / dt : 0;
     if (home.kind === 'active') {
-      // taken out of the song: it stays where it was let go; only a hard flick to the right
-      // (towards the stash) sends it straight into the stash
-      if (vx > 900 && vx > Math.abs(vy) * 1.2 && storeInStash(el, home)) return;
+      // taken out of the song: it stays where it was let go; a hard flick to the right throws it
+      // off the screen (past the stash: only a drop right on it keeps it there), and it comes
+      // back down with the rain
+      if (vx > 900 && vx > Math.abs(vy) * 1.2) return throwOut(el, x, y, vx, vy);
       return settle(el, home, x, y);
     }
     // thrown upwards out of a slot under the field: a short hop up into the field, never into the song
@@ -1733,24 +1926,15 @@ function land(el, home, x, y, thrown = false) {
   }
   const m = slotAt(x, y);
   // over the slot it was just taken out of: a throw starting there flies on; let go there, a
-  // volume / variation slot does its job once more (grab, drop, grab, drop … turns it down step by
-  // step), and 편집's orb just goes back
-  const own = home.kind === 'roll' ? 'midi' : home.kind === 'slot' ? home.mode : null;
-  if (m && m === own && home.kind === 'slot' && !thrown) {
+  // volume slot does its job once more (grab, drop, grab, drop … turns it down step by step)
+  const own = home.kind === 'slot' ? home.mode : null;
+  if (m && m === own && !thrown) {
     if (pickForSlot(el.dataset.id, home.origin, m)) el.remove();
     else goHome(el, home);
     return true;
   }
   if (m && m !== own) {
-    if (home.kind === 'roll') {
-      // on into another slot, keeping the drawing / seed
-      const t = takeFromRoll();
-      if (!pickForSlot(t.id, t.home, m)) returnOrb(t.id, t.home);
-      el.remove();
-      sync();
-      return true;
-    }
-    // the orb moves into the slot and stays there (in 편집, as its instrument)
+    // the orb moves into the slot and stays there
     const origin = home.kind === 'active' ? home.home : home.kind === 'slot' ? home.origin : home;
     if (pickForSlot(el.dataset.id, origin, m)) el.remove();
     else goHome(el, home);
@@ -1762,13 +1946,6 @@ function land(el, home, x, y, thrown = false) {
 
 // Let go somewhere neutral: inside the field it keeps falling from there, otherwise it goes home.
 function settle(el, home, x, y) {
-  if (home.kind === 'roll') {
-    // let go of the 편집 orb anywhere else: it goes back to where it came from
-    if (!inRect(ui.field, x, y) && !inRect(ui.stash, x, y)) return goHome(el, home);
-    el.remove();
-    sendRollOrbHome();
-    return;
-  }
   if (!inRect(ui.field, x, y)) return goHome(el, home);
   const fr = ui.field.getBoundingClientRect();
   rainAdd(el.dataset.id, x - fr.left, y - fr.top, { el });
@@ -1779,8 +1956,8 @@ function goHome(el, home) {
   if (home.kind === 'active') return absorb(el, home.home);
   const id = el.dataset.id;
   let tx, ty;
-  if (home.kind === 'roll' || home.kind === 'slot') {
-    const r = (home.kind === 'roll' ? ui.rollSlot : slotEls[home.mode]).getBoundingClientRect();
+  if (home.kind === 'slot') {
+    const r = slotEls[home.mode].getBoundingClientRect();
     [tx, ty] = [r.left + r.width / 2, r.top + r.height / 2];
   } else if (home.kind === 'stash') {
     const cell = ui.stashSlots.children[Math.min(home.index, stash.length)];
@@ -1794,11 +1971,7 @@ function goHome(el, home) {
   el.style.left = tx + 'px';
   el.style.top = ty + 'px';
   setTimeout(() => {
-    if (home.kind === 'roll') {
-      el.remove();
-      rollOrb.grabbed = false;
-      renderRollHead();
-    } else if (home.kind === 'slot') {
+    if (home.kind === 'slot') {
       // back into its slot as it was (somebody else's orb there now: it goes where it came from)
       el.remove();
       if (slotOrbs[home.mode]) returnOrb(id, home.origin);
@@ -1845,6 +2018,29 @@ function hopUp(el, home, x, y, vx, vy) {
   }, 360);
 }
 
+// An orb taken out of the song and flicked to the right: it flies straight on, caught by nothing
+// (stash, slots), until it is off the screen, then falls back into the field from the top.
+function throwOut(el, x, y, vx, vy) {
+  const sp = Math.max(Math.hypot(vx, vy), 1400);
+  const ux = vx / Math.hypot(vx, vy), uy = vy / Math.hypot(vx, vy);
+  let last = performance.now();
+  const step = (now) => {
+    const dt = Math.min(0.05, (now - last) / 1000);
+    last = now;
+    x += ux * sp * dt;
+    y += uy * sp * dt;
+    el.style.left = x + 'px';
+    el.style.top = y + 'px';
+    if (x < -60 || x > innerWidth + 60 || y < -60 || y > innerHeight + 60) {
+      const { w } = rainSize();
+      rainAdd(el.dataset.id, pickX(w), -40, { el });
+      return;
+    }
+    requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
 function fling(el, home, x, y, vx, vy) {
   let last = performance.now();
   // while nothing plays, a throw heading left (towards the player) always lands in it, so the
@@ -1888,9 +2084,8 @@ function fling(el, home, x, y, vx, vy) {
 }
 
 function absorb(el, home) {
-  let seed = null;
-  if (home?.kind === 'roll') ({ id: el.dataset.id, home, seed } = takeFromRoll());
-  else if (home?.kind === 'slot') home = home.origin;
+  const seed = null;
+  if (home?.kind === 'slot') home = home.origin;
   const id = el.dataset.id;
   const c = coreCenter();
   el.classList.add('flying', 'absorb');
@@ -1920,15 +2115,71 @@ let draft = null; // { src: instrument orb id, raw: Array(STEPS) of degree | [de
 // (the press landed on a note) takes notes off, 'erase' (right button / shift) clears whole steps
 let stroke = null; // { mode, base: raw at the press, pts: [[x, y]], last: { s, d } }
 let drawnCount = 0;
-// The orb thrown into a slot stays there (the slot's tab is open while it has one; in the MIDI
-// slot the orb is the instrument). Grab it to throw it into the song, the stash, the field or
-// another slot, carrying what the slot did with it; in the MIDI slot a drawing goes with it, and
-// letting go of it in the field sends it back where it came from.
-let rollOrb = null; // { id, home, mode: 'midi', grabbed }
+// 편집 (beside the 변주 slot) opens the roll on the orb sitting there, at the variation on show.
+// 수정 완료 (or switching variation, or taking the orb out) keeps what was drawn as that variation.
+let rollOrb = null; // { id }: the orb in the 변주 slot being edited
+// 풀 스케일: the roll shows all 12 semitones over 4 octaves (scrolling) instead of the key's 15
+// scale rows. It stays on for the next orb; a full-scale drawing turns it on when it is opened.
+let fullScale = false;
+let rollScrollDue = false; // scroll the roll to its notes on the next frame
 
 const hasNotes = (raw) => raw.some((d) => notesAt(d).length > 0);
-// the seed an orb plays at: one waiting from the 변주 slot, else its own or the shared one
-const seedFor = (l) => heldSeed.get(l.id) ?? seedOf(l);
+// the roll is showing semitones (only pitched instruments have them)
+const semiRoll = () => fullScale && !!draft && !!byId[draft.src]?.voice?.root;
+const rollRows = () => (semiRoll() ? SEMIS : ROWS);
+// a roll row as a stored note, and back
+const rowVal = (r) => (semiRoll() ? SEMI + r : r);
+const rowOf = (d) => (isSemi(d) ? d - SEMI : d);
+const scaleSteps = () => (keyMode() === 'major' ? [0, 2, 4, 5, 7, 9, 11] : [0, 2, 3, 5, 7, 8, 10]);
+// semitones above the voice's root -> the nearest scale row (0–14)
+function degreeOf(rel) {
+  const steps = scaleSteps(), pc = ((rel % 12) + 12) % 12;
+  let best = 0;
+  steps.forEach((st, i) => Math.abs(st - pc) < Math.abs(steps[best] - pc) && (best = i));
+  let d = Math.floor(rel / 12) * 7 + best;
+  while (d < 0) d += 7;
+  while (d > ROWS - 1) d -= 7;
+  return d;
+}
+// semitones above the voice's root -> a full-scale note (rows start an octave under the root)
+function semiOf(rel) {
+  let k = rel + 12;
+  while (k < 0) k += 12;
+  while (k > SEMIS - 1) k -= 12;
+  return SEMI + k;
+}
+// A drawing in the other kind of rows. To full scale each note goes to its semitone. Back to the key's rows, each note goes to the nearest.
+function convertRaw(raw, v, toSemi) {
+  if (toSemi) {
+    const steps = scaleSteps();
+    return raw.map((x) => stepOf(notesAt(x).map((d) => (isSemi(d) ? d : semiOf(Math.floor(d / 7) * 12 + steps[d % 7])))));
+  }
+  return raw.map((x) => stepOf(notesAt(x).map((d) => (isSemi(d) ? degreeOf(d - SEMI - 12) : d))));
+}
+// make the draft's notes match the roll's rows: an untouched seed variation is read again (exact notes)
+function fitDraft() {
+  const s = draft && byId[draft.src];
+  if (!s?.voice?.root || !hasNotes(draft.raw)) return;
+  const want = semiRoll();
+  if (fullScaleRaw(draft.raw) === want) return;
+  if (!draft.edited && !drawnOf(s)) {
+    const own = patternToRaw(s, draft.seed ?? seedFor(s), want);
+    if (own && hasNotes(own)) {
+      draft.raw = own;
+      return;
+    }
+  }
+  draft.raw = convertRaw(draft.raw, s.voice, want);
+}
+function setFullScale(on) {
+  fullScale = on;
+  fitDraft();
+  rollScrollDue = true;
+  renderRollHead();
+  if (rollOrb) sync();
+}
+// the seed an orb plays at outside the song: its variation, one waiting from the 변주 slot, else its own or the shared one
+const seedFor = (l) => drawnOf(l) ?? heldSeed.get(l.id) ?? seedOf(l);
 
 // a short line over the slots when one turns an orb away
 let slotHintTimer = 0;
@@ -1939,70 +2190,410 @@ function slotSay(text) {
   slotHintTimer = setTimeout(() => ui.slotHint.classList.remove('on'), 4000);
 }
 
-// Put an orb into a slot: 편집 slides its tab up with the orb in it; the others do their job and
-// keep the orb. apply = false when a saved session puts it back (the change was made before).
-function pickForSlot(id, home = null, mode = 'midi', { apply = true } = {}) {
+// Put an orb into a slot: it does its job and keeps the orb. apply = false when a saved session
+// puts it back (the change was made before).
+function pickForSlot(id, home = null, mode = 'vary', { apply = true } = {}) {
   const l = byId[id];
   if (!accepts(mode, l)) {
-    slotSay(mode === 'midi'
-      ? ot(!l.code && !l.combo ? 'rollWholeSong' : 'rollNotInstrument', { name: l.name })
-      : ot(mode === 'vary' ? 'slotVaryNo' : mode === 'copy' ? 'slotCopyNo' : !l.code && !fxScalable(l) ? 'slotGainNo' : mode === 'quieter' ? 'slotQuieterMax' : 'slotLouderMax', { name: l.name }));
+    slotSay(ot(mode === 'vary' ? 'slotVaryNo' : mode === 'edit' ? 'slotEditNo' : !l.code && !fxScalable(l) ? 'slotGainNo' : mode === 'quieter' ? 'slotQuieterMax' : 'slotLouderMax', { name: l.name }));
     bump(slotEls[mode], 'reject');
     return false;
   }
   taste.slot(id); // tried out: if it goes back to the field, only a weak turn-down
-  if (mode !== 'midi') return putInSlot(id, home, mode, apply);
-  if (rollOrb && rollOrb.id !== id) returnOrb(rollOrb.id, rollOrb.home);
-  // an orb left in 편집 by 수정 완료 makes room (back where it came from, unless it is this one)
-  const sat = slotOrbs.midi;
-  if (sat) {
-    slotOrbs.midi = null;
-    if (sat.id !== id) returnOrb(sat.id, sat.home);
-    renderSlots();
+  return putInSlot(id, home, mode, apply);
+}
+
+// ---------- the 변주 slot: an orb's variations ----------
+
+// a new variation for the orb, selected: a fresh seed, or for a part whose notes never change
+// with the seed, a copy of the notes on show to draw on
+// a fresh seed variation at the end of the orb's list (its index), or null when the list is full
+function newSeedVar(id) {
+  const st = ensureVars(id);
+  if (st.list.length >= VAR_MAX) return null;
+  const used = new Set(st.list.map((x) => x.seed));
+  let v;
+  do v = newSeed();
+  while (used.has(v) || v === variation);
+  st.list.push({ seed: v });
+  return st.list.length - 1;
+}
+function addVar(id) {
+  const st = ensureVars(id), l = byId[id];
+  if (st.list.length >= VAR_MAX) return false;
+  if (seeded(l)) newSeedVar(id);
+  else {
+    const raw = drawnOf(l)?.raw ?? (l.voice && patternToRaw(l, seedFor(l), fullScale && !!l.voice.root));
+    if (!raw) return false;
+    st.list.push({ raw: [...raw] });
   }
-  rollOrb = { id, home, mode };
-  // a drawn orb brings its drawing back; any other orb shows the notes it is playing right now
-  const own = l.raw ? null : patternToRaw(l, seedFor(l));
-  if (l.raw) draft = { src: l.src, raw: [...l.raw] };
-  else draft = { src: id, raw: own && hasNotes(own) ? own : draft?.raw ?? Array(STEPS).fill(null) };
-  draft.edited = false;
-  draft.seed = null; // set by 🎲 in the roll: the orb leaves with that variation
+  st.vi = st.list.length - 1;
+  applyVar(id);
+  return true;
+}
+// the first time in: 02, a new variation (an orb with variations shows the one it plays)
+function startVars(id) {
+  if (orbVars.has(id)) return;
+  ensureVars(id);
+  if (seeded(byId[id])) addVar(id);
+}
+// stem cells that pointed at variation k of id follow its removal
+function dropVarCells(id, k) {
+  for (const s of [song, lastSong]) {
+    for (const sec of s?.cells?.[id] ?? []) {
+      for (const c of sec) if (c.k != null && c.k >= k) c.k = c.k === k ? Math.max(0, k - 1) : c.k - 1;
+    }
+  }
+}
+function varyOrb() {
+  const s = slotOrbs.vary;
+  return s ? s.id : null;
+}
+// ◀ / ▶ beside the 변주 slot; ▶ past the last one makes a new variation
+function stepVar(dir) {
+  const id = varyOrb();
+  if (!id) return;
+  const editing = !!rollOrb;
+  if (editing) commitDraft();
+  const st = ensureVars(id), i = st.vi + dir;
+  if (i < 0) return;
+  if (i >= st.list.length) {
+    if (!addVar(id)) return;
+  } else {
+    st.vi = i;
+    applyVar(id);
+  }
+  varChanged(id, editing);
+}
+// 변주 제거: the variation on show goes (01, how the orb played before, always stays)
+function removeVar() {
+  const id = varyOrb(), st = id && orbVars.get(id);
+  if (!st || !st.vi) return;
+  const editing = !!rollOrb;
+  st.list.splice(st.vi, 1);
+  dropVarCells(id, st.vi);
+  st.vi--;
+  applyVar(id);
+  if (editing) draft.edited = false; // what was being drawn went with it
+  varChanged(id, editing);
+}
+function varChanged(id, editing) {
+  renderSlots();
+  bump(slotEls.vary.querySelector('.mini') ?? slotEls.vary, 'gulp');
+  if (editing) loadDraft();
+  saveSessionSoon();
+  syncSoon();
+}
+
+// 편집: the roll opens on the variation on show
+function openEditor() {
+  const id = varyOrb(), l = id && byId[id];
+  if (!l?.voice || rollOrb) return;
+  ensureVars(id);
+  hoverOff(); // the roll's own preview takes over from hearing the slot's orb
+  rollOrb = { id };
+  loadDraft();
   document.body.classList.add('roll-full');
   document.body.classList.remove('roll-min');
-  ui.roll.style.setProperty('--g', ctint(byId[draft.src]));
+  ui.roll.style.setProperty('--g', ctint(l));
   bump(ui.roll, 'gulp');
-  bump(slotEls[mode], 'gulp');
-  renderRollHead();
+  renderSlots();
   syncSoon();
-  return true;
+}
+// the variation on show as a drawing: its notes, or the notes its seed plays
+function loadDraft() {
+  const l = byId[rollOrb.id], x = drawnOf(l);
+  if (x && fullScaleRaw(x.raw)) fullScale = true; // a full-scale drawing opens as one
+  const raw = x ? [...x.raw] : patternToRaw(l, seedFor(l), fullScale && !!l.voice?.root);
+  draft = { src: l.id, raw: raw ?? Array(STEPS).fill(null), edited: false, seed: null };
+  fitDraft();
+  rollScrollDue = true;
+  renderRollHead();
+}
+// what was drawn (or rolled with 🎲) becomes the variation on show
+function commitDraft() {
+  if (!rollOrb || !draft) return;
+  const id = rollOrb.id, st = ensureVars(id);
+  if (draft.edited && hasNotes(draft.raw)) st.list[st.vi] = { raw: [...draft.raw] };
+  else if (!draft.edited && draft.seed != null) st.list[st.vi] = { seed: draft.seed };
+  draft.edited = false;
+  draft.seed = null;
+  applyVar(id);
+}
+// 수정 완료: keep it and close the roll (the orb stays in the 변주 slot)
+function closeEditor() {
+  if (!rollOrb) return;
+  commitDraft();
+  rollOrb = null;
+  draft = null;
+  closeTab();
+  renderSlots();
+  sync();
 }
 
-// The volume / variation slots: the orb is changed (a volume step down / up, or a new seed of its own)
-// and stays in the slot, jiggling, until it is grabbed out. An orb already there goes home.
-function putInSlot(id, home, mode, apply = true) {
-  if (apply && mode === 'copy' && stash.length >= STASH_MAX) {
-    slotSay(ot('slotCopyFull'));
-    bump(slotEls[mode], 'reject');
-    bump(ui.stash, 'reject');
-    return false;
+// ---------- 🎛 편집: custom orbs ----------
+// An orb thrown into the 편집 slot opens the knobs panel over the field (src/orbEditor.js). The
+// orb plays with the knobs as they are; ✓ 편집 완료 makes a custom orb from it (src/orbEdit.js)
+// that takes the slot orb's place (no copy). Custom orbs are
+// kept in this browser (내 오브, CUSTOM_KEY), fall with the rain, and can be uploaded on their own.
+
+let orbEditing = null; // { id, edit, ab, solo }: the orb in the 편집 slot while its panel is open
+let editStartedPlay = false; // the panel started playback (nothing was playing): it stops again on close
+const orbEditor = createOrbEditor(ui.orbEdit, {
+  onChange(s) {
+    if (!orbEditing) return;
+    // 🎧 솔로 while stopped: the player starts too (and stops again when the panel closes)
+    const soloOn = s.solo && !orbEditing.solo;
+    Object.assign(orbEditing, { edit: s.ab ? null : s.edit, ab: s.ab, solo: s.solo, color: s.color });
+    if (soloOn && !playing) {
+      editStartedPlay = !active.size;
+      play();
+    } else syncSoon();
+  },
+  onDone: (s) => finishOrbEdit(s),
+  onCancel: () => closeOrbEdit(),
+  paintOrb(el, l, color) {
+    el.className = 'oe-ball mini';
+    paint(el, color ? Object.create(l, { color: { value: color }, glow: { value: color }, colors: { value: undefined } }) : l);
+    el.innerHTML = '<i class="swirl"></i>';
+  },
+  spectrum() {
+    if (!playing || !orbEditing) return null;
+    try {
+      const an = getAnalyserById(chanOf(EDIT_PREVIEW_ID), 1024);
+      an.getByteFrequencyData(fftBuf);
+      return fftBuf;
+    } catch {
+      return null;
+    }
+  },
+  sampleRate: () => getAudioContext().sampleRate,
+  canUpload: () => serverUp !== false,
+});
+const EDIT_PREVIEW_ID = 'orbedit';
+// the orb being edited as the panel has it, under an id of its own (its analyser channel)
+function editPreview() {
+  if (!orbEditing) return null;
+  const l = byId[orbEditing.id];
+  if (!l?.code) return null;
+  const pv = Object.create(l);
+  Object.defineProperties(pv, {
+    id: { value: EDIT_PREVIEW_ID }, base: { value: l.id }, name: { value: ot('editPreview', { name: l.name }) },
+    // A/B: the orb as it was (a custom orb's own knobs) / the knobs being set
+    edit: { value: orbEditing.ab ? editOf(l, byId) : orbEditing.edit },
+  });
+  return pv;
+}
+
+function openOrbEdit(id) {
+  const l = byId[id];
+  if (!l?.code) return;
+  if (rollOrb) closeEditor(); // the piano roll and the knobs share the space
+  hoverOff();
+  const v = drawnOf(l) ?? heldSeed.get(id) ?? variation;
+  const code = codeOf(l, v);
+  const start = editOf(l, byId) ?? {};
+  orbEditing = { id, edit: { ...start }, ab: false, solo: false };
+  const def = l.def ?? (l.base && byId[l.base]?.def); // a custom orb (or a copy of one): its name and colour too
+  // shown first, so its graphs are drawn at their size
+  ui.orbEdit.style.setProperty('--g', ctint(l));
+  placeOrbEdit();
+  document.body.classList.add('orbedit-open');
+  orbEditor.open({ orb: l, code, kind: kindOf(l, code, start), start, name: def?.name || editName(l), color: def?.color ?? '' });
+  bump(ui.orbEdit, 'gulp');
+  renderSlots();
+  if (!playing) {
+    editStartedPlay = !active.size;
+    play();
+  } else syncSoon();
+}
+// a new custom orb's name to start from: one more adjective in front of the orb's own name
+function editName(l) {
+  const adjs = ot('editAdjs').split('|');
+  const base = l.name.replace(/^✦\s*/, '');
+  const pick = adjs.filter((a) => !base.startsWith(a));
+  return `${pick[Math.floor(Math.random() * pick.length)]} ${base}`.slice(0, 24);
+}
+function closeOrbEdit() {
+  if (!orbEditing) return;
+  orbEditing = null;
+  orbEditor.close();
+  document.body.classList.remove('orbedit-open');
+  renderSlots();
+  if (editStartedPlay && !active.size && !song) stop();
+  else syncSoon();
+  editStartedPlay = false;
+}
+// the panel covers the right column down to the slots (whose height changes with the layout)
+function placeOrbEdit() {
+  ui.orbEdit.style.bottom = `${ui.slots.offsetHeight}px`;
+}
+// (the slots slide in and change height with the layout)
+new ResizeObserver(() => orbEditing && placeOrbEdit()).observe(ui.slots);
+ui.editOpen.addEventListener('click', () => {
+  const s = slotOrbs.edit;
+  if (!s) return;
+  if (orbEditing) closeOrbEdit();
+  else openOrbEdit(s.id);
+});
+
+// ✓ 편집 완료: the knobs become a custom orb, and it takes the place of the orb in the 편집 slot
+function finishOrbEdit({ name, color, edit, upload }) {
+  const l = orbEditing && byId[orbEditing.id];
+  if (!l || !Object.keys(edit).length) return;
+  const def = makeDef(rootId(l, byId), edit, name, color);
+  const c = registerCustom(def, byId);
+  keepCustom(def);
+  const slot = slotOrbs.edit;
+  const shown = c.id !== l.id && (active.has(c.id) || stash.includes(c.id) || slotIds().includes(c.id) || rain.some((o) => o.id === c.id));
+  closeOrbEdit();
+  if (slot?.id === l.id && !shown) {
+    // the orb in the slot becomes the edited one (no copy): it keeps the variations and volume
+    // the orb had, and goes where that one would have gone when it is taken out
+    if (c.id !== l.id) {
+      if (orbVars.has(l.id)) setVars(c.id, structuredClone(orbVars.get(l.id)));
+      else if (seeded(l) && typeof seedFor(l) === 'number') heldSeed.set(c.id, seedFor(l));
+      setStep(c.id, volStep(l.id));
+      slot.id = c.id;
+    }
+  } else if (slot?.id === l.id) {
+    // the very same custom orb is out already (on the field, in the stash or playing): the one in
+    // the slot goes home instead of there being two
+    slotOrbs.edit = null;
+    returnOrb(l.id, slot.home);
   }
+  renderSlots();
+  bump(slotEls.edit, 'gulp');
+  slotSay(ot('editMade', { name: c.name }));
+  saveSessionSoon();
+  if (upload) openOrbUpload(def);
+}
+
+// 내 오브: every custom orb made here, newest first (they show only in the ✦ 커스텀 오브 panel)
+const CUSTOM_KEY = 'orbCustoms', CUSTOM_MAX = 60;
+let myCustoms = [];
+function loadCustoms() {
+  try {
+    const list = JSON.parse(localStorage.getItem(CUSTOM_KEY)) ?? [];
+    myCustoms = (Array.isArray(list) ? list : []).map((d) => checkCustom(d, byId)).filter(Boolean).slice(0, CUSTOM_MAX);
+  } catch {
+    myCustoms = [];
+  }
+  for (const d of myCustoms) registerCustom(d, byId);
+}
+function keepCustom(def) {
+  myCustoms = [def, ...myCustoms.filter((d) => d.id !== def.id)].slice(0, CUSTOM_MAX);
+  try {
+    localStorage.setItem(CUSTOM_KEY, JSON.stringify(myCustoms));
+  } catch {}
+}
+loadCustoms();
+// custom orbs others uploaded (GET /api/orbs), registered as they arrive
+const sharedCustoms = new Set();
+function refreshSharedOrbs() {
+  fetchOrbs({ limit: 60 })
+    .then((recs) => {
+      for (const r of recs) {
+        const d = checkCustom(r.orb, byId);
+        if (!d) continue;
+        registerCustom(d, byId);
+        sharedCustoms.add(d.id);
+      }
+    })
+    .catch((e) => console.info('custom orbs unavailable:', e.message));
+}
+// every custom orb this page knows, for the rain and the search
+const allCustoms = () => [...new Set([...myCustoms.map((d) => d.id), ...sharedCustoms])].map((id) => byId[id]).filter(Boolean);
+// the definitions a preset needs for the custom orbs it names (directly, or through copies / drawings)
+function customDefsFor(ids) {
+  const out = new Map();
+  for (const id of ids) {
+    let l = byId[id];
+    if (l?.src) l = byId[l.src];
+    while (l && !l.def && l.base && byId[l.base] !== l) l = byId[l.base];
+    if (l?.def) out.set(l.def.id, l.def);
+  }
+  return [...out.values()];
+}
+// a preset's custom orbs, registered (before its tiles are drawn or it is played)
+function ensureCustoms(p) {
+  for (const d of p?.custom ?? []) {
+    const c = checkCustom(d, byId);
+    if (c) registerCustom(c, byId);
+  }
+}
+
+// ☁ 완료하고 서버에 올리기: one custom orb to the server, after the same kind of agreement as a song
+const orbUpDlg = $('orbUpDlg'), orbUpErr = $('orbUpErr'), orbUpOk = $('orbUpOk');
+let orbUpDef = null;
+function openOrbUpload(def) {
+  if (serverUp === false) return;
+  orbUpDef = def;
+  $('orbUpName').textContent = byId[def.id]?.name ?? def.name;
+  try {
+    $('orbUpAuthor').value = localStorage.getItem(AUTHOR_KEY) ?? '';
+  } catch {}
+  $('orbUpAgree').checked = false;
+  orbUpOk.disabled = true;
+  orbUpErr.textContent = '';
+  orbUpErr.classList.remove('ok');
+  orbUpDlg.showModal();
+}
+$('orbUpCancel').addEventListener('click', () => orbUpDlg.close());
+$('orbUpAgree').addEventListener('change', (e) => (orbUpOk.disabled = !e.target.checked));
+$('orbUpForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  if (!orbUpDef || orbUpOk.disabled) return;
+  const author = $('orbUpAuthor').value;
+  try {
+    localStorage.setItem(AUTHOR_KEY, author);
+  } catch {}
+  orbUpOk.disabled = true;
+  orbUpErr.textContent = ot('uploading');
+  try {
+    await uploadOrb(orbUpDef, { author, agree: true, website: $('orbUpWebsite').value });
+    sharedCustoms.add(orbUpDef.id);
+    orbUpErr.textContent = ot('orbUpDone');
+    orbUpErr.classList.add('ok');
+    setTimeout(() => orbUpDlg.close(), 1200);
+  } catch (err) {
+    orbUpErr.textContent = err.message || ot('orbUpFail');
+    orbUpOk.disabled = false;
+  }
+});
+
+// The slots: the orb is changed (a volume step down / up, its variations started) and
+// stays in the slot until it is grabbed out. An orb already there goes home.
+function putInSlot(id, home, mode, apply = true) {
   const old = slotOrbs[mode];
+  // a new orb in 변주 while the roll is open on the one there: that one's drawing is kept first
+  if (mode === 'vary' && old && old.id !== id && rollOrb) closeEditor();
+  // a new orb in 🎛 편집: what was being changed on the one there is dropped (완료 keeps it)
+  if (mode === 'edit' && orbEditing) closeOrbEdit();
   if (old && old.id !== id) returnOrb(old.id, old.home);
   slotOrbs[mode] = { id, home };
-  if (apply && mode === 'vary') {
-    const l = byId[id];
-    let v;
-    do v = newSeed();
-    while (v === seedFor(l));
-    heldSeed.set(id, v);
-  } else if (apply && mode === 'copy') stashCopy(id);
-  else if (apply) setStep(id, volStep(id) + (mode === 'quieter' ? -1 : 1));
+  const fromScale = volScale(volStep(id));
+  if (mode === 'vary') {
+    // the first time in: its variations start (02); an orb that already has some gets a new one
+    // at the end of its list, selected
+    if (apply && !orbVars.has(id)) startVars(id);
+    else if (apply && !addVar(id)) slotSay(ot('slotVaryFull', { n: VAR_MAX }));
+  } else if (mode === 'edit') {
+    if (apply) openOrbEdit(id);
+  } else if (apply) setStep(id, volStep(id) + (mode === 'quieter' ? -1 : 1));
   bump(slotEls[mode], 'gulp');
   renderSlots();
+  if (apply && (mode === 'quieter' || mode === 'louder')) {
+    // shakes for 0.3s at its old size, overshoots smaller / bigger, then settles at the new one
+    const mini = slotEls[mode].querySelector('.mini');
+    mini?.style.setProperty('--from-scale', fromScale);
+    mini?.classList.add(mode === 'quieter' ? 'squash' : 'swell');
+  }
   return true;
 }
 
-// the orbs sitting in the volume / variation slots (an empty slot shows just its name)
+// the orbs sitting in the slots (an empty slot shows just its name); the 변주 slot shows the
+// number of the variation on show, and its buttons only while it has an orb
 function renderSlots() {
   saveSessionSoon();
   for (const m of FX_SLOTS) {
@@ -2015,17 +2606,40 @@ function renderSlots() {
     paint(b, byId[s.id]);
     b.innerHTML = '<i class="swirl"></i>';
     b.title = `${byId[s.id].name} — ${ot('slotHeldTip')}`;
+    if (m === 'vary') b.dataset.pnum = varNum(orbVars.get(s.id)?.vi ?? 0);
     b.addEventListener('pointerdown', (e) => grabFromSlot(e, m));
-    b.addEventListener('mouseenter', () => hoverOn(s.id));
+    b.addEventListener('mouseenter', () => {
+      hoverOn(s.id);
+      hoverCombo(s.id, b);
+    });
     b.addEventListener('mouseleave', hoverOff);
     el.append(b);
   }
+  const id = varyOrb(), st = id && orbVars.get(id);
+  ui.varyWrap.classList.toggle('on', !!id);
+  ui.varyWrap.classList.toggle('editing', !!rollOrb);
+  ui.varyDel.disabled = !st?.vi;
+  ui.varyPrev.disabled = !st?.vi;
+  const last = !st || st.vi >= st.list.length - 1;
+  ui.varyNext.disabled = !id || (last && (st?.list.length ?? 1) >= VAR_MAX) || (last && !seeded(byId[id]) && !byId[id]?.voice);
+  ui.varyNext.title = ot(last ? 'varyNew' : 'varyNextTip');
+  ui.varyEdit.disabled = !id || !byId[id]?.voice;
+  ui.varyEdit.classList.toggle('on', !!rollOrb);
+  slotEls.edit.classList.toggle('open', !!orbEditing);
+  ui.editOpen.disabled = !slotOrbs.edit;
+  ui.editOpen.classList.toggle('on', !!orbEditing);
+  ui.editOpen.textContent = ot(orbEditing ? 'editClose' : 'editOpen');
+  ui.editWrap.classList.toggle('on', !!slotOrbs.edit);
 }
 
 function grabFromSlot(e, mode) {
   const s = slotOrbs[mode];
   if (!s || e.button > 0) return;
   hoverOff();
+  // taking the orb out of 변주 while it is being edited: what was drawn is kept first
+  if (mode === 'vary' && rollOrb) closeEditor();
+  // taking the orb out of 🎛 편집 closes its panel without keeping what was changed
+  if (mode === 'edit' && orbEditing) closeOrbEdit();
   slotOrbs[mode] = null;
   renderSlots();
   startDrag(e, makeOrbEl(s.id), { kind: 'slot', mode, origin: s.home }, { x: e.clientX, y: e.clientY });
@@ -2037,86 +2651,43 @@ function closeTab() {
   syncSoon();
 }
 
-// What leaves 편집: the drawing as a drawn orb (a loaded drawn orb gets its line updated), or the
-// plain orb when nothing is drawn; a plain orb used for a drawing goes back home.
-function takeFromRoll() {
-  let { id, home } = rollOrb;
-  let seed = draft.seed ?? null;
-  // only a changed drawing becomes a drawn orb; an untouched orb leaves as itself
-  if (hasNotes(draft.raw) && draft.edited) {
-    seed = null;
-    const l = byId[id];
-    if (l.raw) l.raw = [...draft.raw];
-    else {
-      const n = volStep(id);
-      taste.clear(id); // its sound goes on in the drawing: not turned down
-      returnOrb(id, home);
-      id = makeDrawn(draft.src, draft.raw).id;
-      setStep(id, n); // the drawing keeps the orb's volume
-      home = null;
-    }
-  }
-  draft.raw = Array(STEPS).fill(null);
-  draft.seed = null;
-  if (seed != null) heldSeed.set(id, seed);
-  rollOrb = null;
-  closeTab();
-  return { id, home, seed };
-}
-
-// back where it came from; the line stays drawn for the next instrument
-function sendRollOrbHome() {
-  const { id, home } = rollOrb;
-  rollOrb = null;
-  returnOrb(id, home);
-  closeTab();
-  sync();
-}
-
-function grabFromRoll(e) {
-  if (!rollOrb) return;
-  hoverOff();
-  const el = makeOrbEl(rollOrb.id);
-  if (hasNotes(draft.raw)) el.classList.add('pen');
-  rollOrb.grabbed = true;
-  renderRollHead();
-  startDrag(e, el, { kind: 'roll' }, { x: e.clientX, y: e.clientY });
-}
-
+// The roll's head: the orb being edited with the number of its variation.
 function renderRollHead() {
-  slotEls.midi.classList.toggle('open', !!rollOrb);
   const held = rollOrb && byId[rollOrb.id];
   ui.rollSlot.innerHTML = '';
-  ui.rollSlot.classList.toggle('filled', !!held && !rollOrb.grabbed);
-  if (held && !rollOrb.grabbed) {
+  ui.rollSlot.classList.toggle('filled', !!held);
+  ui.rollSlot.style.setProperty('--g', held ? ctint(held) : '');
+  if (held) {
     const b = document.createElement('div');
     b.className = 'mini';
     paint(b, held);
     if (hasNotes(draft.raw)) b.classList.add('pen');
-    // what it will leave as: a hand edit shows its notes' pattern, a 🎲 roll that seed's pattern
-    if (draft.edited && hasNotes(draft.raw)) patternOn(b, rawKey(draft.raw));
-    else if (draft.seed != null) patternOn(b, draft.seed);
+    // what it will keep: a hand edit shows its notes' pattern, a 🎲 roll that seed's pattern
+    if (draft.edited && hasNotes(draft.raw)) patternOn(b, rawKey(draft.raw), held);
+    else if (draft.seed != null) patternOn(b, draft.seed, held);
     b.innerHTML = '<i class="swirl"></i>';
+    b.dataset.pnum = varNum(orbVars.get(held.id)?.vi ?? 0);
     b.title = ot('rollGrabTip');
-    b.addEventListener('pointerdown', grabFromRoll);
     ui.rollSlot.append(b);
   }
-  const l = rollOrb && byId[draft.src];
-  const seedTag = draft?.seed != null && !draft.edited ? ` <small>#${draft.seed}</small>` : '';
+  const l = held;
   ui.rollName.innerHTML = l
-    ? `<b style="color:${ctint(l)}">${held.name}${seedTag}</b><span>${ot(l.voice.root ? 'rollPitched' : 'rollDrum')} · ${ot('rollThrow')}</span>`
-    : draft && hasNotes(draft.raw)
-      ? ot('rollKept')
-      : ot('rollEmpty');
+    ? `<b style="color:${ctint(l)}">${l.name} <small>${ot('slotVary')} ${varNum(orbVars.get(l.id)?.vi ?? 0)}</small></b><span>${ot(l.voice.root ? 'rollPitched' : 'rollDrum')} · ${ot('rollThrow')}</span>`
+    : ot('rollEmpty');
   ui.rollHint.textContent = '';
-  ui.rollDone.disabled = !rollOrb || !!rollOrb.grabbed;
-  ui.rollDice.disabled = !rollOrb || !!rollOrb.grabbed || !seeded(byId[draft?.src]);
+  ui.rollDone.disabled = !rollOrb;
+  ui.rollDice.disabled = !rollOrb || !seeded(l);
+  ui.rollFull.disabled = !rollOrb || !l?.voice?.root;
+  ui.rollFull.classList.toggle('on', semiRoll());
+  ui.rollFull.setAttribute('aria-pressed', String(fullScale));
+  ui.roll.classList.toggle('semi', semiRoll());
 }
 
 // An orb's current notes as a drawing: its pattern (at the current variation, or `seed`) is built
 // without playing it and read back over 4 bars. Melodic parts map notes to scale rows (a chord
 // keeps all its rows); drums put a hit on each onset, at the height their speed / sample suggests.
-function patternToRaw(l, seed = seedOf(l)) {
+// full: semitones (full-scale rows) instead of the nearest scale row.
+function patternToRaw(l, seed = seedOf(l), full = false) {
   const v = l.voice;
   let pat;
   try {
@@ -2125,17 +2696,8 @@ function patternToRaw(l, seed = seedOf(l)) {
   } catch {
     return null;
   }
-  const steps = keyMode() === 'major' ? [0, 2, 4, 5, 7, 9, 11] : [0, 2, 3, 5, 7, 8, 10];
   const rootMidi = v.root ? noteToMidi(v.root) : 0;
-  const degree = (midi) => {
-    const rel = midi - rootMidi, pc = ((rel % 12) + 12) % 12;
-    let best = 0;
-    steps.forEach((st, i) => Math.abs(st - pc) < Math.abs(steps[best] - pc) && (best = i));
-    let d = Math.floor(rel / 12) * 7 + best;
-    while (d < 0) d += 7;
-    while (d > ROWS - 1) d -= 7;
-    return d;
-  };
+  const degree = (midi) => (full ? semiOf(midi - rootMidi) : degreeOf(midi - rootMidi));
   const raw = Array(STEPS).fill(null);
   for (const h of pat.queryArc(0, BARS).filter((x) => x.hasOnset())) {
     const at = Math.floor(+h.whole.begin * 16 + 1e-6);
@@ -2149,7 +2711,7 @@ function patternToRaw(l, seed = seedOf(l)) {
     } else if (h.value.speed) d = Math.round(7 + 7 * Math.log2(h.value.speed));
     else if (v.ctrl === 'n' && h.value.n != null) d = Math.round(h.value.n / (v.map(1) - v.map(0) || 1));
     else d = 7;
-    d = Math.max(0, Math.min(ROWS - 1, d));
+    if (!v.root) d = Math.max(0, Math.min(ROWS - 1, d));
     for (let k = 0; k < len && at + k < STEPS; k++) {
       if (v.root) raw[at + k] = stepOf([...notesAt(raw[at + k]), d]);
       else if (raw[at + k] === null || raw[at + k] < d) raw[at + k] = d;
@@ -2165,10 +2727,15 @@ function previewLayer() {
   return { id: 'preview', name: ot('previewOrb'), drum: s.drum, code: () => sheetCode(draft.raw, s.voice) };
 }
 
-function makeDrawn(src, raw, id = `drawn${++drawnCount}`) {
+// pats / pi: all its patterns and the one it plays (raw is that one)
+function makeDrawn(src, raw, id = `drawn${++drawnCount}`, pats = null, pi = 0) {
   const s = byId[src];
+  const ps = pats?.length ? pats.map((p) => [...p]) : [[...raw]];
   const l = {
-    id, cat: id, role: s.cat, src, raw: [...raw], voice: s.voice,
+    id, cat: id, role: s.cat, src, voice: s.voice,
+    pats: ps, pi: Math.min(Math.max(0, pi | 0), ps.length - 1),
+    get raw() { return this.pats[this.pi]; },
+    set raw(r) { this.pats[this.pi] = r; },
     get name() { return '✎ ' + s.name; }, get kind() { return 'drawn · ' + s.kind; }, color: s.color, glow: s.glow, dark: s.dark,
     drum: s.drum, pitched: !!s.voice.root,
   };
@@ -2177,9 +2744,10 @@ function makeDrawn(src, raw, id = `drawn${++drawnCount}`) {
   return l;
 }
 
-// 복제: a new orb that plays like `id` does right now (its variation and volume), straight into the
-// stash. A drawn orb is copied as another drawing; any other orb as a stand-in for its catalogue
-// orb (`base`) under an id of its own, so the two can sit in the song side by side.
+// The same orb can be on screen more than once (in the song, the stash, a slot and falling, all at
+// the same time): each one after the first is a copy, a stand-in for its catalogue orb (`base`)
+// under an id of its own, so they keep their own variations and volume and can sit in the song
+// side by side. A drawn orb is copied as another drawing, a custom orb as itself.
 let copyCount = 0;
 function makeCopy(base, id = `copy${++copyCount}`) {
   const l = Object.create(byId[base]);
@@ -2187,50 +2755,34 @@ function makeCopy(base, id = `copy${++copyCount}`) {
   byId[id] = l;
   return l;
 }
-function stashCopy(id) {
+// the orb a copy stands in for (anything else: itself)
+const rootOf = (id) => {
   const l = byId[id];
-  const c = l.raw ? makeDrawn(l.src, l.raw) : makeCopy(l.base ?? id);
-  if (seeded(l)) heldSeed.set(c.id, seedFor(l));
-  setStep(c.id, volStep(id));
-  stash.push(c.id);
-  renderStash();
-  bump(ui.stash, 'gulp');
+  return l && l.base && !Object.hasOwn(l, 'edit') && !l.raw ? l.base : id;
+};
+// the orb is somewhere on screen already: the song, the stems, the rain, the stash, a slot, the hand
+function onScreen(id) {
+  return active.has(id) || rain.some((o) => o.id === id) || stash.includes(id) || slotIds().includes(id)
+    || !!song?.rows?.some((r) => r.id === id) || [...document.querySelectorAll('body > .orb')].some((el) => el.dataset.id === id);
+}
+// `id` itself while it is nowhere on screen, else a fresh copy of it (plain: no variations, default volume)
+function freshOrb(id) {
+  if (!onScreen(id)) return id;
+  const l = byId[id];
+  return (l.raw ? makeDrawn(l.src, l.raw, undefined, l.pats, l.pi) : makeCopy(rootOf(id))).id;
 }
 
-// the roll's buttons do what throwing its orb would
-async function finishDraft(where) {
-  if (!rollOrb) return;
-  if (where === 'stash' && stash.length >= STASH_MAX) {
-    bump(ui.stash, 'reject');
-    return;
-  }
-  const { id, home, seed } = takeFromRoll();
-  if (where === 'stash') {
-    stash.push(id);
-    renderStash();
-    bump(ui.stash, 'gulp');
-    await sync();
-  } else {
-    ui.core.style.setProperty('--gulp', ctint(byId[id]));
-    bump(ui.core, 'gulp');
-    await addLayer(id, home, seed);
-  }
-}
-
-// 🎲 in the roll: the instrument's notes at a random variation. A plain orb stays itself and
-// leaves with that seed; on a drawn orb it replaces the drawing (an edit like any other).
+// 🎲 in the roll: the instrument's notes at a random seed; 수정 완료 keeps that seed as the
+// variation on show (unless it is drawn on afterwards: then the drawing)
 async function rollVariation() {
   const s = rollOrb && byId[draft.src];
-  if (!s || rollOrb.grabbed || !seeded(s)) return;
+  if (!s || !seeded(s)) return;
   const v = newSeed();
-  const raw = patternToRaw(s, v);
+  const raw = patternToRaw(s, v, semiRoll());
   if (!raw) return;
   draft.raw = raw;
-  if (byId[rollOrb.id].raw) draft.edited = true;
-  else {
-    draft.edited = false;
-    draft.seed = v;
-  }
+  draft.edited = false;
+  draft.seed = v;
   bump(ui.roll, 'gulp');
   renderRollHead();
   if (!playing) await play();
@@ -2239,7 +2791,7 @@ async function rollVariation() {
 
 function rollGeom() {
   const w = ui.rollCanvas.clientWidth, h = ui.rollCanvas.clientHeight;
-  return { w, h, cw: (w - GUTTER) / STEPS, rh: h / ROWS };
+  return { w, h, cw: (w - GUTTER) / STEPS, rh: h / rollRows() };
 }
 
 // the pointer as a step and a (fractional) row, or null while the roll is still opening
@@ -2249,28 +2801,24 @@ function rollCell(e) {
   if (!rh || cw <= 0) return null;
   const x = e.clientX - r.left, y = e.clientY - r.top;
   const s = Math.min(STEPS - 1, Math.max(0, Math.floor((x - GUTTER) / cw)));
-  const d = Math.min(ROWS - 1, Math.max(0, ROWS - 1 - (y / rh - 0.5)));
+  const n = rollRows();
+  const d = Math.min(n - 1, Math.max(0, n - 1 - (y / rh - 0.5)));
   return { x, y, s, d };
 }
 
-// Take the note at row r off step s, as the roll shows it: the step's own note, or the drawing
-// behind a note that sounds there (a snapped or held eighth). False if nothing plays there.
-function removeAt(s, r) {
-  const v = byId[draft.src].voice;
-  const shown = () => notesAt(draft.raw[s]).includes(r) || !!quantize(draft.raw, v)[s]?.ds.includes(r);
-  if (!shown()) return false;
-  const own = notesAt(draft.raw[s]);
-  if (own.includes(r)) draft.raw[s] = stepOf(own.filter((x) => x !== r));
-  if (shown()) {
-    for (const k of [s - (s % 2), s - (s % 2) + 1]) {
-      const ds = notesAt(draft.raw[k]);
-      draft.raw[k] = stepOf(ds.includes(r) ? ds.filter((x) => x !== r) : ds.length === 1 ? [] : ds);
-    }
-  }
+// Take the note at row r off step s (notes play exactly where they are drawn). False if there is none.
+function removeAt(s, row) {
+  const r = rowVal(row), own = notesAt(draft.raw[s]);
+  if (!own.includes(r)) return false;
+  draft.raw[s] = stepOf(own.filter((x) => x !== r));
   return true;
 }
 
 function applyStroke(e) {
+  if (stroke.mode === 'scroll') {
+    ui.rollScroll.scrollTop = stroke.top - (e.clientY - stroke.y0);
+    return;
+  }
   const c = rollCell(e);
   if (!c) return;
   const { x, y, s, d } = c;
@@ -2283,7 +2831,7 @@ function applyStroke(e) {
     if (stroke.mode === 'erase') draft.raw[at] = null;
     else if (stroke.mode === 'remove') removeAt(at, row);
     // a stroke keeps one note per step: moving up and down within a step moves that note
-    else draft.raw[at] = stepOf([...notesAt(stroke.base[at]), row]);
+    else draft.raw[at] = stepOf([...notesAt(stroke.base[at]), rowVal(row)]);
   }
   stroke.last = { s, d };
   if (stroke.mode === 'add') stroke.pts.push([x, y]);
@@ -2301,6 +2849,11 @@ ui.rollCanvas.addEventListener('pointerdown', (e) => {
   } catch {}
   const c = rollCell(e);
   if (!c) return;
+  // full scale on a touch screen: dragging the note names scrolls (the grid itself draws)
+  if (semiRoll() && e.pointerType !== 'mouse' && c.x < GUTTER) {
+    stroke = { mode: 'scroll', y0: e.clientY, top: ui.rollScroll.scrollTop };
+    return;
+  }
   // a press on a note takes it off; anywhere else adds one, even where notes already are (chords)
   const mode = e.button === 2 || e.shiftKey ? 'erase' : removeAt(c.s, Math.round(c.d)) ? 'remove' : 'add';
   stroke = { mode, base: [...draft.raw], pts: [], last: null };
@@ -2309,7 +2862,9 @@ ui.rollCanvas.addEventListener('pointerdown', (e) => {
 ui.rollCanvas.addEventListener('pointermove', (e) => stroke && applyStroke(e));
 const endStroke = async () => {
   if (!stroke) return;
+  const scrolled = stroke.mode === 'scroll';
   stroke = null;
+  if (scrolled) return;
   draft.edited = true;
   renderRollHead();
   if (!playing) await play();
@@ -2319,21 +2874,20 @@ ui.rollCanvas.addEventListener('pointerup', endStroke);
 ui.rollCanvas.addEventListener('pointercancel', endStroke);
 
 ui.rollDice.addEventListener('click', rollVariation);
-// a tucked-away roll opens again when it is clicked (its orb can still be grabbed straight away)
+ui.rollFull.addEventListener('click', () => {
+  if (!rollOrb) return;
+  setFullScale(!fullScale);
+});
+// a tucked-away roll opens again when it is clicked
 ui.roll.addEventListener('pointerdown', (e) => {
   if (!document.body.classList.contains('roll-min') || e.target.closest('.roll-slot')) return;
   document.body.classList.remove('roll-min');
 }, true);
-// 수정 완료: the tab goes down and the orb (the drawing, or the variation from 🎲) waits, jiggling,
-// in the 편집 slot until it is grabbed and thrown into the song, the stash or another slot
-// the slots went away (a phone turned into a wide screen before the guide opened them): the orbs in the tab and the slots go
-// back where they came from (a changed drawing leaves as a drawn orb)
+// the slots went away (a phone turned into a wide screen before the guide opened them): the
+// roll closes (keeping what was drawn) and the orbs in the slots go back where they came from
 function leaveSlots() {
-  if (slotsOn() || !((rollOrb && !rollOrb.grabbed) || slotIds().length)) return;
-  if (rollOrb && !rollOrb.grabbed) {
-    const { id, home } = takeFromRoll();
-    returnOrb(id, home);
-  }
+  if (slotsOn() || !slotIds().length) return;
+  closeEditor();
   for (const m of FX_SLOTS) {
     const sat = slotOrbs[m];
     if (!sat) continue;
@@ -2344,21 +2898,28 @@ function leaveSlots() {
   sync();
 }
 isPhone.addEventListener('change', leaveSlots);
-ui.rollDone.addEventListener('click', () => {
-  if (!rollOrb || rollOrb.grabbed) return;
-  const { id, home } = takeFromRoll();
-  slotOrbs.midi = { id, home };
-  bump(slotEls.midi, 'gulp');
-  renderSlots();
-  sync();
-});
+// 수정 완료: the roll goes down; the orb stays in the 변주 slot with what was drawn as its variation
+ui.rollDone.addEventListener('click', closeEditor);
+// the 변주 slot's buttons
+ui.varyPrev.addEventListener('click', () => stepVar(-1));
+ui.varyNext.addEventListener('click', () => stepVar(1));
+ui.varyEdit.addEventListener('click', () => (rollOrb ? closeEditor() : openEditor()));
+ui.varyDel.addEventListener('click', (e) => askFirst(e.currentTarget, ot('varyDelAsk'), removeVar));
+// with the pointer over the 변주 slot and its buttons, its orb is heard (alone) at the variation on show
+ui.varyWrap.addEventListener('mouseenter', () => varyOrb() && !rollOrb && hoverOn(varyOrb()));
+ui.varyWrap.addEventListener('mouseleave', () => varyOrb() && hoverOff());
 
 // the name of each scale row (0 = the voice's root) in the song's key
 const NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 function rowName(v, d) {
-  const steps = keyMode() === 'major' ? [0, 2, 4, 5, 7, 9, 11] : [0, 2, 3, 5, 7, 8, 10];
+  const steps = scaleSteps();
   const midi = noteToMidi(v?.root ?? 'A3') + keyShift() + Math.floor(d / 7) * 12 + steps[d % 7];
   return NAMES[midi % 12] + (d % 7 === 0 ? Math.floor(midi / 12) - 1 : '');
+}
+// a full-scale row (0 = an octave under the root): every name, the octave on each C
+function semiName(v, r) {
+  const midi = noteToMidi(v?.root ?? 'A3') + keyShift() - 12 + r;
+  return NAMES[midi % 12] + (midi % 12 === 0 ? Math.floor(midi / 12) - 1 : '');
 }
 
 // one neon line: wide soft glow, a brighter core, a white filament
@@ -2383,6 +2944,20 @@ const rg = ui.rollCanvas.getContext('2d');
 let rollSig = '';
 function drawRoll() {
   const dpr = lite ? 1 : window.devicePixelRatio || 1;
+  // full scale: 48 rows taller than the tab, scrolled (about an octave and a half in view)
+  const semi = semiRoll(), N = rollRows();
+  const tall = semi ? `${Math.round(SEMIS * Math.max(14, ui.rollScroll.clientHeight / 18))}px` : '';
+  if (ui.rollCanvas.style.height !== tall) ui.rollCanvas.style.height = tall;
+  if (rollScrollDue && ui.rollScroll.clientHeight > 10) {
+    rollScrollDue = false;
+    if (semi) {
+      // centre the notes (or the root's octave)
+      const rs = draft.raw.flatMap((x) => notesAt(x).map(rowOf));
+      const mid = rs.length ? (Math.min(...rs) + Math.max(...rs)) / 2 : 18;
+      const rh0 = ui.rollCanvas.clientHeight / SEMIS;
+      ui.rollScroll.scrollTop = (SEMIS - 0.5 - mid) * rh0 - ui.rollScroll.clientHeight / 2;
+    } else ui.rollScroll.scrollTop = 0;
+  }
   const { w, h, cw, rh } = rollGeom();
   if (w < 10 || h < 10) return;
   // with nothing drawn on it the roll only changes with its size, the playhead and the voice
@@ -2401,20 +2976,27 @@ function drawRoll() {
   g.clearRect(0, 0, w, h);
   const s = draft && byId[draft.src];
   const v = s?.voice;
-  const yOf = (d) => (ROWS - 1 - d + 0.5) * rh;
+  const yOf = (d) => (N - 1 - rowOf(d) + 0.5) * rh;
   const { acc, fg, ink: k } = ink();
   const faint = (a) => `rgba(${k},${a})`;
   const accA = (a) => acc + Math.round(a * 255).toString(16).padStart(2, '0');
 
-  // rows: the root (A) gets a brighter stripe
+  // rows: the root (A) gets a brighter stripe; in full scale the key's notes are lighter than
+  // the ones outside it, and a line marks each octave
   g.font = '10px ui-monospace, Consolas, monospace';
   g.textBaseline = 'middle';
-  for (let d = 0; d < ROWS; d++) {
-    const y = (ROWS - 1 - d) * rh;
-    g.fillStyle = d % 7 === 0 ? accA(0.07) : d % 2 ? faint(0.015) : faint(0.035);
+  const steps = scaleSteps();
+  for (let d = 0; d < N; d++) {
+    const y = (N - 1 - d) * rh;
+    const root = semi ? d % 12 === 0 : d % 7 === 0, inKey = !semi || steps.includes(d % 12);
+    g.fillStyle = root ? accA(0.07) : !inKey ? faint(0.0) : semi ? faint(0.035) : d % 2 ? faint(0.015) : faint(0.035);
     g.fillRect(GUTTER, y, w - GUTTER, rh);
-    g.fillStyle = d % 7 === 0 ? acc : faint(0.4);
-    const label = !v || v.root ? rowName(v, d) : d === ROWS - 1 ? 'hi' : d === 0 ? 'lo' : '·';
+    if (semi && root) {
+      g.fillStyle = accA(0.25);
+      g.fillRect(GUTTER, y + rh - 1, w - GUTTER, 1);
+    }
+    g.fillStyle = root ? acc : faint(inKey ? 0.4 : 0.22);
+    const label = semi ? semiName(v, d) : !v || v.root ? rowName(v, d) : d === N - 1 ? 'hi' : d === 0 ? 'lo' : '·';
     g.fillText(label, 6, y + rh / 2);
   }
   // columns: steps, beats, bars
@@ -2453,7 +3035,7 @@ function drawRoll() {
     const q = quantize(draft.raw, v);
     g.fillStyle = color;
     g.globalAlpha = 0.18;
-    q.forEach((n, i) => n?.ds.forEach((d) => g.fillRect(GUTTER + i * cw + 0.5, (ROWS - 1 - d) * rh + 1, cw - 1, rh - 2)));
+    q.forEach((n, i) => n?.ds.forEach((d) => g.fillRect(GUTTER + i * cw + 0.5, yOf(d) - rh / 2 + 1, cw - 1, rh - 2)));
     g.globalAlpha = 1;
     let run = [];
     const flush = () => {
@@ -2500,28 +3082,13 @@ function drawRoll() {
       g.restore();
     }
   }
-  if (stroke?.pts.length > 1) neon(g, stroke.pts, fg, 0.5);
+  if (stroke?.pts?.length > 1) neon(g, stroke.pts, fg, 0.5);
   if (pos >= 0) {
     g.fillStyle = faint(0.55);
     g.fillRect(GUTTER + pos * (w - GUTTER), 0, 1.5, h);
   }
 }
 
-// ---------- variation ----------
-
-// one orb's own seed (null: back to the shared one); a new grid row picks it up too
-function setOwnSeed(id, v) {
-  if (v == null || v === variation) ownSeed.delete(id);
-  else ownSeed.set(id, v);
-  // with the full song open, its row in the stem grid takes the new seed (leads +1 per block)
-  const cells = song?.cells?.[id], l = byId[id];
-  if (cells && seeded(l)) {
-    let g = 0;
-    cells.forEach((sec, i) => sec.forEach((b) => (b.v = blockSeed(l, seedOf(l) + (song.sections[i].v ?? 0) * 100, g++))));
-  }
-  bump(ui.chips.querySelector(`.strip[data-id="${CSS.escape(id)}"] .mini`), 'gulp');
-  sync();
-}
 // ---------- presets ----------
 
 const PRESET_KEY = 'orbPresets';
@@ -2538,12 +3105,62 @@ function savePresets(list) {
   } catch {}
 }
 
-// colours of a preset's parts, for its tile's swirl
-function presetColors(p) {
+// a preset's orbs (a drawn one stands in as the orb it was drawn from), for its tile's ball
+function presetParts(p) {
+  ensureCustoms(p);
   const src = (id) => byId[id] ?? byId[(p.drawn ?? []).find((d) => d.id === id)?.src];
-  const cols = p.layers.map(src).filter(Boolean).flatMap((l) => l.colors ?? [l.color]);
-  return [...new Set(cols)].slice(0, 6);
+  const list = p.layers.map(src).filter(Boolean).flatMap((l) => (l.combo ? l.combo.map((c) => byId[c]).filter(Boolean) : [l]));
+  return [...new Set(list)];
 }
+
+// a preset drawn like a combo orb: its orbs huddled together, and for a stem one bright orb in the
+// middle (fills .mini tiles and the drag ghost's .ball)
+function paintPreset(el, inner, p) {
+  const parts = presetParts(p).slice(0, 6);
+  paint(el, { color: parts[0] ? tint(parts[0]) : '#39ff9c' });
+  if (!parts.length) return void (inner.innerHTML = '<i class="swirl"></i>');
+  el.classList.add('cluster');
+  inner.innerHTML = bubbles(parts, p.id + p.name, !!p.song);
+}
+
+// The tiles' own tooltip (in the page's style, not the browser's): name, loop / stem and the orb
+// count, author, description, how to load it. One element, moved to the tile under the mouse.
+const ptip = document.createElement('div');
+ptip.className = 'ptip';
+document.body.append(ptip);
+let ptipFor = null;
+function showPtip(tile, p) {
+  ptipFor = tile;
+  const line = (tag, cls, text) => {
+    const e = document.createElement(tag);
+    e.className = cls;
+    e.textContent = text;
+    return e;
+  };
+  ptip.replaceChildren(
+    line('b', 'pt-name', p.name),
+    line('span', 'pt-kind' + (p.song ? ' stem' : ''), `${ot(p.song ? 'kindStem' : 'kindLoop')} · ${ot('tileOrbs', { n: p.layers.length })}`),
+    ...(p.author ? [line('span', 'pt-by', ot('tileBy', { a: p.author }))] : []),
+    ...(p.description ? [line('p', 'pt-desc', p.description)] : []),
+    line('small', 'pt-how', ot('tileTip')),
+  );
+  // beside the tile (the sidebar is on the left); under or over it when there's no room (phone row)
+  const t = tile.getBoundingClientRect(), b = ptip.getBoundingClientRect();
+  let x = t.right + 10, y = t.top + t.height / 2 - b.height / 2;
+  if (x + b.width > innerWidth - 8) {
+    x = Math.min(Math.max(8, t.left + t.width / 2 - b.width / 2), innerWidth - b.width - 8);
+    y = t.bottom + 8 + b.height > innerHeight - 8 ? t.top - b.height - 8 : t.bottom + 8;
+  }
+  ptip.style.left = `${Math.round(x)}px`;
+  ptip.style.top = `${Math.round(Math.min(Math.max(8, y), innerHeight - b.height - 8))}px`;
+  ptip.classList.add('on');
+}
+function hidePtip(tile) {
+  if (tile && tile !== ptipFor) return;
+  ptipFor = null;
+  ptip.classList.remove('on');
+}
+addEventListener('scroll', () => hidePtip(), true);
 
 const tileButton = (cls, text, title, onClick) => {
   const b = document.createElement('button');
@@ -2561,18 +3178,19 @@ function presetTile(p, mine) {
   const tile = document.createElement('div');
   tile.className = 'ptile' + (p.song ? ' stem' : '');
   tile.dataset.preset = p.id;
-  const who = p.author ? ` — ${p.author}` : '';
-  tile.title = `${p.name}${who}${p.description ? `\n${p.description}` : ''}\n${ot('tileTip')}`;
   const ball = document.createElement('div');
   ball.className = 'mini';
-  const cols = presetColors(p);
-  paint(ball, cols.length > 1 ? { colors: cols } : { color: cols[0] ?? '#39ff9c' });
-  ball.innerHTML = '<i class="swirl"></i>';
+  paintPreset(ball, ball, p);
   const name = document.createElement('span');
   name.className = 'pname';
   name.textContent = p.name;
+  // the line under the name is only the author (loop / stem shows in the ball and the tooltip)
   const meta = document.createElement('small');
-  meta.textContent = mine ? `${p.layers.length} orbs${p.song ? ' · stem' : ''}` : `${p.song ? 'stem' : 'orb'}${p.author ? ` · ${p.author}` : ''}`;
+  meta.textContent = p.author ?? '';
+  meta.hidden = !p.author;
+  tile.addEventListener('pointerenter', (e) => e.pointerType === 'mouse' && showPtip(tile, p));
+  tile.addEventListener('pointerleave', () => hidePtip(tile));
+  tile.addEventListener('pointerdown', () => hidePtip(tile));
   const share = tileButton('share', '🔗', ot(p.song ? 'copyCodeStem' : 'copyCode'), () => sharePreset(p, share));
   if (mine) {
     const up = tileButton('share up cloud', '☁', ot('shareServer'), () => openShareDialog(p));
@@ -2666,28 +3284,35 @@ function currentPreset(fallbackName, { withSong = false } = {}) {
     ...(layers().some(seeded) ? { variation } : {}),
     ...(ownSeeds() ? { seeds: ownSeeds() } : {}),
     ...(ownGains() ? { gains: ownGains() } : {}),
+    ...(presetVars() ? { vars: presetVars() } : {}),
   };
   if (withSong && song?.sections) {
     syncRows();
-    p.song = songToWire(song);
+    p.song = songToWire(song, (id, c) => (seeded(byId[id]) ? varSeed(byId[id], c.k) : null));
   }
-  return uncopy(p);
+  uncopy(p);
+  // custom orbs (🎛 편집) travel as their definitions
+  const custom = customDefsFor([...p.layers, ...(p.song?.rows ?? []).map((r) => r.id)]);
+  if (custom.length) p.custom = custom;
+  return p;
 }
 
-// Presets and share codes only know catalogue orbs and drawings: a copy from 복제 goes out as the
-// orb it was copied from (with its seed and volume), unless that orb is in the set already.
+// Presets and share codes only know catalogue orbs, custom orbs and drawings: a copy goes
+// out as the orb it was copied from (with its seed and volume), unless that orb is in the set already.
 function uncopy(p) {
+  const isCopy = (id) => !!byId[id]?.base && !Object.hasOwn(byId[id], 'edit');
   const to = new Map();
   for (const id of p.layers) {
-    const b = byId[id]?.base;
+    const b = isCopy(id) && byId[id].base;
     if (b && !p.layers.includes(b) && ![...to.values()].includes(b)) to.set(id, b);
   }
-  const drop = new Set(p.layers.filter((id) => byId[id]?.base && !to.has(id)));
+  const drop = new Set(p.layers.filter((id) => isCopy(id) && !to.has(id)));
   if (!to.size && !drop.size) return p;
   const keys = (o) => o && Object.fromEntries(Object.entries(o).filter(([k]) => !drop.has(k)).map(([k, v]) => [to.get(k) ?? k, v]));
   p.layers = p.layers.filter((id) => !drop.has(id)).map((id) => to.get(id) ?? id);
   if (p.seeds) p.seeds = keys(p.seeds);
   if (p.gains) p.gains = keys(p.gains);
+  if (p.vars) p.vars = keys(p.vars);
   if (p.song) p.song = { ...p.song, rows: p.song.rows.filter((r) => !drop.has(r.id)).map((r) => ({ ...r, id: to.get(r.id) ?? r.id })) };
   return p;
 }
@@ -2718,9 +3343,9 @@ function grabPreset(e, p, tile) {
     if (!ghost) {
       ghost = document.createElement('div');
       ghost.className = 'orb big dragging';
-      const cols = presetColors(p);
-      paint(ghost, cols.length > 1 ? { colors: cols } : { color: cols[0] ?? '#39ff9c' });
-      ghost.innerHTML = '<div class="fade"><div class="float"><span class="label"></span><div class="ball"><i class="swirl"></i></div><span class="kind">preset</span></div></div>';
+      ghost.innerHTML = '<div class="fade"><div class="float"><span class="label"></span><div class="ball"></div><span class="kind"></span></div></div>';
+      paintPreset(ghost, ghost.querySelector('.ball'), p);
+      ghost.querySelector('.kind').textContent = ot(p.song ? 'kindStem' : 'kindLoop');
       ghost.querySelector('.label').textContent = p.name;
       document.body.append(ghost);
       tile.classList.add('gone');
@@ -2776,10 +3401,12 @@ async function applyPreset(p) {
   voteSig = null; // the set is still being built: no checks until it is done
   setVote(p);
   for (const id of [...active.keys()]) removeLayer(id, { silent: true, respawn: false });
+  ensureCustoms(p); // its custom orbs (🎛 편집), before anything names them
   // drawn parts are rebuilt under fresh ids so they never clash with drawings made since
   const ids = new Map((p.drawn ?? []).map((d) => [d.id, makeDrawn(d.src, d.raw).id]));
   if (p.variation) variation = p.variation;
   for (const [id, v] of Object.entries(p.seeds ?? {})) if (Number.isSafeInteger(v) && v >= 0) ownSeed.set(ids.get(id) ?? id, v);
+  for (const id of p.layers) if (!ids.has(id)) orbVars.delete(id);
   // each orb's own volume (음량 slots), as whole percents
   for (const id of p.layers) {
     const g = p.gains?.[id];
@@ -2792,6 +3419,8 @@ async function applyPreset(p) {
     const l = byId[ids.get(id) ?? id];
     if (l) put(l, at);
   }
+  // each orb's variations (변주 slot), the one it plays included
+  for (const [id, v] of Object.entries(p.vars ?? {})) if (active.has(id)) setVars(id, v);
   for (const o of [...rain]) if (active.has(o.id)) vanish(o);
   // a stem preset brings its full song back too (drawings under their new ids)
   const grid = p.song && songFromWire(p.song, (id) => ids.get(id) ?? id);
@@ -2805,17 +3434,19 @@ async function applyPreset(p) {
   if (!$('vote').hidden) voteSig = setSig();
 }
 
-// The wire form only keeps the seed of blocks that play; a silent block of a seeded part gets
-// the seed before it, so switching it back on in the grid plays something sensible.
+// Each block names the variation it plays (cell.k). Older grids only have the seed (cell.v): it
+// becomes the orb's variation with that seed (added to its list when new). The wire form only keeps
+// the seed of blocks that play; a silent block takes the variation before it.
 function fillSeeds(grid) {
   for (const r of grid.rows) {
-    const on = seeded(byId[r.id]);
-    let last = seedOf(byId[r.id]);
+    const l = byId[r.id], on = seeded(l);
+    let last = orbVars.get(r.id)?.vi ?? 0;
     for (const sec of grid.cells[r.id]) {
       for (const c of sec) {
-        if (!on) c.v = null;
-        else if (c.v == null) c.v = last;
-        else last = c.v;
+        if (c.k == null) c.k = on && c.v != null && c.on ? varIndexOf(r.id, c.v) : last;
+        if (c.k >= varCount(r.id)) c.k = 0;
+        last = c.k;
+        delete c.v;
       }
     }
   }
@@ -2833,13 +3464,23 @@ let sessionDropped = false; // ↺ 튜토리얼 재실행: the page reloads as o
 function saveSession() {
   clearTimeout(sessionTimer);
   if (!sessionReady || offline || sessionDropped) return;
-  const ids = new Set([...active.keys(), ...stash, ...slotIds(), ...(rollOrb ? [rollOrb.id] : [])]);
-  const drawn = [...ids].map((id) => byId[id]).filter((l) => l?.raw).map((l) => ({ id: l.id, src: l.src, raw: l.raw }));
-  const copies = [...ids].filter((id) => byId[id]?.base).map((id) => ({ id, base: byId[id].base }));
+  if (rollOrb) commitDraft(); // a drawing in the open roll is kept as its variation
+  const data = sessionData();
+  remember(data);
+  try {
+    localStorage.setItem(SESSION_KEY, JSON.stringify(data));
+  } catch {}
+}
+function sessionData() {
+  const ids = new Set([...active.keys(), ...stash, ...slotIds()]);
+  const drawn = [...ids].map((id) => byId[id]).filter((l) => l?.raw).map((l) => ({ id: l.id, src: l.src, raw: l.raw, ...(l.pats?.length > 1 ? { pats: l.pats, pi: l.pi } : {}) }));
+  const copies = [...ids].filter((id) => byId[id]?.base && !Object.hasOwn(byId[id], 'edit')).map((id) => ({ id, base: byId[id].base }));
+  const customs = customDefsFor(ids);
   const of = (map) => Object.fromEntries([...ids].filter((id) => map.has(id)).map((id) => [id, map.get(id)]));
-  const data = {
+  return {
     layers: [...active.keys()],
     drawn,
+    customs,
     copies,
     stash: [...stash],
     variation,
@@ -2848,12 +3489,91 @@ function saveSession() {
     held: of(heldSeed),
     name: ui.presetName.value,
     slots: Object.fromEntries(FX_SLOTS.filter((m) => slotOrbs[m]).map((m) => [m, { id: slotOrbs[m].id, home: slotOrbs[m].home ?? null }])),
-    roll: rollOrb && draft ? { id: rollOrb.id, home: rollOrb.home ?? null, src: draft.src, raw: draft.raw, edited: !!draft.edited, seed: draft.seed ?? null } : null,
+    vars: of(orbVars),
   };
-  try {
-    localStorage.setItem(SESSION_KEY, JSON.stringify(data));
-  } catch {}
 }
+
+// ---------- ↶ 되돌리기: the last 20 changes to the set ----------
+// Each time the set settles (the session save above, which follows every change) it is compared
+// with the one before; when it differs, that one goes on the stack. So an orb in or out, 약하게 /
+// 세게, a variation, 전부 비우기 or a preset loaded is one step each, and nothing is counted
+// while an orb is still in the hand or a copy is still flying to the stash. Undo puts the set
+// back: the song's orbs (each from its own spot), their volumes, seeds and variations, the stash
+// and the slots. An orb the older set doesn't have goes back to the field.
+const UNDO_MAX = 20;
+const undoStack = []; // older sets, as JSON
+let undoBase = null; // the set as it last settled
+let undoQuiet = false; // an undo is still landing (orbs flying home): it is not a change of its own
+const undoKey = (d) => JSON.stringify({
+  layers: d.layers, stash: d.stash, variation: d.variation, seeds: d.seeds, steps: d.steps, held: d.held, slots: d.slots, vars: d.vars,
+  homes: Object.fromEntries(d.layers.map((id) => [id, active.get(id)?.home ?? null])),
+});
+const inHand = () => !!document.querySelector('body > .orb.dragging:not(.flying)');
+function remember(data) {
+  if (undoQuiet || inHand()) return;
+  const k = undoKey(data);
+  if (undoBase != null && k !== undoBase) {
+    undoStack.push(undoBase);
+    if (undoStack.length > UNDO_MAX) undoStack.shift();
+  }
+  undoBase = k;
+  $('undo').disabled = !undoStack.length;
+}
+function undo() {
+  // the piano roll or the 편집 panel is open: those have their own way back
+  if (!undoStack.length || rollOrb || orbEditing) return;
+  if (inHand()) return;
+  saveSession(); // a change still waiting to be counted goes on the stack first
+  const s = JSON.parse(undoStack.pop());
+  $('undo').disabled = !undoStack.length;
+  undoQuiet = true;
+  const slotted = (x) => FX_SLOTS.map((m) => x[m]?.id).filter(Boolean);
+  const keep = new Set([...s.layers, ...s.stash, ...slotted(s.slots)]);
+  const before = new Set([...active.keys(), ...stash, ...slotted(slotOrbs)]);
+  const field = (h) => (h?.kind === 'field' ? h : { kind: 'field', fx: 0.2 + Math.random() * 0.6, fy: 0.15 });
+  // out of the song: the ones the older set has elsewhere just leave, the rest fly to the field
+  for (const [id, a] of [...active]) {
+    if (s.layers.includes(id)) continue;
+    if (keep.has(id)) removeLayer(id, { silent: true, respawn: false });
+    else {
+      a.home = field(a.home);
+      removeLayer(id, { silent: true });
+    }
+  }
+  for (const id of [...stash, ...slotted(slotOrbs)]) if (!keep.has(id)) returnOrb(id, field(null));
+  stash.length = 0;
+  for (const id of s.stash) if (byId[id] && stash.length < STASH_MAX) stash.push(id);
+  for (const m of FX_SLOTS) slotOrbs[m] = s.slots[m] && byId[s.slots[m].id] ? { ...s.slots[m] } : null;
+  variation = s.variation;
+  // volumes, seeds and variations of every orb either set has
+  for (const id of new Set([...before, ...keep])) {
+    setStep(id, s.steps[id] ?? 0);
+    ownSeed.delete(id);
+    heldSeed.delete(id);
+    orbVars.delete(id);
+  }
+  const at = nextBar();
+  for (const id of s.layers) if (byId[id] && !active.has(id)) put(byId[id], at, s.homes?.[id] ?? null);
+  for (const [id, v] of Object.entries(s.seeds ?? {})) if (active.has(id)) ownSeed.set(id, v);
+  for (const [id, v] of Object.entries(s.held ?? {})) if (!active.has(id)) heldSeed.set(id, v);
+  for (const [id, v] of Object.entries(s.vars ?? {})) if (byId[id]) setVars(id, structuredClone(v));
+  for (const o of [...rain]) if (keep.has(o.id)) vanish(o);
+  renderStash();
+  renderSlots();
+  sync();
+  // orbs flying home land within half a second; what is there then is the new starting point
+  setTimeout(() => {
+    undoQuiet = false;
+    undoBase = undoKey(sessionData());
+  }, 700);
+}
+$('undo').addEventListener('click', undo);
+addEventListener('keydown', (e) => {
+  if (!(e.ctrlKey || e.metaKey) || e.shiftKey || e.altKey || e.key.toLowerCase() !== 'z') return;
+  if (e.target.closest?.('input, textarea, [contenteditable]')) return;
+  e.preventDefault();
+  undo();
+});
 const saveSessionSoon = () => {
   clearTimeout(sessionTimer);
   sessionTimer = setTimeout(saveSession, 300);
@@ -2870,17 +3590,20 @@ function restoreSession() {
   } catch {}
   try {
     if (!s) return;
+    // custom orbs first: drawings, copies and the song may name them
+    ensureCustoms({ custom: s.customs });
     // drawn orbs keep their ids, and new drawings are numbered past them
     for (const d of s.drawn ?? []) {
       if (!byId[d.src]?.voice || !Array.isArray(d.raw)) continue;
-      makeDrawn(d.src, d.raw, d.id);
+      const pats = Array.isArray(d.pats) && d.pats.every((x) => Array.isArray(x) && x.length === STEPS) ? d.pats : null;
+      makeDrawn(d.src, d.raw, d.id, pats, pats ? d.pi : 0);
       const n = +String(d.id).match(/^drawn(\d+)$/)?.[1];
       if (n > drawnCount) drawnCount = n;
     }
-    // so do copies from 복제
+    // so do copies (a second one of an orb on screen)
     for (const c of s.copies ?? []) {
       const n = +String(c.id).match(/^copy(\d+)$/)?.[1];
-      if (!n || !byId[c.base] || byId[c.base].base || byId[c.id]) continue;
+      if (!n || !byId[c.base] || (byId[c.base].base && !byId[c.base].custom) || byId[c.id]) continue;
       makeCopy(c.base, c.id);
       if (n > copyCount) copyCount = n;
     }
@@ -2892,16 +3615,15 @@ function restoreSession() {
     for (const [id, g] of Object.entries(s.gains ?? {})) if (byId[id] && Number.isFinite(g) && g > 0) setStep(id, gainStep(g)); // older sessions
     for (const [id, v] of Object.entries(s.held ?? {})) if (byId[id] && !active.has(id) && Number.isSafeInteger(v)) heldSeed.set(id, v);
     if (typeof s.name === 'string') ui.presetName.value = s.name;
-    if (s.roll) tutUpTo(3); // a session left with the piano roll open had the 편집 slot out
+    for (const [id, v] of Object.entries(s.vars ?? {})) if (byId[id]) setVars(id, v);
     for (const m of FX_SLOTS) {
       const x = s.slots?.[m];
       if (x && byId[x.id] && !active.has(x.id) && accepts(m, byId[x.id])) slotOrbs[m] = { id: x.id, home: x.home ?? null };
     }
+    // the 복제 slot is gone: an orb a session left there goes to the stash
+    const old = s.slots?.copy;
+    if (old && byId[old.id] && !onScreen(old.id) && stash.length < STASH_MAX) stash.push(old.id);
     renderSlots();
-    if (s.roll && byId[s.roll.id] && pickForSlot(s.roll.id, s.roll.home, 'midi', { apply: false })) {
-      if (byId[s.roll.src] && Array.isArray(s.roll.raw)) draft = { src: s.roll.src, raw: [...s.roll.raw], edited: !!s.roll.edited, seed: Number.isSafeInteger(s.roll.seed) ? s.roll.seed : null };
-      renderRollHead();
-    }
   } catch (e) {
     console.error('could not restore the last session', e);
   } finally {
@@ -2918,7 +3640,7 @@ function handoffPreset() {
     if (p.layers.length) {
       savePresets([p, ...loadPresets()]);
       const gains = Object.fromEntries(Object.entries(p.gains ?? {}).map(([k, g]) => [k, g / 100]));
-      localStorage.setItem(SESSION_KEY, JSON.stringify({ layers: p.layers, drawn: p.drawn, stash: [], variation: p.variation, seeds: p.seeds ?? {}, gains, name: p.name }));
+      localStorage.setItem(SESSION_KEY, JSON.stringify({ layers: p.layers, drawn: p.drawn, stash: [], variation: p.variation, seeds: p.seeds ?? {}, gains, vars: p.vars ?? {}, name: p.name, customs: p.custom ?? [] }));
     }
   } catch (e) {
     console.error('could not read the set in the URL', e);
@@ -2937,7 +3659,8 @@ const unb64 = (str) => new TextDecoder().decode(Uint8Array.from(atob(str.replace
 // the share code alone: one line that carries the whole preset (name, orbs, drawings, variation,
 // and for a stem share the full-song grid)
 function presetText(p) {
-  const data = { n: p.name, l: p.layers, d: (p.drawn ?? []).map((d) => [d.id, d.src, packRaw(d.raw)]), v: p.variation ?? 0, ...(p.seeds ? { vs: p.seeds } : {}), ...(p.gains ? { vg: p.gains } : {}), ...(p.song ? { s: p.song } : {}) };
+  const vr = p.vars ? Object.fromEntries(Object.entries(p.vars).map(([k, v]) => [k, varsToWire(v)])) : null;
+  const data = { n: p.name, l: p.layers, d: (p.drawn ?? []).map((d) => [d.id, d.src, packRaw(d.raw)]), v: p.variation ?? 0, ...(p.seeds ? { vs: p.seeds } : {}), ...(p.gains ? { vg: p.gains } : {}), ...(vr ? { vr } : {}), ...(p.custom?.length ? { c: p.custom } : {}), ...(p.song ? { s: p.song } : {}) };
   return SHARE_TAG + b64(JSON.stringify(data));
 }
 
@@ -2947,13 +3670,17 @@ function parsePresetText(text) {
   const m = text.match(/orb1:([A-Za-z0-9_-]+)/) ?? text.trim().match(/^([A-Za-z0-9_-]{16,})$/);
   if (m) {
     const d = JSON.parse(unb64(m[1]));
+    // custom orbs (🎛 편집) first, so the orbs below can name them
+    const custom = (Array.isArray(d.c) ? d.c : []).slice(0, 12).map((x) => checkCustom(x, byId)).filter(Boolean);
+    for (const c of custom) registerCustom(c, byId);
     const drawn = (d.d ?? []).filter(([, src]) => byId[src]?.voice).map(([did, src, raw]) => ({ id: did, src, raw: unpackRaw(raw) }));
     const ok = new Set(drawn.map((x) => x.id));
     const layers = (d.l ?? []).filter((x) => ok.has(x) || (byId[x] && !byId[x].raw));
     const song = d.s && typeof d.s === 'object' ? { song: d.s } : {}; // checked when it is applied
     const seeds = d.vs && typeof d.vs === 'object' ? { seeds: Object.fromEntries(Object.entries(d.vs).filter(([k, v]) => layers.includes(k) && Number.isSafeInteger(v) && v >= 0)) } : {};
     const gains = cleanGains(d.vg, layers);
-    return { id, name: String(d.n ?? ot('importedPreset')).slice(0, 24), layers, drawn, variation: +d.v || 0, ...seeds, ...(gains ? { gains } : {}), ...song };
+    const vars = cleanVars(d.vr, layers);
+    return { id, name: String(d.n ?? ot('importedPreset')).slice(0, 24), layers, drawn, variation: +d.v || 0, ...seeds, ...(gains ? { gains } : {}), ...(vars ? { vars } : {}), ...(custom.length ? { custom } : {}), ...song };
   }
   const byName = new Map(LAYERS.flatMap((l) => [[l.nameKo ?? l.name, l.id], [l.name, l.id]]));
   const layers = [];
@@ -3257,22 +3984,105 @@ function songPlan() {
 }
 
 // The plan becomes an editable grid: a row per instrument, a column per 4-bar block (grouped
-// into sections), and in every block whether the instrument plays there and with which seed.
-// The stem panel shows it; the song is built from it. Leads get a new seed every block; the
-// other parts keep one seed per section. Orbs without a seed carry none (v: null), and drawn
-// (user-edited) rows are labelled C01, C02 … instead.
+// into sections), and in every block whether the instrument plays there, which of the orb's
+// variations (변주 slot: 01, 02 …) it plays (k), and for an orb without variations how strong
+// it plays (lv, -2 … +2 like 약하게 / 세게) and whether it fades in or out (fade). The stem
+// panel shows it; the song is built from it. Drawn (user-edited) rows are labelled C01 ….
+//
+// Rolled by the stems, by role:
+//   lead · arp · bass   change variation only between sections: the drops and the rest play the
+//                       orb's own (the one it plays), 드롭 2 another, break / bridge a third; a lead
+//                       also takes turns with another one block by block in the drops. Variations
+//                       made in the 변주 slot come first; at most two more are made for it.
+//   drums               keep their variation, with a ★ fill on each section's last block
+//   the rest            keep their variation
+//   no seed (fixed)     a little softer in the intro / break / bridge / outro, fading in at the
+//                       song's start and out at its end
 const BLOCK = 4;
 // a section is any whole number of bars: one block per started 4, the last one maybe shorter
 const blocksIn = (sec) => Math.ceil(sec.len / BLOCK);
 const blockBars = (sec, j) => Math.min(BLOCK, sec.len - j * BLOCK);
 const isLead = (l) => role(l) === 'lead';
 const newSeed = () => 1 + Math.floor(Math.random() * 9999);
-// the seed of block `g` (counted through the whole song for a lead) from a section's base seed
-const blockSeed = (l, base, g) => (!seeded(l) ? null : isLead(l) ? base + g : base);
+const VARIED_ROLES = ['lead', 'arp', 'bass'];
+const DRUMS = ['kick', 'snare', 'hat', 'perc', 'combo'];
+const varied = (l) => seeded(l) && VARIED_ROLES.includes(role(l));
+// an orb that has nothing to switch between in the stems: it gets strength and fades instead
+// (drums, fx … change with the seed: they are variation orbs too, even with only 01 so far)
+const noVars = (l) => !l.raw && !seeded(l) && varCount(l.id) <= 1;
+const secKind = (sec) => sec.name.split(' ')[0];
+const secNum = (sec) => +(sec.name.split(' ')[1] ?? 1) || 1;
+// the variations the stems may use besides the one the orb plays: its own from the 변주 slot
+// first, then up to two made for it (kept in its list, so rolling the song again reuses them)
+function altVars(l, n) {
+  const st = ensureVars(l.id), out = [];
+  st.list.forEach((x, i) => i !== st.vi && !x.auto && out.length < n && out.push(i));
+  for (let a = 1; out.length < n && a <= 2; a++) {
+    const key = `a${a}`;
+    let i = st.list.findIndex((x) => x.auto === key);
+    if (i < 0) {
+      if (st.list.length >= VAR_MAX) break;
+      st.list.push({ seed: varSeed(l, st.vi) + a * 100, auto: key });
+      i = st.list.length - 1;
+    }
+    if (i !== st.vi) out.push(i);
+  }
+  return out;
+}
+// the variation of block j of section sec
+function blockVar(l, sec, j) {
+  const vi = orbVars.get(l.id)?.vi ?? 0;
+  if (!varied(l)) return vi;
+  const kind = secKind(sec), alt = altVars(l, 2);
+  let k = vi;
+  if (kind === '드롭' && secNum(sec) >= 2) k = alt[0] ?? vi;
+  else if (kind === '브레이크' || kind === '브리지') k = alt[1] ?? alt[0] ?? vi;
+  if (isLead(l) && kind === '드롭' && j % 2) k = k === vi ? alt[0] ?? vi : vi;
+  return k;
+}
+// the rest of an auto block: a drum fill on a section's last block, strength and fades for an
+// orb without variations
+function blockFx(l, i, j) {
+  const secs = song.sections, sec = secs[i], kind = secKind(sec), last = j === blocksIn(sec) - 1;
+  // (an orb without variations takes strength and fades instead of a fill)
+  const out = { fill: DRUMS.includes(role(l)) && last && kind !== '아웃트로' && i < secs.length - 1 && !!fillFx(l) && !noVars(l) };
+  if (noVars(l)) {
+    const g = ['인트로', '브레이크', '브리지', '아웃트로'].includes(kind) ? 80 : 100;
+    if (g !== 100) out.g0 = g;
+    // the song's first block fades in from silence, its last one out to silence
+    if (i === 0 && j === 0) Object.assign(out, { g0: 0, g1: g });
+    else if (i === secs.length - 1 && last) out.g1 = 0;
+  }
+  return out;
+}
 function cellsFor(l, on) {
   if (l.spot) return spotCells(l);
-  let g = 0;
-  return song.sections.map((sec, i) => Array.from({ length: blocksIn(sec) }, () => ({ on: on(sec, i), v: blockSeed(l, seedOf(l) + (sec.v ?? 0) * 100, g++) })));
+  return song.sections.map((sec, i) => Array.from({ length: blocksIn(sec) }, (_, j) => {
+    const c = { on: on(sec, i), k: blockVar(l, sec, j) };
+    return { ...c, ...blockFx(l, i, j), ...(c.on ? {} : { fill: false }) };
+  }));
+}
+
+// ---------- strength and fades (stem cells of orbs without variations) ----------
+// A block plays at a strength from its start (g0) to its end (g1), in percent of how the orb
+// plays (0 silent … 150); without its own end it stays at its start. Between the two the
+// strength follows a curve (cv): l linear, q quadratic (slow start), e eased (fast start), s an S.
+const G_MAX = 150;
+const CURVES = ['l', 'q', 'e', 's'];
+const curveOf = (cell) => (CURVES.includes(cell.cv) ? cell.cv : 'l');
+const gStart = (cell) => cell.g0 ?? 100;
+const gEnd = (cell) => cell.g1 ?? gStart(cell);
+// the curve at t (0 … 1), for drawing it
+const curveAt = (cv, t) => ({ l: t, q: t * t, e: 1 - (1 - t) * (1 - t), s: t * t * (3 - 2 * t) })[cv];
+// the block's gain: null (as is), a factor, or a ramp as Strudel code
+function blockGain(cell, bars) {
+  const a = gStart(cell) / 100, b = gEnd(cell) / 100;
+  if (Math.abs(a - b) < 1e-6) return Math.abs(a - 1) < 1e-6 ? null : a;
+  // t: 0 → 1 over the block (the line is shifted so the block starts on a 4-bar boundary)
+  const t = bars === BLOCK ? 'saw.slow(4)' : `saw.slow(4).mul(${+(BLOCK / bars).toFixed(4)})`;
+  const u = `${t}.mul(-1).add(1)`;
+  const f = { l: t, q: `${t}.mul(${t})`, e: `${u}.mul(${u}).mul(-1).add(1)`, s: `${t}.mul(${t}).mul(${t}.mul(-2).add(3))` }[curveOf(cell)];
+  return `${f}.mul(${+(b - a).toFixed(3)}).add(${+a.toFixed(3)})`;
 }
 // A block FX (spot orb) plays in one block only: a hit or down-sweep on the drop's first block,
 // a reversed sound or up-sweep on the build-up's last block, leading into the drop. Without
@@ -3285,13 +4095,22 @@ function spotCells(l) {
   if (l.spot === 'end' && build >= 0) [at, block] = [build, blocksIn(secs[build]) - 1];
   else if (drop >= 0) [at, block] = [drop, 0];
   else [at, block] = [Math.min(1, secs.length - 1), 0];
-  let g = 0;
-  return secs.map((sec, i) => Array.from({ length: blocksIn(sec) }, (_, j) => ({ on: i === at && j === block, v: blockSeed(l, seedOf(l) + (sec.v ?? 0) * 100, g++) })));
+  return secs.map((sec, i) => Array.from({ length: blocksIn(sec) }, (_, j) => ({ on: i === at && j === block, k: blockVar(l, sec, j) })));
 }
 function buildGrid() {
   const plan = songPlan();
   const rows = [];
   for (const sec of plan) for (const l of sec.layers) if (!rows.includes(l.id)) rows.push(l.id);
+  // variations the stems made before (per section, `s…`) that the orb doesn't play go
+  for (const id of rows) {
+    const st = orbVars.get(id);
+    for (let k = (st?.list.length ?? 0) - 1; k > 0; k--) {
+      if (k === st.vi || !/^s\d/.test(st.list[k].auto ?? '')) continue;
+      st.list.splice(k, 1);
+      dropVarCells(id, k);
+      if (st.vi > k) st.vi--;
+    }
+  }
   song.sections = plan.map(({ name, len, shift, v }) => ({ name, len, shift, v }));
   song.rows = rows.map((id) => ({ id, alt: !active.has(id) }));
   song.cells = Object.fromEntries(rows.map((id) => [id, cellsFor(byId[id], (sec, i) => plan[i].layers.some((l) => l.id === id))]));
@@ -3321,17 +4140,21 @@ function songLines() {
   for (const r of song.rows) {
     const l = byId[r.id];
     if (!l) continue;
+    // a muted row (click on its head) stays out while listening; the WAV keeps every part
+    if (r.mute && !offline) continue;
     let o = 0;
     secs.forEach((sec, i) => {
       const blocks = song.cells[r.id][i], base = aud === null ? o : 0;
       o += sec.len;
       if (aud !== null && aud !== i) return;
-      // neighbouring blocks with the same seed play as one line (a 💥 block ends its line)
+      // neighbouring blocks with the same variation and strength play as one line (a ★ block ends
+      // its line, a fading block is a line of its own)
+      const same = (a, b) => a.on === b.on && a.k === b.k && gStart(a) === gStart(b) && a.g1 == null && b.g1 == null;
       for (let j = 0, k; j < blocks.length; j = k) {
-        for (k = j + 1; k < blocks.length && !blocks[k - 1].fill && blocks[k].on === blocks[j].on && blocks[k].v === blocks[j].v; k++);
+        for (k = j + 1; k < blocks.length && !blocks[k - 1].fill && same(blocks[k], blocks[j]); k++);
         if (!blocks[j].on) continue;
         // same test as the key orbs use, so fx / texture orbs that play notes move with the section too
-        const v = blocks[j].v ?? 0;
+        const v = varPlay(l, blocks[j].k);
         const shift = sec.shift && pitchedCode(l, codeOf(l, v)) ? `.transpose(${sec.shift})` : '';
         // the patterns loop every 4 bars on the clock: shifted so each run starts on its first bar
         // (a section of odd length, or a song started off the bar grid after a jump)
@@ -3339,10 +4162,11 @@ function songLines() {
         const late = ph > 1e-6 ? `\n  .late(${+ph.toFixed(4)})` : '';
         const part = (a, b) => `${late}\n  .songPart(${song.s0}, ${aud === null ? total : sec.len}, ${base + a}, ${base + b}${from})`;
         const end = Math.min(k * BLOCK, sec.len), fx = blocks[k - 1].fill && fillFx(l);
-        const line = lineFor(l, v, shift);
+        const gain = blockGain(blocks[j], blockBars(sec, j));
+        const line = lineFor(l, v, shift, { gain });
         if (line) out.push(line + part(j * BLOCK, fx ? end - 1 : end));
-        // 💥: the run's last bar plays as a fill
-        const fill = fx && lineFor(l, v, shift + fx);
+        // ★: the run's last bar plays as a fill
+        const fill = fx && lineFor(l, v, shift + fx, { gain });
         if (fill) out.push(fill + part(end - 1, end));
       }
     });
@@ -3381,7 +4205,7 @@ const button = (cls, text, title, onClick) => {
 
 let stemSig = '';
 function renderSong() {
-  const sig = JSON.stringify([song.sections, song.rows, song.cells, song.audition, keyText(), ot('corner')]);
+  const sig = JSON.stringify([song.sections, song.rows, song.cells, song.rows.map((r) => varCount(r.id)), song.audition, keyText(), ot('corner')]);
   if (sig === stemSig) return;
   stemSig = sig;
   renderStem();
@@ -3400,7 +4224,7 @@ function setSectionLen(i, len) {
     while (blocks.length > n) blocks.pop();
     while (blocks.length < n) {
       const last = blocks.at(-1);
-      blocks.push({ on: last.on, v: last.v == null ? null : isLead(byId[r.id]) ? last.v + 1 : last.v, fill: false });
+      blocks.push({ on: last.on, k: last.k ?? 0, fill: false, ...(last.g0 != null || last.g1 != null ? { g0: gEnd(last) } : {}) });
     }
   }
   return true;
@@ -3457,7 +4281,8 @@ function insertSection(i, kind) {
     const tail = song.cells[r.id][i].at(-1);
     song.cells[r.id].splice(i + 1, 0, Array.from({ length: blocksIn(sec) }, (_, j) => ({
       on: on.has(r.id),
-      v: tail.v == null ? null : isLead(byId[r.id]) ? tail.v + 1 + j : tail.v,
+      k: tail.k ?? 0,
+      ...(tail.g0 != null || tail.g1 != null ? { g0: gEnd(tail) } : {}),
       fill: false,
     })));
   }
@@ -3607,36 +4432,42 @@ function renderStem() {
     if (!l) continue;
     const custom = l.raw ? tags.get(r.id) ?? 'C' : null;
     const head = document.createElement('div');
-    head.className = 'rh' + (r.alt ? ' alt' : ''); // .rh starts a new grid row (column 1)
+    head.className = 'rh' + (r.alt ? ' alt' : '') + (r.mute ? ' muted' : ''); // .rh starts a new grid row (column 1)
+    rowClicks(head, r);
     head.style.setProperty('--g', ctint(l));
     const tag = document.createElement('b');
     tag.textContent = roleText(role(l));
     const name = document.createElement('span');
     name.textContent = l.name;
     head.append(miniOrb(l), tag, name);
-    if (!custom && seeded(l)) {
-      head.append(button('ghost batch', '→#', ot(isLead(l) ? 'rowSeedsLead' : 'rowSeeds'), (e) => askSeed(e.currentTarget, song.cells[r.id][0][0].v, (v) => {
-        let g = 0;
-        song.cells[r.id].flat().forEach((b) => (b.v = isLead(l) ? v + g++ : v));
-        sync();
-      })));
-    }
-    head.title = r.alt ? `${l.name} — ${ot('altRow')}` : l.name;
+    head.title = `${r.alt ? `${l.name} — ${ot('altRow')}` : l.name}\n${ot('rowMuteTip')}`;
     grid.append(head);
     song.cells[r.id].forEach((blocks, i) => blocks.forEach((cell, j) => {
       const c = document.createElement('div');
-      c.className = 'cell' + (cell.on ? ' on' : '') + (song.audition === i ? ' aud' : '') + (j === 0 ? ' first' : '');
+      c.className = 'cell' + (cell.on ? ' on' : '') + (song.audition === i ? ' aud' : '') + (j === 0 ? ' first' : '') + (r.mute ? ' muted' : '');
       c.style.gridColumn = `span ${blockBars(secs[i], j)}`;
       c.style.setProperty('--g', ctint(l));
       c.title = ot(cell.on ? 'cellOff' : 'cellOn');
       if (cell.on) {
-        // the seed on the left (none for an orb without one), ✕ on the right takes it out here
-        const label = custom ?? (cell.v == null ? '' : `#${cell.v}`);
-        const tagEl = button('ghost seedtag', label, ot(custom ? 'customInst' : 'changeSeed'), (e) => {
+        // ◀ 01 ▶: the orb's variation here (switched between those in its list) · ★ fill · ✕ out
+        // ▶ past the last one makes a new variation (an orb that changes with the seed)
+        const n = varCount(r.id), k0 = cell.k ?? 0, grows = seeded(l) && k0 === n - 1 && n < VAR_MAX;
+        const many = !custom && (n > 1 || seeded(l));
+        if (blockBars(secs[i], j) < BLOCK) c.classList.add('short');
+        const turn = (d) => (e) => {
           e.stopPropagation();
-          if (!custom && cell.v != null) askSeed(e.currentTarget, cell.v, (v) => ((cell.v = v), sync()));
-        });
-        if (!label) tagEl.style.visibility = 'hidden';
+          if (d > 0 && grows) cell.k = newSeedVar(r.id) ?? 0;
+          else cell.k = (k0 + d + n) % n;
+          sync();
+        };
+        const prev = button('ghost cvar', '◀', ot('cellVarPrev'), turn(-1));
+        const next = button('ghost cvar', '▶', ot(grows ? 'varyNew' : 'cellVarNext'), turn(1));
+        if (n < 2) prev.disabled = true;
+        const num = document.createElement('span');
+        num.className = 'cnum';
+        num.textContent = custom ?? varNum(cell.k ?? 0);
+        num.title = ot(custom ? 'customInst' : 'cellVarTip');
+        if (!many) prev.style.visibility = next.style.visibility = 'hidden';
         const x = button('ghost cellx', '✕', ot('cellDel'), (e) => {
           e.stopPropagation();
           cell.on = false;
@@ -3646,14 +4477,21 @@ function renderStem() {
         const tools = document.createElement('span');
         tools.className = 'celltools';
         if (fillFx(l)) {
-          tools.append(button('ghost cellfill' + (cell.fill ? ' on' : ''), '💥', ot(cell.fill ? 'cellFillOff' : 'cellFill'), (e) => {
+          tools.append(button('ghost cellfill' + (cell.fill ? ' on' : ''), '★', ot(cell.fill ? 'cellFillOff' : 'cellFill'), (e) => {
             e.stopPropagation();
             cell.fill = !cell.fill;
             sync();
           }));
         }
         tools.append(x);
-        c.append(tagEl, tools);
+        // an orb without variations: its strength over the block instead (no fill)
+        if (!custom && noVars(l)) rampCell(c, cell, x);
+        else {
+          const pick = document.createElement('span');
+          pick.className = 'cvars';
+          pick.append(prev, num, next);
+          c.append(pick, tools);
+        }
       }
       c.addEventListener('click', () => {
         cell.on = !cell.on;
@@ -3665,25 +4503,121 @@ function renderStem() {
   }
 }
 
-// a small box under the clicked seed to type a new one
-function askSeed(anchor, initial, apply) {
-  const pop = ui.seedPop, input = pop.querySelector('input');
-  const r = anchor.getBoundingClientRect();
-  pop.style.left = `${Math.min(innerWidth - 190, Math.max(8, r.left))}px`;
-  pop.style.top = `${Math.min(innerHeight - 50, r.bottom + 4)}px`;
-  pop.classList.add('open');
-  input.value = initial;
-  input.focus();
-  input.select();
-  pop.onsubmit = (e) => {
+// The block of an orb without variations: | start ⌁ shape …… ✕ end |. The two edges are drag
+// handles (up = stronger, down = softer) for the strength at its start and end; the end follows
+// the start until it is dragged itself. A line across the block draws the strength, darker above.
+function rampCell(c, cell, x) {
+  c.classList.add('ramp');
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', '0 0 100 100');
+  svg.setAttribute('preserveAspectRatio', 'none');
+  svg.setAttribute('class', 'cramp');
+  const start = rampHandle(cell, 'g0', () => draw());
+  const end = rampHandle(cell, 'g1', () => draw());
+  const shape = button('ghost cshape', '', ot('rampShapeTip', { shape: ot('fadeShape_' + curveOf(cell)) }), (e) => {
+    e.stopPropagation();
+    openShapeMenu(e.currentTarget, cell);
+  });
+  shape.append(curveIcon(curveOf(cell)));
+  const gap = document.createElement('span');
+  gap.className = 'cgap';
+  function draw() {
+    const y = (g) => 100 - (g / G_MAX) * 100;
+    const pts = Array.from({ length: 21 }, (_, i) => {
+      const t = i / 20;
+      return `${t * 100},${y(gStart(cell) + (gEnd(cell) - gStart(cell)) * curveAt(curveOf(cell), t)).toFixed(2)}`;
+    });
+    svg.innerHTML = `<polygon class="shade" points="0,0 ${pts.join(' ')} 100,0" /><polyline points="${pts.join(' ')}" vector-effect="non-scaling-stroke" />`;
+    for (const [h, g] of [[start, gStart(cell)], [end, gEnd(cell)]]) h.style.setProperty('--y', `${y(g)}%`);
+    start.title = ot('rampStartTip', { n: gStart(cell) });
+    end.title = ot(cell.g1 == null ? 'rampEndFollowTip' : 'rampEndTip', { n: gEnd(cell) });
+    end.classList.toggle('follow', cell.g1 == null);
+  }
+  draw();
+  c.append(svg, start, shape, gap, x, end);
+}
+// a drag handle on a block's edge: key 'g0' (start) or 'g1' (end). A click on the end (no drag)
+// makes it follow the start again; a double click on the start puts it back to 100%
+function rampHandle(cell, key, redraw) {
+  const h = document.createElement('span');
+  h.className = 'ghandle ' + (key === 'g0' ? 'gstart' : 'gend');
+  h.innerHTML = '<i></i>';
+  h.addEventListener('click', (e) => e.stopPropagation());
+  h.addEventListener('dblclick', (e) => {
+    e.stopPropagation();
+    delete cell[key];
+    sync();
+  });
+  h.addEventListener('pointerdown', (e) => {
+    if (e.button > 0) return;
     e.preventDefault();
-    const v = parseInt(input.value, 10);
-    if (Number.isFinite(v) && v >= 0) apply(v);
-    pop.classList.remove('open');
+    e.stopPropagation();
+    h.setPointerCapture(e.pointerId);
+    const y0 = e.clientY, v0 = key === 'g0' ? gStart(cell) : gEnd(cell);
+    let moved = false;
+    h.classList.add('drag');
+    const move = (ev) => {
+      if (!moved && Math.abs(ev.clientY - y0) < 3) return;
+      moved = true;
+      // 2% per pixel, in steps of 5
+      cell[key] = Math.max(0, Math.min(G_MAX, Math.round((v0 - (ev.clientY - y0) * 2) / 5) * 5));
+      redraw();
+    };
+    const up = () => {
+      h.removeEventListener('pointermove', move);
+      h.removeEventListener('pointerup', up);
+      h.removeEventListener('pointercancel', up);
+      h.classList.remove('drag');
+      // a click on the end (no drag): it follows the start again
+      if (!moved && key === 'g1') delete cell.g1;
+      if (key === 'g0' && cell.g0 === 100) delete cell.g0;
+      sync();
+    };
+    h.addEventListener('pointermove', move);
+    h.addEventListener('pointerup', up);
+    h.addEventListener('pointercancel', up);
+  });
+  return h;
+}
+// a small list under the shape button: the four curves, and the end back to following the start
+const shapeMenu = document.createElement('div');
+shapeMenu.className = 'fade-menu';
+document.body.append(shapeMenu);
+function openShapeMenu(anchor, cell) {
+  shapeMenu.innerHTML = '';
+  const item = (label, on, run) => {
+    const b = button('ghost' + (on ? ' on' : ''), label, '', (e) => {
+      e.stopPropagation();
+      run();
+      shapeMenu.classList.remove('open');
+      sync();
+    });
+    shapeMenu.append(b);
+    return b;
   };
+  for (const cv of CURVES) {
+    item(ot('fadeShape_' + cv), curveOf(cell) === cv, () => {
+      if (cv === 'l') delete cell.cv;
+      else cell.cv = cv;
+    }).prepend(curveIcon(cv));
+  }
+  if (cell.g1 != null) item(ot('rampFollow'), false, () => delete cell.g1);
+  const r = anchor.getBoundingClientRect();
+  shapeMenu.classList.add('open');
+  shapeMenu.style.left = `${Math.min(innerWidth - shapeMenu.offsetWidth - 8, Math.max(8, r.left))}px`;
+  shapeMenu.style.top = `${Math.min(innerHeight - shapeMenu.offsetHeight - 8, r.bottom + 4)}px`;
+}
+// a tiny drawing of a curve, rising
+function curveIcon(cv) {
+  const pts = Array.from({ length: 13 }, (_, i) => `${((i / 12) * 22 + 1).toFixed(1)},${(13 - curveAt(cv, i / 12) * 12).toFixed(1)}`);
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', '0 0 24 14');
+  svg.setAttribute('class', 'fade-curve');
+  svg.innerHTML = `<polyline points="${pts.join(' ')}" />`;
+  return svg;
 }
 document.addEventListener('pointerdown', (e) => {
-  if (!e.target.closest('#seedPop') && !e.target.closest('.batch, .seedtag')) ui.seedPop.classList.remove('open');
+  if (!e.target.closest('.fade-menu, .cshape')) shapeMenu.classList.remove('open');
 });
 
 // A section head: a click plays the song from the 4-bar block under the mouse (and ends a looped
@@ -3705,6 +4639,27 @@ function sectionClicks(h, i) {
     secClickTimer = setTimeout(() => playFrom(i, j), DBL_MS);
   });
 }
+// A row head (the instrument on the left): a click mutes / unmutes it, a double-click keeps only
+// it playing (or, if it already is the only one, brings every part back). The click waits like a
+// section head's, so a double-click doesn't mute first.
+let rowClickTimer = 0;
+function rowClicks(head, r) {
+  head.addEventListener('click', (e) => {
+    if (e.target.closest('button')) return; // →#
+    clearTimeout(rowClickTimer);
+    if (e.detail >= 2) {
+      const solo = song.rows.every((x) => !x.mute === (x === r));
+      for (const x of song.rows) x.mute = !solo && x !== r;
+      sync();
+      return;
+    }
+    rowClickTimer = setTimeout(() => {
+      r.mute = !r.mute;
+      sync();
+    }, DBL_MS);
+  });
+}
+
 // the whole song from block j of section i
 async function playFrom(i, j) {
   if (!song?.sections) return;
@@ -3743,7 +4698,7 @@ function stemToolsHome() {
   stemTools[1].after(stemTools[2]);
 }
 function stemToolsPlace() {
-  if (document.body.classList.contains('stem-open') && !isPhone.matches) $('stemClose').before(...stemTools);
+  if (document.body.classList.contains('stem-open') && !isPhone.matches) $('stemHelp').before(...stemTools);
   else if (stemTools[0].closest('.stem-head')) stemToolsHome();
 }
 isPhone.addEventListener('change', stemToolsPlace);
@@ -3790,6 +4745,18 @@ ui.songBtn.addEventListener('click', () => askFirst(ui.songBtn, ot('otherSongAsk
 $('stemReopen').addEventListener('click', () => !song && startSong(!!lastSong));
 $('songOff').addEventListener('click', closeSong);
 $('stemClose').addEventListener('click', closeSong);
+// ? beside ↩ 루프 모드로: what stem mode is and how to work it (the license dialog's frame)
+const stemHelpDlg = document.createElement('dialog');
+stemHelpDlg.className = 'lic stem-help-dlg';
+document.body.append(stemHelpDlg);
+stemHelpDlg.addEventListener('click', (e) => e.target === stemHelpDlg && stemHelpDlg.close());
+$('stemHelp').addEventListener('click', () => {
+  stemHelpDlg.innerHTML = `<div class="lic-head"><b>${ot('stemHelpTitle')}</b><button type="button" class="ghost lic-x" aria-label="✕">✕</button></div>
+    <div class="lic-body">${ot('stemHelpBody')}</div>`;
+  stemHelpDlg.setAttribute('aria-label', ot('stemHelpTitle'));
+  stemHelpDlg.querySelector('.lic-x').onclick = () => stemHelpDlg.close();
+  stemHelpDlg.showModal();
+});
 
 // where the song is now: the section and how far into it (a looped section counts on its own)
 // Where in its 4-bar loop the music is now (0 to BARS), for the backdrop's sweep and the edit
@@ -3955,6 +4922,44 @@ function frame(ts) {
 
 const rightPane = $('right');
 const presetPane = $('presetbar');
+
+// desktop: drag the preset sidebar's right edge (the line between it and the player) to show its
+// tiles in 1, 2 or 3 columns; the choice is kept per browser
+{
+  const PB_COLS_KEY = 'orbPresetCols';
+  const setCols = (n) => {
+    n = Math.max(1, Math.min(3, n | 0 || 1));
+    document.documentElement.style.setProperty('--pb-cols', n);
+    presetPane.classList.toggle('wide', n > 1);
+    return n;
+  };
+  let cols = 1;
+  try { cols = setCols(+localStorage.getItem(PB_COLS_KEY)); } catch {}
+  const grip = document.createElement('div');
+  grip.className = 'pb-resize';
+  presetPane.append(grip);
+  grip.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    grip.setPointerCapture(e.pointerId);
+    document.body.classList.add('pb-resizing');
+    const left = presetPane.getBoundingClientRect().left;
+    const move = (ev) => {
+      const n = Math.max(1, Math.min(3, Math.round((ev.clientX - left - 6) / 86)));
+      if (n !== cols) cols = setCols(n);
+    };
+    const up = () => {
+      document.body.classList.remove('pb-resizing');
+      grip.removeEventListener('pointermove', move);
+      grip.removeEventListener('pointerup', up);
+      grip.removeEventListener('pointercancel', up);
+      try { localStorage.setItem(PB_COLS_KEY, cols); } catch {}
+    };
+    grip.addEventListener('pointermove', move);
+    grip.addEventListener('pointerup', up);
+    grip.addEventListener('pointercancel', up);
+  });
+}
 // the dark piano roll behind the page on wide screens (midiBackdrop.js): the loop of every pitched
 // orb on the player, as it plays (no hover previews, no waiting variations, no auditioned key)
 function drawBackdrop(c, dt, w, h) {
@@ -4151,15 +5156,20 @@ function parseTerm(raw) {
   const value = field ? m[2] : body;
   return value ? { neg, field, value } : null;
 }
+// the panel shows either the catalogue (🔍 오브 검색) or only the custom orbs (✦ 커스텀 오브):
+// custom orbs (made here, or uploaded by someone) show nowhere else
+let searchMode = 'catalogue';
 const searchOrbs = (q) => {
   const terms = q.toLowerCase().split(/[\s/,]+/).map(parseTerm).filter(Boolean);
   const ok = (l, t) => (t.field ? matchesField(l, t.field, t.value) : matchesTerm(l, t.value)) !== t.neg;
+  if (searchMode === 'custom') return allCustoms().filter((l) => terms.every((t) => ok(l, t))).slice(0, 96);
   return terms.length ? LAYERS.filter((l) => terms.every((t) => ok(l, t))).slice(0, 96) : [];
 };
 function renderSearch() {
   const q = ui.searchInput.value;
   const found = searchOrbs(q);
-  ui.searchResults.innerHTML = found.length ? '' : `<p class="empty">${ot(q.trim() ? 'noMatch' : 'searchEx')}</p>`;
+  const empty = searchMode === 'custom' ? (q.trim() ? 'noMatch' : 'customEmpty') : q.trim() ? 'noMatch' : 'searchEx';
+  ui.searchResults.innerHTML = found.length ? '' : `<p class="empty">${ot(empty)}</p>`;
   for (const l of found) {
     const item = document.createElement('div');
     item.className = 'hit' + (active.has(l.id) ? ' on' : '');
@@ -4169,16 +5179,20 @@ function renderSearch() {
     const kind = document.createElement('small');
     kind.textContent = l.kind;
     item.append(miniOrb(l), name, kind);
-    item.title = ot(active.has(l.id) ? 'inSong' : 'hitTip');
-    item.addEventListener('mouseenter', () => hoverOn(l.id));
+    item.title = active.has(l.id) ? `${ot('inSong')} · ${ot('hitTip')}` : ot('hitTip');
+    item.addEventListener('mouseenter', () => {
+      hoverOn(l.id);
+      hoverCombo(l.id, item);
+    });
     item.addEventListener('mouseleave', hoverOff);
     item.addEventListener('pointerdown', (e) => grabFromSearch(e, l.id));
     ui.searchResults.append(item);
   }
 }
 // click: the orb drops into the field near the top; drag: it is held straight away
+// (an orb already on screen comes out as a copy of it)
 function grabFromSearch(e, id) {
-  if (e.button !== 0 || active.has(id)) return;
+  if (e.button !== 0) return;
   e.preventDefault();
   const x0 = e.clientX, y0 = e.clientY;
   const home = { kind: 'field', fx: 0.2 + Math.random() * 0.6, fy: 0.12 };
@@ -4187,51 +5201,46 @@ function grabFromSearch(e, id) {
     window.removeEventListener('pointerup', up);
     window.removeEventListener('pointercancel', cleanup);
   };
-  // an orb is on screen once: a copy already falling or in the stash is taken out first
-  const takeCopy = () => {
-    const o = rain.find((q) => q.id === id);
-    if (o) {
-      rain.splice(rain.indexOf(o), 1);
-      o.el.remove();
-    }
-    const i = stash.indexOf(id);
-    if (i >= 0) {
-      stash.splice(i, 1);
-      renderStash();
-    }
-  };
   const move = (ev) => {
     if (Math.hypot(ev.clientX - x0, ev.clientY - y0) < 6) return;
     cleanup();
     hoverOff();
-    takeCopy();
-    startDrag(ev, makeOrbEl(id), home, { x: ev.clientX, y: ev.clientY });
+    startDrag(ev, makeOrbEl(freshOrb(id)), home, { x: ev.clientX, y: ev.clientY });
   };
   const up = () => {
     cleanup();
-    takeCopy();
     const { w, h } = fieldSize();
-    rainAdd(id, home.fx * w, home.fy * h, { pop: true });
+    rainAdd(freshOrb(id), home.fx * w, home.fy * h, { pop: true });
   };
   window.addEventListener('pointermove', move);
   window.addEventListener('pointerup', up);
   window.addEventListener('pointercancel', cleanup);
 }
-$('searchBtn').addEventListener('click', () => {
-  const open = ui.search.classList.toggle('open');
-  $('searchBtn').classList.toggle('on', open);
+// 🔍 and ✦ open the same panel in their own mode; the other button switches it, the same one closes it
+const SEARCH_BTNS = { catalogue: 'searchBtn', custom: 'customBtn' };
+function toggleSearch(mode) {
+  const btn = $(SEARCH_BTNS[mode]);
+  const open = !(ui.search.classList.contains('open') && searchMode === mode);
+  if (searchMode !== mode) ui.searchInput.value = '';
+  searchMode = mode;
+  ui.search.classList.toggle('open', open);
+  ui.search.classList.toggle('custom', mode === 'custom');
+  for (const [m, id] of Object.entries(SEARCH_BTNS)) $(id)?.classList.toggle('on', open && m === mode);
+  ui.searchInput.placeholder = ot(mode === 'custom' ? 'customPh' : 'searchPh');
   if (open) {
     // opens just under the button (it sits in the field's corner); the phone layout overrides this
-    const r = $('searchBtn').getBoundingClientRect();
+    const r = btn.getBoundingClientRect();
     ui.search.style.setProperty('--search-x', `${Math.max(8, Math.min(r.left, innerWidth - ui.search.offsetWidth - 8))}px`);
     ui.search.style.setProperty('--search-y', `${r.bottom + 6}px`);
     renderSearch();
     ui.searchInput.focus();
     ui.searchInput.select();
   }
-});
+}
+$('searchBtn').addEventListener('click', () => toggleSearch('catalogue'));
+$('customBtn').addEventListener('click', () => toggleSearch('custom'));
 ui.searchInput.addEventListener('input', renderSearch);
-ui.searchInput.addEventListener('keydown', (e) => e.key === 'Escape' && $('searchBtn').click());
+ui.searchInput.addEventListener('keydown', (e) => e.key === 'Escape' && toggleSearch(searchMode));
 $('clear').addEventListener('click', () => {
   countMove(active.size);
   for (const id of [...active.keys()]) removeLayer(id, { silent: true, respawn: false });
@@ -4285,6 +5294,7 @@ function applyLangUI() {
   sb.textContent = ot(serverUp === false ? 'serverDown' : 'serverShare');
   sb.title = ot(serverUp === false ? 'serverDownTip' : 'serverShareTip');
   volRing.setAttribute('aria-label', ot('volume'));
+  ui.editOpen.textContent = ot(orbEditing ? 'editClose' : 'editOpen');
   if (!renderingWav) for (const b of [wavBtn, wavStemBtn]) b.textContent = wavLabel(b);
 }
 mountLicenses($('licenseBtn'));
@@ -4320,10 +5330,12 @@ mountLangButtons($('langs'), () => {
   renderShared();
   if (serverUp === false) sharedList.innerHTML = `<p class="empty">${ot('serverDownList')}</p>`;
   renderRollHead();
+  orbEditor.relabel();
   if (song?.sections) {
     stemSig = '';
     renderSong();
   }
+  ui.searchInput.placeholder = ot(searchMode === 'custom' ? 'customPh' : 'searchPh');
   if (ui.search.classList.contains('open')) renderSearch();
   if (tut.banner) banner(ot(isPhone.matches ? 'tutPresetPhone' : 'tutPreset'));
   ui.soloHint.textContent = '';
@@ -4342,6 +5354,7 @@ applyLangUI();
 
 handoffPreset();
 restoreSession();
+undoBase = undoKey(sessionData()); // what comes back from the last visit is where ↶ 되돌리기 stops
 checkFirstOrb({ boot: true });
 if (firstOrbDone) comboDue = true;
 if (tut.banner) banner(ot(isPhone.matches ? 'tutPresetPhone' : 'tutPreset'));
@@ -4349,6 +5362,7 @@ if (!firstOrbDone) ghostTimer = setTimeout(ghostThrow, 1200);
 renderStash();
 renderPresets();
 refreshShared();
+refreshSharedOrbs();
 renderRollHead();
 renderStatus();
 ui.code.textContent = buildCode();
@@ -4360,4 +5374,4 @@ booted.then(() => requestAnimationFrame(() => {
   leaveSlots(); // a set saved with orbs in the slots, opened where they are off: back into the fresh rain
   requestAnimationFrame(frame);
 }));
-if (import.meta.env.DEV) window.__orbs = { spawnWeights, loopPos, nowCycle, taste: taste.debug, replReady, codeOf, active, rain, stash, byId, addLayer, removeLayer, buildCode, pickForSlot, finishDraft, orbStep, heldSeed, revealRoll, slotOrbs, decorate, get rollOrb() { return rollOrb; }, get draft() { return draft; }, get song() { return song; }, get variation() { return variation; }, patternToRaw, keyMode, LAYERS };
+if (import.meta.env.DEV) window.__orbs = { spawnWeights, loopPos, nowCycle, taste: taste.debug, replReady, codeOf, active, rain, stash, byId, addLayer, removeLayer, buildCode, pickForSlot, orbStep, orbVars, heldSeed, revealRoll, slotOrbs, decorate, get rollOrb() { return rollOrb; }, get draft() { return draft; }, get song() { return song; }, get variation() { return variation; }, patternToRaw, keyMode, LAYERS };

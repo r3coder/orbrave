@@ -1,14 +1,29 @@
 // Orb presets outside the orb page: the wire format the preset server stores, and turning a
 // preset back into Strudel code (the main player plays user presets with this).
-// A preset only ever names catalogue orbs, drawings (64 digits) and a variation number; the code
-// is always rebuilt here from the catalogue, so nothing a server sends is ever run as code.
+// A preset only ever names catalogue orbs, drawings (64 digits), custom orbs (a catalogue orb and
+// knob values, src/orbEdit.js) and a variation number; the code is always rebuilt here from the
+// catalogue, so nothing a server sends is ever run as code.
 import {
-  BAR_CHORDS, BASE_BPM, DRUM_CATS, byId, hash, keyLabel, rng, role, setMode, snap,
+  BASE_BPM, DRUM_CATS, byId, hash, keyLabel, rng, role, setMode,
 } from './orbCatalog.js';
+import { checkCustom, editChain, editGain, editOf, kindOf, registerCustom, rootId } from './orbEdit.js';
 
 // ---------- drawings (shared with the orb page's piano roll) ----------
 
 export const BARS = 4, STEPS = BARS * 16, ROWS = 15;
+// Full scale (the roll's 풀 스케일): rows are semitones instead of scale degrees, 4 octaves
+// from an octave under the voice's root. Such a note is kept as SEMI + its semitone (0–47), so a
+// drawing tells by its own notes which kind it is; it plays exactly as placed (no snapping to the
+// harmony, notes outside the key stay outside).
+export const SEMI = 100, SEMIS = 48;
+export const isSemi = (d) => d >= SEMI;
+export const fullScaleRaw = (raw) => raw.some((x) => notesAt(x).some(isSemi));
+const MINOR = [0, 2, 3, 5, 7, 8, 10];
+const PC = { c: 0, d: 2, e: 4, f: 5, g: 7, a: 9, b: 11 };
+const midiOf = (name) => {
+  const m = /^([a-g])(#|b)?(-?\d)$/i.exec(String(name));
+  return m ? 12 * (+m[3] + 1) + PC[m[1].toLowerCase()] + (m[2] === '#' ? 1 : m[2] === 'b' ? -1 : 0) : 57;
+};
 
 // A step holds null (no note), one row, or a sorted array of rows (a chord). Single notes stay
 // plain numbers so drawings saved before chords existed load unchanged.
@@ -20,70 +35,96 @@ export const stepOf = (ds) => {
 const same = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
 
 // a drawing as text, one entry per sixteenth: '.' = no note, a row in base 36, or a chord as
-// its rows in parentheses ("(047)"). A drawing without chords is exactly 64 chars.
+// its rows in parentheses ("(047)"). A full-scale note is two characters: its octave (A–D) and
+// its semitone in base 12 ("B9"). A drawing without chords or full-scale notes is exactly 64 chars.
+const OCT = 'ABCD';
+const packOne = (d) => (isSemi(d) ? OCT[Math.floor((d - SEMI) / 12)] + ((d - SEMI) % 12).toString(12) : d.toString(36));
 export const packRaw = (raw) => raw.map((x) => {
   const ds = notesAt(x);
-  return !ds.length ? '.' : ds.length === 1 ? ds[0].toString(36) : `(${ds.map((d) => d.toString(36)).join('')})`;
+  return !ds.length ? '.' : ds.length === 1 ? packOne(ds[0]) : `(${ds.map(packOne).join('')})`;
 }).join('');
 export const unpackRaw = (str) => {
-  const row = (c) => Math.min(ROWS - 1, parseInt(c, 36) || 0);
-  const out = [];
   const t = String(str);
-  for (let i = 0; i < t.length && out.length < STEPS; i++) {
+  // the note at i: [value, characters used]
+  const one = (i) => {
+    const o = OCT.indexOf(t[i]);
+    if (o >= 0) return [SEMI + o * 12 + Math.min(11, parseInt(t[i + 1], 12) || 0), 2];
+    return [Math.min(ROWS - 1, parseInt(t[i], 36) || 0), 1];
+  };
+  const out = [];
+  for (let i = 0; i < t.length && out.length < STEPS;) {
     if (t[i] === '(') {
       const j = t.indexOf(')', i);
       if (j < 0) break;
-      out.push(stepOf([...t.slice(i + 1, j)].map(row)));
-      i = j;
-    } else out.push(t[i] === '.' ? null : row(t[i]));
+      const ds = [];
+      for (let k = i + 1; k < j;) {
+        const [d, n] = one(k);
+        ds.push(d);
+        k += n;
+      }
+      out.push(stepOf(ds));
+      i = j + 1;
+    } else if (t[i] === '.') {
+      out.push(null);
+      i++;
+    } else {
+      const [d, n] = one(i);
+      out.push(d);
+      i += n;
+    }
   }
   while (out.length < STEPS) out.push(null);
   return out;
 };
 
-// Turn a rough drawing into notes that sit on the beat and on the harmony: one note per
-// eighth (the average height of the line there); melodic parts snap to the bar's triad on
-// strong beats and to its chord tones elsewhere, and a repeated pitch ties into a long note.
-// A chord (several rows in one step) plays as placed, on the eighth, tied while it repeats.
-// Drums hit on each eighth the line passes, plus the sixteenth after it where the line slopes.
+// A drawing as it plays: every sixteenth exactly as placed (no averaging, no snapping to the
+// harmony; several rows in a step play together as a chord). Melodic parts tie a pitch (or
+// chord) that repeats on the next sixteenth into one long note, starting afresh on each bar;
+// drums hit on every sixteenth that has a note.
 // Each sixteenth comes out as { ds: [rows], start } or null.
 export function quantize(raw, v) {
   const out = Array(STEPS).fill(null);
   let prev = null;
-  for (let e = 0; e < STEPS / 2; e++) {
-    const A = notesAt(raw[2 * e]), B = notesAt(raw[2 * e + 1]);
-    if (!A.length && !B.length) {
+  for (let i = 0; i < STEPS; i++) {
+    const ds = notesAt(raw[i]);
+    if (!ds.length) {
       prev = null;
       continue;
     }
-    const pos = e % 8, c = BAR_CHORDS[Math.floor(e / 8)];
-    const chord = A.length > 1 || B.length > 1;
-    if (v.root) {
-      let ds;
-      if (chord) ds = notesAt(stepOf([...A, ...B]));
-      else {
-        const vals = [...A, ...B];
-        const avg = Math.round(vals.reduce((s, x) => s + x, 0) / vals.length);
-        ds = [snap(avg, v.snap === 'triad' || pos % 4 === 0 ? c.triad : c.tones, 0, ROWS - 1)];
-      }
-      out[2 * e] = { ds, start: !(prev && same(prev, ds) && pos !== 0) };
-      out[2 * e + 1] = { ds, start: false };
-      prev = ds;
-    } else {
-      out[2 * e] = { ds: A.length ? A : B, start: true };
-      const slope = chord ? !same(A, B) : A.length && B.length && Math.abs(A[0] - B[0]) >= 2;
-      if (A.length && B.length && slope) out[2 * e + 1] = { ds: B, start: true };
-    }
+    out[i] = { ds, start: !(v.root && prev && same(prev, ds) && i % 16 !== 0) };
+    prev = ds;
   }
   return out;
 }
 
 export function sheetCode(raw, v) {
   const q = quantize(raw, v);
-  const one = (d) => (v.map ? v.map(d) : d);
+  // a full-scale drawing plays MIDI notes (a stray scale row is read in minor)
+  const semi = !!v.root && fullScaleRaw(raw), base = semi ? midiOf(v.root) - 12 : 0;
+  const one = (d) => (semi ? base + (isSemi(d) ? d - SEMI : 12 + Math.floor(d / 7) * 12 + MINOR[d % 7]) : v.map ? v.map(d) : d);
   const tok = q.map((n) => (!n ? '~' : n.start ? (n.ds.length === 1 ? one(n.ds[0]) : `[${n.ds.map(one).join(',')}]`) : v.legato ? '_' : '~'));
   const pat = `"<${[0, 1, 2, 3].map((b) => `[${tok.slice(b * 16, b * 16 + 16).join(' ')}]`).join(' ')}>"`;
+  if (semi) return `note(${pat})${v.sound}`;
   return v.root ? `n(${pat}).scale("${v.root}:minor")${v.sound}` : `${v.ctrl}(${pat})${v.sound}`;
+}
+
+// ---------- variations (the orb page's 변주 slot) ----------
+// Per orb, its numbered variations and the one it plays. On the page: { list: [{ seed } |
+// { raw }], vi } (seed null = the shared variation). On the wire: { l: [entry], i }, an entry a
+// seed (0 or more), -1 (the shared variation) or a drawing (packed, see packRaw).
+export const VAR_MAX = 16;
+export const varsToWire = (v) => ({ l: v.list.map((x) => (x.raw ? packRaw(x.raw) : x.seed ?? -1)), i: v.vi });
+export function varsFromWire(w) {
+  if (!w || typeof w !== 'object' || !Array.isArray(w.l) || !w.l.length) return null;
+  const list = w.l.slice(0, VAR_MAX).map((e) => (typeof e === 'string' ? { raw: unpackRaw(e) } : { seed: Number.isSafeInteger(e) && e >= 0 ? e : null }));
+  const vi = Number.isSafeInteger(w.i) && w.i >= 0 && w.i < list.length ? w.i : 0;
+  return { list, vi };
+}
+// a preset's `vars` (wire) for its own layers, as the page keeps them, or null
+export function cleanVars(x, layers) {
+  if (!x || typeof x !== 'object' || Array.isArray(x)) return null;
+  const out = Object.fromEntries(Object.entries(x).filter(([k]) => layers.includes(k) && known(k)).map(([k, w]) => [k, varsFromWire(w)]).filter(([, v]) => v));
+  return Object.keys(out).length ? out : null;
 }
 
 // ---------- wire format ----------
@@ -224,20 +265,30 @@ export function duckOf(orbs, r, stepOf) {
   return Math.max(DUCK_MIN, f);
 }
 
+const CURVE_RE = /^[qes]$/;
 const clip = (s, n) => (typeof s === 'string' ? s.trim().slice(0, n) : '');
 const BLOCK = 4; // bars per stem cell
 
 // The stem grid (the orb page's full song) as data: its sections, and per instrument row one
 // entry per 4-bar block: null = silent, -1 = playing (orb without a seed), n = playing with seed n.
-// `fills` (optional) lists the blocks whose last bar plays as a 💥 fill.
-//   { sections: [{ name, len, shift, v }], rows: [{ id, alt, cells: [...], fills?: [blockIndex] }] }
-export function songToWire(song) {
+// `fills` (optional) lists the blocks whose last bar plays as a ★ fill; `vi` (optional) names
+// each block's variation (the orb's `vars`, 0 = 01), the seed in `cells` being that variation's.
+// `g0` / `g1` / `cv` (optional): each block's strength at its start and end in percent (0–150;
+// g1 -1 = the same as the start) and the curve between them ('' / l linear, q quadratic,
+// e eased, s S-curve).
+//   { sections: [{ name, len, shift, v }], rows: [{ id, alt, cells: [...], fills?: [blockIndex], vi?: [k] }] }
+// cellSeed(id, cell): the seed a block plays (null: none)
+export function songToWire(song, cellSeed = (id, c) => c.v) {
   return {
     sections: song.sections.map(({ name, len, shift, v }) => ({ name, len, shift: shift ?? 0, v: v ?? 0 })),
     rows: song.rows.filter((r) => song.cells[r.id]).map((r) => {
       const flat = song.cells[r.id].flat();
       const fills = flat.flatMap((c, i) => (c.on && c.fill ? [i] : []));
-      return { id: r.id, alt: !!r.alt, cells: flat.map((c) => (!c.on ? null : c.v == null ? -1 : c.v)), ...(fills.length && { fills }) };
+      const vi = flat.map((c) => c.k ?? 0), g0 = flat.map((c) => c.g0 ?? 100), g1 = flat.map((c) => c.g1 ?? -1), cv = flat.map((c) => c.cv ?? '');
+      return {
+        id: r.id, alt: !!r.alt, cells: flat.map((c) => (!c.on ? null : cellSeed(r.id, c) ?? -1)),
+        ...(fills.length && { fills }), ...(vi.some(Boolean) && { vi }), ...(g0.some((g) => g !== 100) && { g0 }), ...(g1.some((g) => g >= 0) && { g1 }), ...(cv.some(Boolean) && { cv }),
+      };
     }),
   };
 }
@@ -260,10 +311,17 @@ export function songFromWire(w, rename = (id) => id) {
     if (!id || !known(id) || cells[id] || !Array.isArray(r.cells) || r.cells.length !== total) continue;
     let k = 0;
     const fills = new Set(Array.isArray(r.fills) ? r.fills : []);
+    const vi = Array.isArray(r.vi) && r.vi.length === total ? r.vi : null;
+    const arr = (a) => (Array.isArray(a) && a.length === total ? a : null);
+    const g0 = arr(r.g0), g1 = arr(r.g1), cv = arr(r.cv);
+    const pct = (x) => Number.isSafeInteger(x) && x >= 0 && x <= 150;
     cells[id] = sections.map((sec) => Array.from({ length: Math.ceil(sec.len / BLOCK) }, () => {
-      const fill = fills.has(k), c = r.cells[k++];
+      const fill = fills.has(k), kk = vi?.[k], a = g0?.[k], b = g1?.[k], f = cv?.[k], c = r.cells[k++];
       const cell = Number.isSafeInteger(c) && c >= 0 ? { on: true, v: c } : { on: c === -1, v: c === -1 || c === null ? null : 0 };
-      return { ...cell, fill: cell.on && fill };
+      return {
+        ...cell, fill: cell.on && fill, ...(Number.isSafeInteger(kk) && kk >= 0 && kk < VAR_MAX ? { k: kk } : {}),
+        ...(pct(a) && a !== 100 ? { g0: a } : {}), ...(pct(b) ? { g1: b } : {}), ...(typeof f === 'string' && CURVE_RE.test(f) ? { cv: f } : {}),
+      };
     }));
     rows.push({ id, alt: r.alt === true });
   }
@@ -283,6 +341,8 @@ export function toWire(p, extra = {}) {
     variation: p.variation ?? 0,
     ...(p.seeds ? { seeds: p.seeds } : {}),
     ...(p.gains ? { gains: p.gains } : {}),
+    ...(p.vars ? { vars: Object.fromEntries(Object.entries(p.vars).map(([k, v]) => [k, varsToWire(v)])) } : {}),
+    ...(p.custom?.length ? { custom: p.custom } : {}),
     ...(stem ? { song: p.song } : {}),
     agree: extra.agree === true,
     website: extra.website ?? '',
@@ -294,7 +354,10 @@ export function fromWire(x) {
   if (!x || typeof x !== 'object') return null;
   const id = /^[A-Za-z0-9_-]{1,64}$/.test(String(x.id ?? '')) ? String(x.id) : null;
   if (!id) return null;
-  const drawn = (Array.isArray(x.drawn) ? x.drawn : [])
+  // custom orbs first, so the layers and drawings below can name them
+  const custom = (Array.isArray(x.custom) ? x.custom : []).slice(0, 12).map((d) => checkCustom(d, byId)).filter(Boolean);
+  for (const d of custom) registerCustom(d, byId);
+  const drawn =(Array.isArray(x.drawn) ? x.drawn : [])
     .filter((d) => d && typeof d.id === 'string' && known(d.src) && byId[d.src].voice && typeof d.raw === 'string')
     .slice(0, 8)
     .map((d) => ({ id: d.id.slice(0, 40), src: d.src, raw: unpackRaw(d.raw) }));
@@ -306,6 +369,7 @@ export function fromWire(x) {
     ? Object.fromEntries(Object.entries(x.seeds).filter(([k, v]) => layers.includes(k) && Number.isSafeInteger(v) && v >= 0))
     : null;
   const gains = cleanGains(x.gains, layers);
+  const vars = cleanVars(x.vars, layers);
   const song = x.kind === 'stem' && x.song && typeof x.song === 'object' ? x.song : null;
   const p = {
     id, name: clip(x.name, 32) || '이름 없는 프리셋', author: clip(x.author, 24), description: clip(x.description, 261), // 100 typed + credits (server/presetSchema.mjs LIMITS)
@@ -313,6 +377,8 @@ export function fromWire(x) {
     layers, drawn, variation: Number.isSafeInteger(x.variation) && x.variation >= 0 ? x.variation : 0,
     ...(seeds ? { seeds } : {}),
     ...(gains ? { gains } : {}),
+    ...(vars ? { vars } : {}),
+    ...(custom.length ? { custom } : {}),
     ...(song ? { song } : {}),
     // how often it comes up (from 👍 / 👎 on the server); never shown
     ...(Number.isFinite(x.w) && x.w > 0 ? { w: Math.min(10, x.w) } : {}),
@@ -328,10 +394,17 @@ export function presetLayers(p) {
     const s = byId[d.src];
     return [d.id, {
       id: d.id, cat: d.id, role: s.cat, name: '✎ ' + s.name, color: s.color, samples: s.samples,
-      pitched: !!s.voice.root, code: () => sheetCode(d.raw, s.voice),
+      pitched: !!s.voice.root, code: () => sheetCode(d.raw, s.voice), edit: editOf(s, byId),
     }];
   }));
-  return p.layers.map((id) => drawn.get(id) ?? byId[id]).filter(Boolean);
+  // an orb playing a drawn variation (변주 slot · 편집) plays those notes on its instrument
+  const varied = (id) => {
+    const v = p.vars?.[id], x = v?.list[v.vi], s = byId[id];
+    if (!x?.raw || !s?.voice) return null;
+    // (on top of the orb itself, so a custom orb keeps its own sound)
+    return Object.assign(Object.create(s), { id, pitched: !!s.voice.root, code: () => sheetCode(x.raw, s.voice) });
+  };
+  return p.layers.map((id) => drawn.get(id) ?? varied(id) ?? byId[id]).filter(Boolean);
 }
 
 // colours of a preset's parts (for its label)
@@ -358,15 +431,17 @@ export function presetLines(p) {
     for (const l of ls) {
       if (!l.code) continue;
       const v = p.seeds?.[l.id] ?? p.variation; // an orb may carry its own seed
-      let code = typeof l.code === 'function' ? l.code(rng(hash(l.id) + v * 7919)) : l.code;
+      let code = typeof l.code === 'function' ? l.code(rng(hash(rootId(l, byId)) + v * 7919)) : l.code;
       if (mode !== 'minor') code = code.replaceAll(':minor"', `:${mode}"`);
       const pitched = l.pitched || /\b(scale|chord|note)\(/.test(code);
       const key = shift && pitched ? `.transpose(${shift})` : '';
       const g = p.gains?.[l.id]; // the orb's own volume (orb page volume slots), times a balance mood's dip
-      const gv = (Number.isSafeInteger(g) ? g / 100 : 1) * duckOf(fxOrbs, role(l), fxStep);
+      // a custom orb (🎛 편집): its knobs on top of the orb's own line, its own volume times the rest
+      const ed = editOf(l, byId), own = ed ? editChain(ed, kindOf(l, code, ed)) : '';
+      const gv = (Number.isSafeInteger(g) ? g / 100 : 1) * duckOf(fxOrbs, role(l), fxStep) * editGain(ed);
       const gain = Math.abs(gv - 1) < 0.005 ? '' : `.postgain(${+gv.toFixed(3)})`;
-      const fx = songFx(fxOrbs, code, fxStep);
-      lines.push({ layer: l, role: role(l), code: `// ${l.name}\n$: ${code}${key}${fx}${gain}`.replaceAll('__DT__', dt) });
+      const fx = songFx(fxOrbs, code + own, fxStep);
+      lines.push({ layer: l, role: role(l), code: `// ${l.name}\n$: ${code}${key}${own}${fx}${gain}`.replaceAll('__DT__', dt) });
     }
   } finally {
     setMode('minor');

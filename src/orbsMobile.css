@@ -2,7 +2,7 @@
    One-row header (📁 presets sheet, 🔍, ⋯ menu) / the orbs raining around the player, with the
    song's orbs and buttons under it / the stash as a strip at the bottom.
    Along the top of the player area: 전부 비우기 · what the touched orb is · ⇪ 내보내기. The full-song
-   stems stay on wide screens. The orb slots (편집 · 약하게 · 세게 · 변주 · 복제) are always out, a low row
+   stems stay on wide screens. The orb slots (편집 · 약하게 · 세게 · 변주) are always out, a low row
    between the orbs and the stash, and 편집's piano roll slides up over the bottom of the field.
    orbsMobile.js moves the elements around. */
 .m-head-btns, .m-credit, .m-sheet, .m-export, .m-rotate { display: none; }
@@ -80,23 +80,42 @@
   .stems, #stemReopen { display: none !important; }
 
   /* orb slots: always out on a phone (#ids win over the guide's body:not(.roll-ready / .midi-ready)
-     rules), one low row of five over the stash */
+     rules), one low row over the stash: 약하게 · 세게 | 변주 with its buttons */
   #slots {
     display: flex; grid-area: slots; height: 60px; padding: 0 8px; border-top-width: 1px;
-    flex-wrap: nowrap; gap: clamp(6px, 3.2vw, 28px); justify-content: center; overflow: visible;
+    flex-wrap: nowrap; gap: clamp(4px, 2vw, 24px); justify-content: center; overflow: visible;
   }
   .slots::after { display: none; }
-  #slots #slotMidi { display: grid; }
+  #slots #varyEdit { display: inline-block; }
+  .slot-sep { height: 40px; margin: 0; }
+  .vary-wrap { gap: 3px; }
+  .vbtn { padding: 5px 4px; }
+  /* 변주 제거 and 편집 as signs only, so the row still fits */
+  #varyDel, #varyEdit { font-size: 0; }
+  #varyDel::before { content: '✕'; font-size: 12px; }
+  #varyEdit::before { content: '✎'; font-size: 13px; }
   .orb-slot { --d: 52px; border-width: 1px; }
   .orb-slot > .mini { inset: 5px; }
   .slot-label { font-size: 9px; padding: 0 3px; gap: 0; letter-spacing: -0.02em; }
   .slot-label i { font-size: 13px; }
   .orb-slot small { display: none; }
   .orb-slot.hot { transform: scale(1.06); }
+  /* 🎛 편집: its 열기 button as a sign only; the knobs panel takes the whole screen under the top bar */
+  .edit-wrap { gap: 3px; }
+  #slots .orb-slot { --d: 46px; }
+  .edit-wrap:not(.on) #editOpen { display: none; }
+  #editOpen { font-size: 0; }
+  #editOpen::before { content: '🎛'; font-size: 13px; }
+  .orbedit { position: fixed; top: var(--top-h, 52px); bottom: 0 !important; left: 0; right: 0; z-index: 40; }
+  .oe-head { gap: 6px; padding: 8px; }
+  .oe-tools button { font-size: 11px; padding: 5px 6px; }
+  .oe-rows { grid-template-columns: minmax(80px, max-content) 1fr 58px 22px; gap: 8px 6px; }
+  .oe-pane { padding: 2px 10px 20px; }
+  .oe-pads { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 0 10px; }
 
   /* 편집's piano roll: slides up over the bottom half of the field; the player moves up into the
      half left over (.left's padding), so an edited orb can still be thrown into it */
-  :root { --roll-h: min(calc((100dvh - var(--top-h, 52px) - 130px) * 0.5), 440px); }
+  :root { --roll-h: min(calc((100dvh - var(--top-h, 52px) - 130px) * 0.4), 352px); }
   body.roll-full:not(.roll-min) .left { padding-bottom: var(--roll-h); }
   body.roll-full:not(.roll-min) .left :is(.chips, .song) { display: none; }
   .roll {
@@ -108,12 +127,13 @@
   body.roll-full .roll { height: var(--roll-h); }
   body.roll-full.roll-min .roll { height: 58px; }
   .roll-head { flex-wrap: nowrap; gap: 6px; min-height: 0; padding: 6px 8px; }
-  .roll-slot { width: 44px; height: 44px; }
-  .roll-slot .mini { width: 36px; height: 36px; }
+  .roll-slot { width: 40px; height: 40px; }
+  .roll-slot .mini { width: 32px; height: 32px; }
+  .roll-slot .mini[data-pnum]::before { font-size: 11px; }
   .roll-name { font-size: 12px; }
   .roll-name b, .roll-name span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .roll-name span { font-size: 10px; }
-  #rollDice { flex: none; font-size: 11px; padding: 6px 7px; }
+  #rollDice, #rollFull { flex: none; font-size: 11px; padding: 6px 7px; }
   .roll-tools #rollDone { font-size: 12px; padding: 7px 10px; white-space: nowrap; }
   .roll-hint:empty { display: none; }
   .slot-hint, .slot-hint.on { left: 10px; right: 10px; width: auto; max-width: none; transform: none; text-align: center; }
@@ -134,7 +154,10 @@
     padding: 58px 0 10px; border: 0; min-width: 0; overflow: hidden;
     pointer-events: none; /* the orbs underneath stay grabbable */
   }
-  .left .play, .left .chips, .left .actions, .left .clear-all, .left #vote, .left .song { pointer-events: auto; }
+  .left .play, .left .chips, .left .actions, .left .clear-all, .left .undo, .left #vote, .left .song { pointer-events: auto; }
+  /* 전부 비우기 sits at the top left (below); the status and ↶ 되돌리기 stay under the player */
+  .left .core-foot { flex: none; margin-top: 18px; max-width: none; padding: 0 10px; grid-template-columns: minmax(0, 1fr) minmax(0, auto) minmax(0, 1fr); }
+  .left .undo { font-size: 12px; padding: 6px 10px; background: color-mix(in srgb, var(--bg) 78%, transparent); }
   .left .roles { display: none; }
   .left .clear-all { position: absolute; top: 10px; left: 10px; font-size: 12px; padding: 7px 10px; }
   .m-empty-hint { top: calc(var(--top-h, 52px) + 60px); transform: translateX(-50%); width: calc(100% - 32px); font-size: 13px; padding: 10px 14px; }
@@ -149,14 +172,14 @@
   .ring { inset: -22px; }
   .volring { inset: -22px; width: calc(100% + 44px); height: calc(100% + 44px); }
   .left .status {
-    flex: none; margin: 18px 0 0; padding: 3px 12px; max-width: calc(100% - 20px);
+    flex: none; margin: 0; padding: 3px 12px; min-width: 0; max-width: 100%;
     font-size: 12px; background: color-mix(in srgb, var(--bg) 78%, transparent); border-radius: 999px;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   /* what the touched / previewed orb is: top centre, between 전부 비우기 and ⇪ (two lines at most) */
   .left .solo-hint {
     position: absolute; top: 8px; left: 50%; transform: translateX(-50%); z-index: 2;
-    width: max-content; max-width: calc(100% - 212px); min-height: 0; padding: 3px 8px;
+    width: max-content; max-width: calc(100% - 212px); height: auto; min-height: 0; padding: 3px 8px;
     font-size: 11px; line-height: 1.3; text-align: center; word-break: keep-all;
     background: color-mix(in srgb, var(--bg) 80%, transparent); border-radius: 8px; text-shadow: 0 1px 3px var(--halo);
     display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden;
@@ -268,7 +291,7 @@
   .volring { width: calc(100% + 40px); height: calc(100% + 40px); }
   .core::before { inset: -64px; }
   .left { gap: 6px; padding-top: 54px; }
-  .left .status { margin-top: 16px; }
+  .left .core-foot { margin-top: 16px; }
 }
 /* narrow phones: ∞ alone */
 @media (max-width: 380px) {
@@ -287,7 +310,8 @@
   .volring { width: calc(100% + 32px); height: calc(100% + 32px); }
   .core::before { inset: -52px; }
   .left { gap: 4px; padding-top: 48px; }
-  .left .status { margin-top: 12px; font-size: 11px; }
+  .left .core-foot { margin-top: 12px; }
+  .left .status { font-size: 11px; }
   .strip { width: 62px; }
   .strip .mini { width: 26px; height: 26px; margin: 4px 0 1px; }
 }

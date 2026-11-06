@@ -7,6 +7,38 @@ import './licenses.css';
 
 // [version, date, { ko: [...], en: [...], ja: [...] }]
 const NOTES = [
+  ['0.5.0', '2026-11-07', {
+    ko: [
+      '🎛 편집 칸(전문가용): 오브를 던져 넣고 어택 · 디케이 · 필터 · EQ · 이펙트를 바꿔 나만의 오브를 만들어요. 만든 오브는 서버에 올려 다른 사람과 나눌 수 있어요',
+      '왼쪽에 ✦ 커스텀 오브 목록이 생겼어요: 내가 만든 오브와 다른 사람이 올린 오브',
+      '변주 칸: 한 오브에 변주를 16개까지 만들고 ◀ ▶로 골라요. ✎ 악보로 변주의 음을 피아노 롤에서 직접 고치고, 🎹 풀 스케일로 12음 4옥타브까지 그릴 수 있어요',
+      '스템: 4마디 칸마다 연주할 변주를 고르고, 시작 · 끝 세기와 페이드 모양을 정해요. 악기 이름 더블클릭은 그 악기만 듣기, ? 버튼에 스템 모드 도움말',
+      '↶ 되돌리기 (Ctrl+Z, 최근 20개까지)',
+      '오브 조합은 이제 "루프"라고 불러요. 공유한 곡에 변주와 커스텀 오브도 함께 저장돼요',
+      '취향 반영: 다른 음계 오브는 악기에 맞는 분위기로 나뉘고, 내려보낸 음계는 덜 떨어져요. 분위기 오브는 한 번 넣으면 조금 더 자주 내려와요',
+      '모두의 곡 목록 스크롤이 가벼워졌어요',
+    ],
+    en: [
+      '🎛 Edit slot (advanced): throw an orb in and change its attack · decay · filter · EQ · effects to make an orb of your own, then upload it to share',
+      'New ✦ Custom orbs list on the left: the orbs you made and the ones others uploaded',
+      'Variation slot: up to 16 variations per orb, picked with ◀ ▶. ✎ Notes edits a variation in the piano roll, and 🎹 Full scale draws over all 12 notes and 4 octaves',
+      'Stems: pick the variation each 4-bar cell plays and set its start and end strength and fade shape. Double-click an instrument to hear only it; ? opens stem mode help',
+      '↶ Undo (Ctrl+Z, up to 20 back)',
+      'An orb set is now called a "loop". Shared songs keep their variations and custom orbs',
+      'Taste: other-scale orbs follow their instrument\'s vibe, and a scale you turn down falls less. Moods fall a little more often once the song has one',
+      'The Shared list scrolls more smoothly',
+    ],
+    ja: [
+      '🎛 編集スロット(上級者向け): オーブを投げ入れて アタック・ディケイ・フィルター・EQ・エフェクトを変え、自分だけのオーブを作れます。作ったオーブはアップロードして共有できます',
+      '左に ✦ カスタムオーブ一覧ができました: 自分で作ったオーブと、ほかの人がアップしたオーブ',
+      'バリエーションスロット: 1つのオーブにバリエーションを16個まで作って ◀ ▶ で選べます。✎ 楽譜でピアノロールから音を直し、🎹 フルスケールで12音・4オクターブまで描けます',
+      'ステム: 4小節のマスごとに演奏するバリエーションと、開始・終わりの強さ、フェードの形を決められます。楽器名のダブルクリックでその楽器だけ聴く、? ボタンでステムモードのヘルプ',
+      '↶ 元に戻す (Ctrl+Z、最近の20回まで)',
+      'オーブの組み合わせは「ループ」と呼ぶようになりました。共有した曲にバリエーションとカスタムオーブも一緒に保存されます',
+      '好みの反映: ほかの音階のオーブは楽器に合った雰囲気に分かれ、見送った音階は降りにくくなります。ムードは曲に入ると少し多めに降ります',
+      'みんなの曲一覧のスクロールが軽くなりました',
+    ],
+  }],
   ['0.4.7', '2026-11-06', {
     ko: ['음량 다이얼 주변이 어두워지는 건 첫 오브 뒤 튜토리얼 안내 때만 나와요. 평소에 음량을 돌릴 때는 화면이 그대로예요'],
     en: ['The dim around the volume dial now only shows with the guide\'s volume tip after the first orb; turning the volume normally leaves the screen as it is'],

@@ -190,7 +190,7 @@ hardest mallet hit; both got a level trim.
 
 ## Chip, ambient and world (12th batch)
 
-`orbTaste.js` sorts orbs into five vibes (dance, organic, chip, ambient, world) and, when the player turns
+`orbTaste.js` sorts orbs into vibes (dance, organic, chip, ambient; world orbs fall outside the taste, see Spawn balance) and, when the player turns
 orbs down, explores the vibes the song doesn't have. Chip and ambient were the smallest, and kick, snare and
 hat had only dance and organic, so exploring the drums swung between those two. `generateVibes` (seed 2622,
 `VIBE_DRUMS`, `VIBE_LINES`) adds 40 chip, 32 ambient and 9 world orbs:
@@ -206,7 +206,9 @@ hat had only dance and organic, so exploring the drums swung between those two. 
 
 Chip drums play ZZFX on `freq`, not `note`, so a key orb never moves them. The lines reuse the tenth batch's
 generators, and the kind labels carry the words `orbTaste` reads. Dominant vibe over all sound orbs after the
-batch: dance 187, organic 185, world 96, ambient 81, chip 73 (before: 187 / 185 / 87 / 49 / 33).
+batch: dance 187, organic 185, world 96, ambient 81, chip 73 (before: 187 / 185 / 87 / 49 / 33). Since the
+other-scale orbs take their vibe from their instrument (see Spawn balance), 66 of those world orbs moved:
+dance 200, organic 215, ambient 98, world 36, chip 73. Those 36 world orbs are now left out of the taste.
 
 ## Spawn balance
 
@@ -215,24 +217,38 @@ Falling orbs are picked in two steps (`spawnWeights` in `src/orbs.js`):
 1. **Category**, by a fixed share (`CAT_SHARE`: kick 28, snare 29, hat 31, perc 39, bass 34, pad 23,
    arp 28, lead 29, fx 27, texture 14, combo 87, mood 50, key 24, tempo 20). A category the song is
    missing counts 4×; combos, moods, keys and tempos count ¼×. Adding orbs to a category does **not**
-   make it fall more often.
+   make it fall more often. Once the song has a mood, moods are held at a fixed **8%** of all drops
+   (`MOOD_SHARE`) instead of the ¼×, since several are worth trying. Custom orbs don't fall at all (`CUSTOM_RAIN` 0): they show only in ✦ 커스텀 오브.
 2. **Family** inside the category, weighted by **√(orbs in the family)**, then evenly inside the family.
    A big new family comes up somewhat more often but cannot crowd out the others (20 brush hats would
    take about 22% of hat drops, not 38%). Block FX fall at 0.15× their family weight. The other-scale
-   orbs are one family per category held at a fixed **30%** of it (`SCALE_SHARE`), however many there are.
+   orbs are one family per category held at **30%** of it (`SCALE_SHARE`), however many there are, times
+   the taste's scale knob (below).
    EQ orbs are their own family inside the moods (√9 against √50), so about 30% of mood drops are EQ.
 3. **Taste** (`src/orbTaste.js`), inside each category only, so the shares above never move:
-   - Every sound orb has a **vibe** on five axes (dance, organic, chip, ambient, world), read from its
+   - Every sound orb has a **vibe** on four axes (dance, organic, chip, ambient), read from its
      family (`FAMILY_VIBE`) and words in its kind label (`WORDS`). Combos take their parts' average;
-     drawn orbs take their instrument's. Moods, keys and tempos have none and are left alone (their
+     drawn orbs take their instrument's. Other-scale orbs take the vibe of what they are played on (`inst`,
+     read as the family `familyOf` would give that instrument): the scale is not a vibe. Moods, keys and tempos have none and are left alone (their
      drops keep the plain weights, and turning them down or putting them in changes nothing).
      An orb belongs to each vibe by the square of that component (a sine bass ≈ 0.4 dance, 0.6 ambient).
    - **Turn-downs** raise an exploration level `t` (0 … 1) and add to a penalty for each vibe of the orb:
      grabbed from the field and let go anywhere but the song (strong); heard on hover for ≥ 0.6 s
-     and left (medium); tried in a slot (편집, 변주, 약하게 / 세게, 복제) and then sent back to the
+     and left (medium); tried in a slot (편집, 변주, 약하게 / 세게) and then sent back to the
      field (weak). An orb that fit the song counts more. Orbs that fall out the bottom and orbs put in
      the stash count for nothing. `t` halves every 45 s, the penalties every 60 s; putting an orb in
      keeps 30% of `t` and half the penalties.
+   - **Scale knob**: turning down an other-scale orb adds to its own penalty (`scaleFull` 2.5, halving
+     every 60 s) and counts only half towards `t` and its vibe, since it may be the scale that was not
+     wanted. The family's 30% is cut by up to 70% (`scaleCut`): 22 / 13 / 9% after one, two, three strong
+     turn-downs, 17% a minute later. Putting an other-scale orb in clears it; any other orb halves it.
+     `level().scale` shows the factor.
+   - **World orbs** (36: hand drums, balafon, dan tranh, strumstick, belltree, quijada, didgeridoo, the
+     tresillo pluck): the words and families are also read on a world axis, and an orb whose strongest
+     axis is world gets no vibe (`isWorld`). Too few for a vibe of their own (exploring would repeat them),
+     they fall at their plain weight (step 2) whatever the player does, and turning them down or putting
+     them in changes nothing, except the scale knob for the six world other-scale orbs. A little world
+     in another orb (the TR727's 0.3) is left out of its vibe.
    - Each category first gets a **target share per vibe** (`targetShares`), so a vibe with many orbs
      doesn't win just by size:
      - *fit side*: the plain shares × `e^(1.6 × the vibe's share of the song)`, capped at 55% (or the
@@ -248,7 +264,7 @@ Falling orbs are picked in two steps (`spawnWeights` in `src/orbs.js`):
    Measured (sound drops, nothing falling): with a dance song (909 kick and hats, acid bass, supersaw
    chords) dance is 55% (43% without taste); after one strong turn-down of a fitting orb 33%, two 20%,
    three 14%, back to 35% 80 s later. No pitched category goes over 45% of one vibe while exploring.
-   Two more turn-downs of organic orbs then move the drops on to world, chip and ambient (26 / 15 / 13%).
+   Two more turn-downs of organic orbs then moved the drops on to world, chip and ambient (26 / 15 / 13%; measured while world was still a vibe).
    Drums only have dance and organic orbs, so their exploring goes to the other of the two. Tuning lives
    in `TUNE`; in the dev console `__orbs.taste.level()` shows the current state.
 
@@ -273,10 +289,10 @@ which the ×20 cap on corrections leaves a few dB under.
 2. Make sure `familyOf` puts the new orbs in a sensible family (add a sampled instrument to
    `INSTRUMENT_FAMILY`).
    Check its **vibe** too (`src/orbTaste.js`): a new family needs a line in `FAMILY_VIBE`, a new kind of
-   sound a word in `WORDS`, or it falls as plain synth / sampled. The small vibes (chip, ambient, world)
+   sound a word in `WORDS`, or it falls as plain synth / sampled. The small vibes (chip, ambient)
    repeat the same orbs while exploring, so new orbs there are the most welcome. Per-vibe counts:
-   `__orbs.LAYERS.filter((l) => l.code && !l.combo).reduce((t, l) => (__orbs.taste.memberOf(l)?.forEach((x, i) => (t[i] += x)), t), [0, 0, 0, 0, 0])`
-   (dance, organic, chip, ambient, world).
+   `__orbs.LAYERS.filter((l) => l.code && !l.combo).reduce((t, l) => (__orbs.taste.memberOf(l)?.forEach((x, i) => (t[i] += x)), t), [0, 0, 0, 0])`
+   (dance, organic, chip, ambient); `__orbs.taste.isWorld(l)` for the world orbs.
 3. Open `/tools/orb-levels.html?run` on the dev server and paste the printed `TRIM` entries.
 4. Listen with the test mode: `/?only=new` (or `?only=fx`, `?only=dub`, `?only=inst`, `?only=scale`, `?only=var`, `?only=ac`, `?only=vibe`, `?only=id1,id2`)
    drops only those orbs. Give new orbs a `tag` so they show up there.

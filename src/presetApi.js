@@ -58,6 +58,19 @@ export async function uploadPreset(p, extra = {}) {
   return saved;
 }
 
+// ---------- custom orbs (🎛 편집) uploaded on their own ----------
+// The server keeps each as { id, createdAt, orb: { id, base, name, color, e }, author }.
+// fetchOrbs resolves to those records (the orb page checks each definition itself).
+export async function fetchOrbs({ limit = 60, mix = true } = {}) {
+  const body = await request(`/orbs?limit=${limit}${mix ? '&order=mix' : ''}`);
+  if (!Array.isArray(body?.orbs)) throw new Error('not an orb server');
+  return body.orbs.filter((r) => r && typeof r === 'object' && r.orb);
+}
+// Publish one custom orb definition; resolves to the stored record or throws with the server's message.
+export async function uploadOrb(orb, { author = '', agree = false, website = '' } = {}) {
+  return request('/orbs', { method: 'POST', body: JSON.stringify({ orb, author, agree, website }) });
+}
+
 // ---------- 👍 / 👎 ----------
 // Each browser gets one random voter id (localStorage), so the server keeps one vote per
 // browser and preset. The votes themselves never come back: lists only carry a coarse weight

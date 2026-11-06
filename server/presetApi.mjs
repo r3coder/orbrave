@@ -4,8 +4,10 @@
 //   GET  /presets/<id>      one preset
 //   POST /presets           share one (JSON body, validated by presetSchema.mjs)
 //   POST /presets/<id>/vote 👍 / 👎 from one browser: { voter, v: 1 | -1 | 0 }
+//   GET  /orbs?limit=N      newest uploaded custom orbs (&order=mix: N picked at random)
+//   POST /orbs              upload one custom orb ({ orb, author, agree }, validateOrbUpload)
 // `req.url` is the part after /api, e.g. "/presets?limit=50".
-import { LIMITS, PresetError, validatePreset } from './presetSchema.mjs';
+import { LIMITS, PresetError, validateOrbUpload, validatePreset } from './presetSchema.mjs';
 import { createPresetStore } from './presetStore.mjs';
 
 const HEADERS = {
@@ -72,6 +74,7 @@ export function createPresetApi({ dataDir, trustProxy = false, maxPerDay, rate, 
   if (!dataDir) throw new Error('createPresetApi: dataDir is required');
   const allowed = new Set(allowedOrigins.map((o) => o.trim().replace(/\/+$/, '')).filter(Boolean));
   const store = createPresetStore(dataDir, { maxPerDay });
+  const orbStore = createPresetStore(dataDir, { maxPerDay, folder: 'orbs', check: (rec) => validateOrbUpload({ ...rec, agree: true }), votesName: 'orb-votes.json' });
   const limit = rateLimiter(rate);
   // votes from one address: plenty for someone listening along, too few to swing the list
   const voteLimit = rateLimiter({ max: 60, windowMs: 10 * 60_000, gapMs: 300, tooMany: '평가를 너무 많이 했어요. 잠시 뒤에 다시 해 주세요', tooSoon: '조금 천천히 눌러 주세요' });
@@ -93,8 +96,52 @@ export function createPresetApi({ dataDir, trustProxy = false, maxPerDay, rate, 
     }
   };
 
+  // custom orbs uploaded on their own: a list to read, and one upload at a time (same limits
+  // and checks as a preset share)
+  async function handleOrbs(req, res, url) {
+    const origin = req.headers.origin;
+    if (origin && allowed.has(origin)) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Vary', 'Origin');
+    }
+    if (req.method === 'OPTIONS') {
+      if (!origin || !allowed.has(origin)) return send(res, 403, { error: 'origin not allowed' });
+      res.writeHead(204, { 'Access-Control-Allow-Methods': 'GET, POST', 'Access-Control-Allow-Headers': 'Content-Type', 'Access-Control-Max-Age': '86400' });
+      return res.end();
+    }
+    try {
+      if (req.method === 'GET') {
+        const n = Number(url.searchParams.get('limit')) || 100;
+        return send(res, 200, { orbs: await orbStore.list(n, { mix: url.searchParams.get('order') === 'mix' }) });
+      }
+      if (req.method === 'POST') {
+        if (!sameOrigin(req)) throw new HttpError(403, '다른 사이트에서는 올릴 수 없어요');
+        if (!/^application\/json\b/i.test(req.headers['content-type'] ?? '')) throw new HttpError(415, 'JSON으로 보내 주세요');
+        let body;
+        try {
+          body = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(await readBody(req, LIMITS.orbBody)));
+        } catch (e) {
+          if (e.status) throw e;
+          throw new HttpError(400, '데이터를 읽을 수 없어요');
+        }
+        if (body?.website) throw new HttpError(400, '요청을 처리할 수 없어요');
+        const clean = validateOrbUpload(body);
+        limit(clientKey(req));
+        return send(res, 201, await orbStore.add(clean));
+      }
+      res.setHeader('Allow', 'GET, POST');
+      return send(res, 405, { error: 'method not allowed' });
+    } catch (e) {
+      if (e instanceof PresetError) return send(res, 400, { error: e.message });
+      if (e.status) return send(res, e.status, { error: e.message });
+      console.error('[orb api]', e);
+      return send(res, 500, { error: '서버 오류로 저장하지 못했어요' });
+    }
+  }
+
   return async function handle(req, res, next) {
     const url = new URL(req.url ?? '/', 'http://local');
+    if (/^\/orbs\/?$/.test(url.pathname)) return handleOrbs(req, res, url);
     const m = /^\/presets(?:\/([^/]+)(\/vote)?)?\/?$/.exec(url.pathname);
     if (!m) return next ? next() : send(res, 404, { error: 'not found' });
     const id = m[1] ?? ''; // ids are [a-z0-9-] only, so no decoding is needed (anything else is a 404)

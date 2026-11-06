@@ -1,6 +1,8 @@
 // Taste: which falling orbs fit the song, and when to look elsewhere.
 //
-// Every sound orb gets a vibe: a point on five axes (VIBES), read from its family and its kind label.
+// Every sound orb gets a vibe: a point on four axes (VIBES), read from its family and its kind label.
+// World orbs (hand drums, balafon, dan tranh …: world the strongest of the read-out axes) are too few to
+// be a vibe of their own; they get none and fall at their plain weight, whatever the player does.
 // Inside each category the vibes get a target share of the drops:
 // - while the player is happy (t = 0), the song's own vibes come up more, but no vibe takes more
 //   than MAX_SHARE of a category (or its plain share, when that is already higher);
@@ -14,13 +16,20 @@
 // Putting an orb in brings `t` back down, so the new direction becomes the new centre.
 //
 // Each category keeps the share spawnWeights gave it (CAT_SHARE, the 4× for missing parts …).
-// Moods, keys and tempos have no vibe and are left alone. Kept for the session only, never saved.
+// Moods, keys, tempos and world orbs have no vibe and are left alone. Kept for the session only, never saved.
+//
+// The other-scale orbs (pentatonic, blues …) have two sides: their vibe comes from what they are
+// played on, like any orb, and their scale is a separate knob (scaleKeep) that turns the family's
+// share down when they are turned down. Turning one down counts only half for its vibe, since it may
+// be the scale that was not wanted.
 // See docs/ORBS.md, "Spawn balance".
 import { LAYERS, byId } from './orbCatalog.js';
 
-export const VIBES = ['dance', 'organic', 'chip', 'ambient', 'world'];
+// the words and families are read on one more axis, world, which only sorts the world orbs out
+const AXES = ['dance', 'organic', 'chip', 'ambient', 'world'];
+export const VIBES = AXES.slice(0, 4);
 const D = VIBES.length;
-const vec = (o) => VIBES.map((k) => o[k] ?? 0);
+const vec = (o) => AXES.map((k) => o[k] ?? 0);
 
 // the starting point, by family
 const FAMILY_VIBE = {
@@ -28,11 +37,14 @@ const FAMILY_VIBE = {
   kit: { organic: 1 }, kitbreak: { organic: 0.6, dance: 0.4 },
   'bass guitar': { organic: 1 }, 'upright bass': { organic: 1 }, piano: { organic: 1 }, wurlitzer: { organic: 1 }, organ: { organic: 0.8, ambient: 0.2 },
   zzfx: { chip: 1 }, 'block fx': { dance: 1 },
-  'other scales': { world: 1 },
   // a plain synth leans only lightly to dance, so sine / triangle / pad words can make it ambient
   synth: { dance: 0.3 }, sampled: { organic: 0.4 },
 };
-// words in the kind label (and the scale family) that pull an orb towards a vibe; added up
+// words in the kind label (and a scale orb's instrument) that pull an orb towards a vibe; added up
+// the other-scale orbs are one family whatever they are played on: the family their instrument
+// would have (as familyOf in orbCatalog.js), so their vibe is the sound's, not the scale's
+const SCALE_INST = { wurli: 'wurlitzer', swagbass: 'bass guitar', growlybass: 'bass guitar', uprightbass: 'upright bass' };
+const instFamily = (s) => SCALE_INST[s] ?? (/^(z_)?(sine|sawtooth|square|triangle|supersaw)$/.test(s) ? 'synth' : 'sampled');
 const WORDS = [
   [/acid|trance|house|disco|dnb|reese|wobble|wub|hoover|rave|riser|downlifter|stab|gate|euclid|breaks|rolling|dirty|supersaw|saw|pulse|pwm|sync|offbeat|impact|sweep|crash|clap/, { dance: 0.8 }],
   [/square|8-bit/, { dance: 0.3, chip: 0.4 }],
@@ -40,9 +52,7 @@ const WORDS = [
   [/pad|air|drone|hum|dust|rain|tape hiss|texture|swell|sustain|held|glass|shimmer|space|bells?\b|tubular|handchimes|bowed|sine|triangle|soft|echo|bubbles|flexatone/, { ambient: 0.8 }],
   [/lofi|dub/, { ambient: 0.5, organic: 0.3 }],
   [/piano|sax|harmonica|recorder|vibes|vibraphone|xylophone|marimba|harp|clav|glockenspiel|kit|cabasa|hihat · hihat|concert|timpani|tom\b|walk|upright|finger|funk|charleston|stride|ballad|skank|flute|brass|whistle|e-piano|organ|vibraslap|guiro|anvil|brake/, { organic: 0.8 }],
-  [/balafon|dan ?tranh|strumstick|darbuka|conga|bongo|cajon|agogo|didgeridoo|quijada|belltree|tresillo|japanese|malkos|vietnamese|pentatonic|blues|suspended/, { world: 0.9 }],
-  [/malkos|suspended/, { ambient: 0.4 }],
-  [/blues/, { organic: 0.4 }],
+  [/balafon|dan ?tranh|strumstick|darbuka|conga|bongo|cajon|agogo|didgeridoo|quijada|belltree|tresillo/, { world: 0.9 }],
   [/synthwave|fm|deep|sub/, { dance: 0.3, ambient: 0.2 }],
 ];
 
@@ -59,7 +69,11 @@ const share = (v) => {
 };
 
 const vibeCache = new Map();
-// the unit vibe vector of an orb, or null for orbs that play nothing (moods, keys, tempos)
+const worldIds = new Set();
+// a world orb: left out of the taste, so it falls at its plain weight (spawnWeights)
+export const isWorld = (l) => (vibeOf(l), worldIds.has(l?.id));
+// the unit vibe vector of an orb, or null for orbs that play nothing (moods, keys, tempos) and for
+// world orbs (see isWorld); a little world in another orb (the TR727's) is simply left out
 export function vibeOf(l) {
   if (!l) return null;
   if (vibeCache.has(l.id)) return vibeCache.get(l.id);
@@ -69,11 +83,13 @@ export function vibeOf(l) {
     if (parts.length) v = unit(parts.reduce((s, p) => s.map((x, i) => x + p[i]), Array(D).fill(0)));
   } else if (l.src) v = vibeOf(byId[l.src]); // a drawn orb sounds like its instrument
   else if (l.code && l.family) {
-    const s = vec(FAMILY_VIBE[l.family] ?? {});
-    const text = `${l.kindKo ?? l.kind ?? ''} ${l.scaleFamily ?? ''}`.toLowerCase();
+    const s = vec(FAMILY_VIBE[l.scaleFamily ? instFamily(l.inst) : l.family] ?? {});
+    const text = `${l.kindKo ?? l.kind ?? ''} ${l.inst ?? ''}`.toLowerCase();
     for (const [re, add] of WORDS) if (re.test(text)) vec(add).forEach((x, i) => (s[i] += x));
     if (l.tag === 'dubtechno') vec({ dance: 0.5, ambient: 0.5 }).forEach((x, i) => (s[i] += x));
-    v = s.some((x) => x > 0) ? unit(s) : null;
+    const world = s.pop();
+    v = world > 0 && world >= Math.max(...s) ? null : s.some((x) => x > 0) ? unit(s) : null;
+    if (!v && world > 0) worldIds.add(l.id);
   }
   vibeCache.set(l.id, v);
   return v;
@@ -113,12 +129,16 @@ export const TUNE = {
   bump: { grab: 0.2, hover: 0.12, slot: 0.07 }, // t added per turn-down (more when the orb fit the song)
   weight: { grab: 1, hover: 0.6, slot: 0.35 }, // how much a turn-down counts towards the penalty
   addKeep: 0.3, // t kept when an orb goes in
+  scaleFull: 2.5, // turned-down weight of other-scale orbs at which their family's cut is full (≈ 3 strong turn-downs)
+  scaleCut: 0.7, // … and at full the family keeps 30% of its share (SCALE_SHARE 30% → 9%)
+  scaleVibe: 0.5, // how much turning down an other-scale orb counts for its vibe (and t)
 };
 
 // ---------- state (this session only) ----------
 let clock = () => performance.now() / 1000;
 export const setClock = (fn) => (clock = fn);
-const state = { t: 0, tAt: 0, pen: Array(D).fill(0), pAt: 0 };
+// scale: the turned-down weight of other-scale orbs (halves like the vibe penalties)
+const state = { t: 0, tAt: 0, pen: Array(D).fill(0), pAt: 0, scale: 0 };
 const touched = new Map(); // id -> 'grab' | 'slot': taken out of the field and not settled yet
 const hoverSeen = new Map(); // id -> time of the last hover turn-down (counted once per 15 s)
 let song = () => []; // the orbs in the song (set by orbs.js)
@@ -133,11 +153,12 @@ function settle() {
   state.tAt = now;
   const k = decay(TUNE.pHalfLife, now - state.pAt);
   state.pen = state.pen.map((x) => x * k);
+  state.scale *= k;
   state.pAt = now;
 }
 export function level() {
   settle();
-  return { t: +state.t.toFixed(3), pen: Object.fromEntries(VIBES.map((k, i) => [k, +state.pen[i].toFixed(2)])) };
+  return { t: +state.t.toFixed(3), pen: Object.fromEntries(VIBES.map((k, i) => [k, +state.pen[i].toFixed(2)])), scale: +scaleKeep().toFixed(2) };
 }
 
 // how well an orb fits the song now, 0 … 1 (null: no vibe, or nothing in the song to compare with)
@@ -149,12 +170,15 @@ function fitOf(l, inSong = song().filter((s) => s.id !== l.id)) {
 function turnDown(id, how) {
   const l = byId[id];
   const m = memberOf(l);
-  if (!m) return;
   settle();
+  // an other-scale orb: the scale is turned down (world ones too), the sound only half (it may be the scale)
+  if (l?.scaleFamily) state.scale += TUNE.weight[how];
+  if (!m) return;
   const fit = fitOf(l) ?? 0.5;
+  const k = l.scaleFamily ? TUNE.scaleVibe : 1;
   // an orb that fit and still got turned down says "something else" louder than one that didn't fit
-  state.t = Math.min(1, state.t + TUNE.bump[how] * (0.5 + fit));
-  state.pen = state.pen.map((x, i) => x + m[i] * TUNE.weight[how]);
+  state.t = Math.min(1, state.t + k * TUNE.bump[how] * (0.5 + fit));
+  state.pen = state.pen.map((x, i) => x + k * m[i] * TUNE.weight[how]);
 }
 
 // ---------- events from the page ----------
@@ -162,7 +186,7 @@ function turnDown(id, how) {
 export function grab(id) {
   touched.set(id, 'grab');
 }
-// put into one of the slots (편집, 변주, 약하게 / 세게, 복제): trying it out, so only a weak turn-down
+// put into one of the slots (편집, 변주, 약하게 / 세게): trying it out, so only a weak turn-down
 // if it then goes back to the field
 export function slot(id) {
   if (touched.has(id)) touched.set(id, 'slot');
@@ -195,11 +219,19 @@ export function previewLeft(id, secs) {
 export function add(id) {
   touched.delete(id);
   clearTimeout(hoverTimer);
-  if (!vibeOf(byId[id])) return; // a mood or tempo says nothing about the sound
+  // an other-scale orb that went in (world ones too): the scales are welcome again
+  if (byId[id]?.scaleFamily) (settle(), (state.scale = 0));
+  if (!vibeOf(byId[id])) return; // a mood, tempo or world orb says nothing about the sound
   settle();
   state.t *= TUNE.addKeep;
   // what was turned down still counts, but less: the song has moved on
   state.pen = state.pen.map((x) => x * 0.5);
+  if (!byId[id].scaleFamily) state.scale *= 0.5;
+}
+// the factor on the other-scale family's share (SCALE_SHARE in orbs.js): 1, down to 1 − scaleCut
+export function scaleKeep() {
+  settle();
+  return 1 - TUNE.scaleCut * Math.min(1, state.scale / TUNE.scaleFull);
 }
 
 // ---------- weights ----------
@@ -284,4 +316,4 @@ export function reweigh(pool, base) {
   return out;
 }
 
-export const debug = { state, touched, sim, fitOf, vibeOf, memberOf, targetShares, reweigh, level, TUNE };
+export const debug = { state, touched, sim, fitOf, vibeOf, memberOf, targetShares, reweigh, level, scaleKeep, isWorld, TUNE };
