@@ -1,6 +1,6 @@
 {
   "name": "orbrave",
-  "version": "0.5.2",
+  "version": "0.5.3",
   "description": "Throw orbs into a player to build an electronic music set, written as live Strudel code",
   "scripts": {
     "dev": "vite",

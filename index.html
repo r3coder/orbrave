@@ -20,10 +20,10 @@
   <canvas id="viz"></canvas>
 
   <header class="top">
-    <div class="logo">● ORBRAVE<a class="nav-btn" href="play.html" data-i18n="toPlayer" data-i18n-title="toPlayerTip">∞ 무한 재생</a><button type="button" class="ver-btn" id="verBtn"></button></div>
+    <div class="logo">● ORBRAVE<a class="nav-btn" href="play.html" data-i18n="toPlayer" data-i18n-title="toPlayerTip">무한 재생</a><button type="button" class="ver-btn" id="verBtn"></button></div>
     <div class="tools">
-      <button id="themeBtn">☀ 라이트 모드</button>
-      <button id="liteBtn" data-i18n="lite" data-i18n-title="liteTip">⚡ 저사양 모드</button>
+      <button id="themeBtn">라이트 모드</button>
+      <button id="liteBtn" data-i18n="lite" data-i18n-title="liteTip">저사양 모드</button>
       <div class="langs" id="langs" role="group" aria-label="language"></div>
     </div>
   </header>
@@ -45,8 +45,8 @@
         <div class="pb-list" id="presetList"></div>
       </div>
       <div class="pb-half pb-shared">
-        <div class="side-head"><span data-i18n="shared">모두의 곡</span> <button id="sharedRefresh" class="ghost" data-i18n-title="sharedRefreshTip">↻</button></div>
-        <button id="importBtn" class="pb-import" data-i18n="import" data-i18n-title="importTip">📋 코드 붙여넣기</button>
+        <div class="side-head" data-i18n="shared">🌐 모두의 곡</div>
+        <button id="sharedRefresh" class="pb-refresh" data-i18n="sharedRefresh" data-i18n-title="sharedRefreshTip">새로고침</button>
         <div class="pb-list" id="sharedList"></div>
       </div>
     </aside>
@@ -56,11 +56,11 @@
            (swapped in, and on a wide screen moved up into the stems' head; a phone moves the whole
            row into its ⇪ popover) -->
       <div class="actions share-row" id="shareRow">
-        <button id="wavBtn" class="loop-only" data-i18n="wav" data-i18n-title="wavTip">💾 루프 WAV 저장</button>
-        <button id="wavStemBtn" class="stem-only" data-i18n="wavStem" data-i18n-title="wavStemTip">💾 스템 WAV 저장</button>
-        <button id="shareBtn" class="loop-only" data-i18n="shareOrbs" data-i18n-title="shareOrbsTip">🔗 루프 공유</button>
-        <button id="stemShareBtn" class="stem-only" data-i18n="shareStems" data-i18n-title="shareStemsTip" disabled>🔗 스템 공유</button>
-        <button id="serverShareBtn">☁ 서버 공유</button>
+        <button id="wavBtn" class="loop-only" data-i18n="wav" data-i18n-title="wavTip">루프 WAV 저장</button>
+        <button id="wavStemBtn" class="stem-only" data-i18n="wavStem" data-i18n-title="wavStemTip">스템 WAV 저장</button>
+        <button id="shareBtn" class="loop-only" data-i18n="shareOrbs" data-i18n-title="shareOrbsTip">루프 공유</button>
+        <button id="stemShareBtn" class="stem-only" data-i18n="shareStems" data-i18n-title="shareStemsTip" disabled>스템 공유</button>
+        <button id="serverShareBtn">🌐 서버 공유</button>
       </div>
       <div class="roles" id="roles"></div>
       <div class="core" id="core">
@@ -89,9 +89,13 @@
         <div class="sats" id="sats"></div>
         <div id="vote"></div>
       </div>
-      <!-- under the player: 전부 비우기 · BPM and key · 되돌리기 -->
+      <!-- under the player: 전부 비우기 (코드 붙여넣기 above it) · BPM and key · 되돌리기 -->
       <div class="core-foot">
-        <button id="clear" class="clear-all" data-i18n="clearAll" data-i18n-title="clearAllTip">전부 비우기</button>
+        <!-- 코드 붙여넣기 stacked on 전부 비우기: one grid cell, so both take the wider one's width -->
+        <div class="foot-btns">
+          <button id="importBtn" class="paste-code" data-i18n="import" data-i18n-title="importTip">코드 붙여넣기</button>
+          <button id="clear" class="clear-all" data-i18n="clearAll" data-i18n-title="clearAllTip">전부 비우기</button>
+        </div>
         <p class="status" id="status"></p>
         <button id="undo" class="undo" data-i18n="undo" data-i18n-title="undoTip" disabled>↶ 되돌리기</button>
       </div>
@@ -99,7 +103,7 @@
       <p class="solo-hint" id="soloHint"></p>
       <!-- loop mode: 📂 스템 열기 (wide screens only) -->
       <div class="actions stem-row">
-        <button id="stemReopen" class="loop-only" data-i18n="openStems" data-i18n-title="openStemsTip">📂 스템 열기 (곡 전체 만들기)</button>
+        <button id="stemReopen" class="loop-only" data-i18n="openStems" data-i18n-title="openStemsTip">스템 열기 (곡 전체 만들기)</button>
       </div>
       <div class="song" id="song">
         <button id="songOff" class="loop-mode" data-i18n="toLoop">↩ 루프 모드로</button>
@@ -109,8 +113,8 @@
     <section class="right" id="right">
       <div class="field" id="field">
         <div class="field-tools">
-          <button id="searchBtn" data-i18n="search" data-i18n-title="searchTip">🔍 오브 검색</button>
-          <button id="customBtn" data-i18n="customOrbs" data-i18n-title="customOrbsTip">커스텀 오브</button>
+          <button id="searchBtn" data-i18n="search" data-i18n-title="searchTip">오브 검색</button>
+          <button id="customBtn" data-i18n="customOrbs" data-i18n-title="customOrbsTip">🌐 커스텀 오브</button>
         </div>
       </div>
       <section class="stems" id="stems">
@@ -269,11 +273,11 @@
 
   <footer class="powered">
     <div class="foot-links" id="footLinks">
-      <button type="button" id="codeToggle" data-i18n="code">&lt;/&gt; 코드</button>
+      <button type="button" id="codeToggle" data-i18n="code">코드</button>
       <button type="button" id="strudelBtn" data-i18n="codeOpen" data-i18n-title="codeOpenTip">(직접수정) strudel.cc ↗</button>
-      <button type="button" id="licenseBtn" data-i18n="licenses">ⓘ 라이선스</button>
-      <button type="button" id="feedbackBtn" data-i18n="feedback">🐞 버그/의견 제출</button>
-      <button type="button" id="tutorialBtn" data-i18n="tutorialAgain" data-i18n-title="tutorialAgainTip">↺ 튜토리얼 재실행</button>
+      <button type="button" id="licenseBtn" data-i18n="licenses">라이선스</button>
+      <button type="button" id="feedbackBtn" data-i18n="feedback">버그/의견 제출</button>
+      <button type="button" id="tutorialBtn" data-i18n="tutorialAgain" data-i18n-title="tutorialAgainTip">튜토리얼 재실행</button>
     </div>
     <div class="foot-credit">Made by <a href="https://sites.google.com/view/r3c0d3r/home_ura" target="_blank" rel="noopener">R3C0D3r</a> · Powered by <a href="https://strudel.cc/" target="_blank" rel="noopener">strudel.cc</a> · <a href="https://github.com/r3coder/orbrave" target="_blank" rel="noopener">source (AGPL-3.0)</a></div>
   </footer>

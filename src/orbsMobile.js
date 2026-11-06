@@ -102,6 +102,7 @@ window.addEventListener('pointermove', () => {
 const PLACES = [
   [presetsBtn, headBtns],
   [$('searchBtn'), headBtns],
+  [$('customBtn'), headBtns],
   [menuBtn, headBtns],
   [$('footLinks'), document.querySelector('.tools')],
   [credit, document.querySelector('.tools')],

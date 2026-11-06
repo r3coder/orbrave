@@ -33,10 +33,11 @@
   .logo { display: flex; align-items: center; min-width: 0; font-size: 14px; letter-spacing: 0.12em; }
   .logo .by { display: none; }
   .logo .nav-btn { margin-left: 10px; padding: 7px 10px; font-size: 12px; letter-spacing: 0; }
-  .m-head-btns { display: flex; gap: 6px; margin-left: auto; flex: none; }
-  .m-head-btns button { min-width: 40px; height: 36px; padding: 0 10px; font-size: 15px; line-height: 1; }
-  .m-head-btns #searchBtn { font-size: 0; }
+  .m-head-btns { display: flex; gap: 4px; margin-left: auto; flex: none; }
+  .m-head-btns button { min-width: 34px; height: 36px; padding: 0 8px; font-size: 15px; line-height: 1; }
+  .m-head-btns #searchBtn, .m-head-btns #customBtn { font-size: 0; }
   .m-head-btns #searchBtn::before { content: '🔍'; font-size: 15px; }
+  .m-head-btns #customBtn::before { content: '🌐'; font-size: 15px; }
   .m-menu-btn { font-size: 18px !important; }
   .m-head-btns button.on, body.m-menu-open .m-menu-btn, body.m-sheet-open .m-presets-btn {
     border-color: var(--acc); color: var(--acc); background: color-mix(in srgb, var(--acc) 12%, transparent);
@@ -154,12 +155,15 @@
     padding: 58px 0 10px; border: 0; min-width: 0; overflow: hidden;
     pointer-events: none; /* the orbs underneath stay grabbable */
   }
-  .left .play, .left .chips, .left .actions, .left .clear-all, .left .undo, .left #vote, .left .song { pointer-events: auto; }
-  /* 전부 비우기 sits at the top left (below); the status and ↶ 되돌리기 stay under the player */
+  .left .play, .left .chips, .left .actions, .left .clear-all, .left .paste-code, .left .undo, .left #vote, .left .song { pointer-events: auto; }
+  /* 코드 붙여넣기 · 전부 비우기 sit at the top left (below); the status and ↶ 되돌리기 stay under the player */
   .left .core-foot { flex: none; margin-top: 18px; max-width: none; padding: 0 10px; grid-template-columns: minmax(0, 1fr) minmax(0, auto) minmax(0, 1fr); }
   .left .undo { font-size: 12px; padding: 6px 10px; background: color-mix(in srgb, var(--bg) 78%, transparent); }
   .left .roles { display: none; }
-  .left .clear-all { position: absolute; top: 10px; left: 10px; font-size: 12px; padding: 7px 10px; }
+  /* 코드 붙여넣기 over 전부 비우기 at the top left, one width */
+  .left .foot-btns { position: absolute; top: 10px; left: 10px; display: flex; flex-direction: column; gap: 6px; }
+  .left .foot-btns .paste-code { transform: none; }
+  .left .paste-code, .left .clear-all { font-size: 12px; padding: 7px 10px; }
   .m-empty-hint { top: calc(var(--top-h, 52px) + 60px); transform: translateX(-50%); width: calc(100% - 32px); font-size: 13px; padding: 10px 14px; }
 
   /* the player, centred in what the rows below leave over; a dark halo keeps it readable
@@ -261,7 +265,7 @@
     writing-mode: horizontal-tb; font-size: 12px; text-align: left;
   }
   .m-sheet .pb-shared { border-top: 1px dashed var(--line); border-left: 0; padding: 14px 0 0; }
-  .m-sheet .pb-shared .side-head button { font-size: 14px; padding: 4px 8px; }
+  .m-sheet .pb-refresh { font-size: 13px; padding: 8px 10px; }
   .m-sheet .pb-save { flex-direction: row; width: auto; gap: 6px; }
   .m-sheet .pb-save input { flex: 1; width: auto; min-width: 0; font-size: 16px; padding: 8px 10px; }
   .m-sheet .pb-save button { font-size: 13px; padding: 0 16px; white-space: nowrap; }
@@ -293,11 +297,18 @@
   .left { gap: 6px; padding-top: 54px; }
   .left .core-foot { margin-top: 16px; }
 }
-/* narrow phones: ∞ alone */
-@media (max-width: 380px) {
+/* phones: ∞ alone (the header holds 📁 🔍 🌐 ⋯) */
+@media (max-width: 420px) {
   .logo .nav-btn { font-size: 0; padding: 7px 11px; }
   .logo .nav-btn::before { content: '∞'; font-size: 14px; }
   .logo .ver-btn { margin-left: 4px; font-size: 10px; }
+}
+/* the narrowest phones (320–350px): a tighter logo and head buttons so 📁 🔍 🌐 ⋯ fit beside it */
+@media (max-width: 350px) {
+  .logo { font-size: 12px; letter-spacing: 0.04em; }
+  .logo .nav-btn { margin-left: 6px; }
+  .m-head-btns { gap: 3px; }
+  .m-head-btns button { min-width: 30px; padding: 0 5px; }
 }
 /* the smallest phones (iPhone SE 1st gen, 568px tall): lower slots, a smaller player and song row */
 @media (max-width: 760px) and (max-height: 600px) {

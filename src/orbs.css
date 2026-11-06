@@ -236,7 +236,12 @@ button.on { background: var(--acc); color: var(--bg); }
   display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px;
   width: 100%; max-width: 460px; margin-top: 22px;
 }
-.core-foot .clear-all { grid-column: 1; justify-self: start; white-space: nowrap; }
+/* 코드 붙여넣기 over 전부 비우기: both in one cell (same width), 붙여넣기 lifted above so the row keeps its height */
+.core-foot .foot-btns { grid-column: 1; justify-self: start; display: inline-grid; }
+.foot-btns > button { grid-area: 1 / 1; white-space: nowrap; }
+.foot-btns .paste-code { transform: translateY(calc(-100% - 6px)); }
+.paste-code { font-size: 11px; padding: 3px 12px; color: var(--dim); }
+.paste-code:hover { color: var(--fg); }
 .core-foot .status { grid-column: 2; }
 .core-foot .undo { grid-column: 3; justify-self: end; white-space: nowrap; }
 .status { margin: 0; color: var(--dim); font-size: 12px; text-align: center; }
@@ -888,9 +893,7 @@ body.server-down .ptile .share.cloud { display: none; } /* no ☁ on tiles while
 /* the sidebar's two halves: my presets on top, presets shared on the server below */
 .pb-half { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
 .pb-shared { border-top: 1px dashed var(--line); padding-top: 8px; }
-.pb-shared .side-head { display: flex; align-items: center; justify-content: center; gap: 2px; }
-.pb-shared .side-head button { padding: 0 4px; font-size: 11px; border: 0; }
-.pb-import { font-size: 11px; padding: 4px 2px; line-height: 1.25; word-break: keep-all; }
+.pb-refresh { font-size: 11px; padding: 4px 2px; line-height: 1.25; word-break: keep-all; }
 /* desktop: drag the sidebar's right edge to show its tiles in 1, 2 or 3 columns */
 .pb-resize { display: none; }
 @media (min-width: 761px) {
@@ -963,7 +966,7 @@ body.server-down .ptile .share.cloud { display: none; } /* no ☁ on tiles while
   .pb-half:first-child { flex: none; max-width: 60%; }
   .pb-half > .side-head { display: none; }
   .pb-shared { border-top: 0; border-left: 1px dashed var(--line); padding: 0 0 0 8px; }
-  .pb-shared > .side-head { display: flex; writing-mode: vertical-rl; }
+  .pb-shared > .side-head { display: block; writing-mode: vertical-rl; }
   .right { order: 3; }
   .stash { order: 4; }
   .left { border-right: 0; border-bottom: 1px dashed var(--line); padding-top: 96px; gap: 10px; }
@@ -1365,7 +1368,7 @@ button.arm::after {
 }
 
 @media (max-width: 760px) {
-  .left .clear-all { pointer-events: auto; }
+  .left .clear-all, .left .paste-code { pointer-events: auto; }
   body.stem-open .stems { flex-basis: auto; }
 }
 

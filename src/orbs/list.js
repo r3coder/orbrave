@@ -181,7 +181,7 @@ function setSolo(id) {
   if (S.solo === id) return;
   S.solo = id;
   const l = id && byId[id];
-  describe(l, l?.code ? ot('soloLoud') : '');
+  describe(l);
   if (!l || l.code) syncSoon();
 }
 

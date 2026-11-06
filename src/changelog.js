@@ -7,6 +7,26 @@ import './licenses.css';
 
 // [version, date, { ko: [...], en: [...], ja: [...] }]
 const NOTES = [
+  ['0.5.3', '2026-11-07', {
+    ko: [
+      '메뉴와 버튼이 더 깔끔해졌어요: 아이콘을 빼고 글자만 남겼어요 (서버 공유 · 모두의 곡 · 커스텀 오브만 🌐)',
+      '코드 붙여넣기 버튼이 전부 비우기 위로 옮겨졌어요 · 모두의 곡 새로고침은 목록 위의 버튼으로',
+      '휴대폰: 커스텀 오브가 위쪽 🌐 버튼으로 옮겨졌어요 (전부 비우기 버튼에 가려 누를 수 없던 문제를 고쳤어요)',
+      '휴대폰: 좁은 화면에서도 위쪽 버튼들이 겹치지 않아요',
+    ],
+    en: [
+      'Cleaner menus and buttons: icons removed, just the words (only Share online, Shared and Custom orbs keep a 🌐)',
+      'Paste code now sits above Clear all · Shared gets a Refresh button above its list',
+      'Phones: Custom orbs moved to the 🌐 button at the top (it was hidden behind Clear all and could not be tapped)',
+      'Phones: the top buttons no longer overlap on narrow screens',
+    ],
+    ja: [
+      'メニューとボタンがすっきりしました:アイコンを外して文字だけに (サーバー共有・みんなの曲・カスタムオーブだけ 🌐)',
+      'コード貼り付けボタンを「すべて外す」の上へ · みんなの曲の更新は一覧の上のボタンに',
+      'スマホ:カスタムオーブは上の 🌐 ボタンへ (「すべて外す」に隠れて押せなかった問題を直しました)',
+      'スマホ:狭い画面でも上のボタンが重なりません',
+    ],
+  }],
   ['0.5.2', '2026-11-07', {
     ko: [
       '🎛 편집 칸의 손잡이로 만든 새 오브 59개: 슈퍼소 · FM · 펄스 신스, 애시드 · 와우 · 페이저 · 게이트 같은 이펙트, 비트를 깎은 칩 사운드, 느리게 부풀고 길게 울리는 앰비언트',
