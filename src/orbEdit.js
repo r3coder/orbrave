@@ -120,7 +120,12 @@ export function readDefaults(code) {
     i = j;
     if (name === 's' && /^"([a-z]+)"$/.test(arg) && SYNTH_WAVES.includes(arg.slice(1, -1))) values.wave = arg.slice(1, -1);
     else if (name === 'bank') values.bank = arg.replaceAll('"', '');
-    else if (name === 'delaytime' && arg === '__DT__') values.dtime = '3/16';
+    else if (name === 'delaytime' && /^__DT__(\*[\d.]+)?$/.test(arg)) {
+      // __DT__ alone, or a multiple of it as editChain writes one
+      const x = +(arg.split('*')[1] ?? 1);
+      const k = Object.keys(DT_OF).find((d) => Math.abs(DT_OF[d] - x) < 0.001);
+      if (k) values.dtime = k;
+    }
     else if (name === 'jux') values.jux = arg;
     else if (name === 'swingBy') values.swing = +arg.split(',')[0] || undefined;
     else if (READ[name]) {

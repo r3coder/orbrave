@@ -1,11 +1,13 @@
-# ∞ Infinite Algorave
+# ORBRAVE
 
 개 야무지게 순시간에 만들어버린 바이브코딩 하하
 
-A website where an algorithm composes [Strudel](https://strudel.cc) (TidalCycles for JS) code in real time, so the music never ends.
+Live: https://r3coder.github.io/orbrave/
 
-- `index.html`: orb editor (main page)
-- `play.html`: infinite generative player
+Build a set by throwing orbs into a player: each orb is one part (drums, bass, chords, leads, FX, moods, EQ …), and the whole set is live [Strudel](https://strudel.cc) (TidalCycles for JS) code that you can save as WAV or stems, share, or open on strudel.cc. Next to it, an endless player where an algorithm composes one song after another, so the music never ends.
+
+- `index.html`: the orb page (main page). Its code: `src/orbs.js` (entry: toolbar and boot) and `src/orbs/*.js`, one file per feature (state, audio, guide, list, field, drag, variations, customOrbs, slots, presets, share, stems, visuals, search). They load in a chain, each importing the one before it first, so they run in the same order as one file; values more than one file changes live on `S` in `src/orbs/state.js`
+- `play.html`: ∞ endless generative player
 - `night-shift.html`: the hand-written track "Night Shift" (live-coding editor)
 
 ## How it works

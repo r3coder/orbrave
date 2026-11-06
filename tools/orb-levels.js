@@ -29,7 +29,7 @@ const repl = await initStrudel({
   },
 });
 
-// the code an orb plays for a variation seed (same as codeOf in src/orbs.js, minor key)
+// the code an orb plays for a variation seed (same as codeOf in src/orbs/audio.js, minor key)
 const codeOf = (l, v) => (typeof l.code === 'function' ? l.code(rng(hash(l.id) + v * 7919)) : l.code).replaceAll('__DT__', DT);
 
 // Results are kept in localStorage by the orb's code, so a page reload (the dev server reloads on

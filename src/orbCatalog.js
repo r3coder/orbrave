@@ -3,6 +3,8 @@
 // and sounds stay the same between visits (saved presets refer to them by id).
 import { getLang } from './i18n.js';
 import { orbNameIn, orbKindIn } from './orbNames.js';
+import { editChain, kindOf } from './orbEdit.js';
+import { cleanEdit } from '../server/orbEditSpec.mjs';
 
 // ---------- music frame ----------
 // Every orb plugs into one frame: 124 BPM, A minor, Am9 – Fmaj7 – Cmaj7 – G6 (one chord per cycle).
@@ -2090,7 +2092,125 @@ const NINTH = [...EIGHTH, ...generateScales(EIGHTH, ALT_ORBS_2, 2619)];
 const TENTH = [...NINTH, ...generateVariations(NINTH)];
 const ELEVENTH = [...TENTH, ...generateAcoustic(TENTH)];
 // twelfth batch (chip / ambient / world): see generateVibes
-export const LAYERS = [...ELEVENTH, ...generateVibes(ELEVENTH), ...EQ_ORBS];
+const TWELFTH = [...ELEVENTH, ...generateVibes(ELEVENTH)];
+
+// ---------- thirteenth batch: sound edits ----------
+// Orbs made the way the 🎛 편집 panel makes a custom orb: a catalogue orb (`base`) with an edit
+// (server/orbEditSpec.mjs keys) on top. The line is the base orb's own generator followed by
+// editChain(edit), the exact calls the editor writes, so opening one in the editor reads its knobs
+// back. Each orb draws its own notes (it hashes under its own id), keeps the base's instrument for
+// drawn variations, and gets a choke group of its own. No tempo knob on pitched lines: .slow(2)
+// would pull them off the chord progression. Kind labels carry the words orbTaste.js reads.
+// [category, base orb, kind, edit]
+const EDIT_ORBS = [
+  // ---- supersaw / FM / pulse: the synth knobs
+  ['bass', 'bass7', 'bass · reese supersaw wide', { lpq: 6, uni: 7, det: 0.35, spread: 0.9, lfo: 'lpf', lfow: 'sine', lfor: '2', lfolo: 250, lfohi: 1600 }],
+  ['bass', 'bass14', 'bass · pwm', { wave: 'pulse', lpf: 900, pw: 0.25, pwrate: 0.5 }],
+  ['bass', 'bass64', 'bass · fm growl', { lpf: 1400, shape: 0.4, fm: 6, fmh: 0.5, fmdec: 0.15, fmsus: 0.2 }],
+  ['bass', 'bass94', 'bass · fm metal', { lpf: 1800, fm: 8, fmh: 1.41, fmdec: 0.1, fmsus: 0, fmwave: 'square' }],
+  ['pad', 'pad18', 'chords · supersaw wall', { hpf: 250, uni: 8, det: 0.45, spread: 1, phr: 0.3, phd: 0.6 }],
+  ['pad', 'pad7', 'chords · pwm stabs', { wave: 'pulse', lpf: 2200, pw: 0.2, pwrate: 1, room: 0.4 }],
+  ['pad', 'pad27', 'chords · fm keys', { fm: 3, fmh: 3, fmdec: 0.3, fmsus: 0.1 }],
+  ['arp', 'arp9', 'arp · pwm pluck', { wave: 'pulse', lpf: 2600, pw: 0.15, pwrate: 2 }],
+  ['arp', 'arp17', 'arp · fm pluck', { wave: 'sine', fm: 5, fmh: 2, fmdec: 0.08, fmsus: 0 }],
+  ['arp', 'arp65', 'arp · supersaw gate', { wave: 'supersaw', uni: 6, det: 0.25, trem: 0.8, tremr: '16' }],
+  ['lead', 'lead53', 'melody · supersaw', { wave: 'supersaw', lpf: 3500, uni: 7, det: 0.3, spread: 0.8 }],
+  ['lead', 'lead4', 'melody · pwm vibrato', { wave: 'pulse', pw: 0.3, pwrate: 0.3, vib: 5, vibmod: 0.15 }],
+  ['lead', 'lead51', 'melody · fm horn', { wave: 'sine', fm: 2.5, fmh: 1, fmatt: 0.08, fmdec: 0.4, fmsus: 0.5 }],
+  ['fx', 'fx15', 'fx · hoover supersaw rise', { penv: 12, patt: 0.3, uni: 8, det: 0.6, spread: 1 }],
+  // ---- effects on lines the catalogue already has
+  ['bass', 'bass2', 'bass · acid ladder', { lpf: 350, lpq: 17, ftype: 'ladder', drive: 0.8, lpenv: 5, lpd: 0.12, shape: 0.25 }],
+  ['lead', 'lead89', 'melody · acid', { lpf: 600, lpq: 16, lpenv: 4, lpd: 0.12, shape: 0.3 }],
+  ['bass', 'bass62', 'bass · house pump', { trem: 0.7, tremr: '4' }],
+  ['pad', 'pad10', 'chords · trance gate 16', { hpf: 300, trem: 1, tremr: '16' }],
+  ['pad', 'pad3', 'chords · dub piano', { lpf: 2500, hpf: 400, room: 0.5, delay: 0.5, dtime: '3/16', dfb: 0.6 }],
+  ['pad', 'pad24', 'e-piano · phaser', { apan: 0.6, apr: '2', phr: 0.5, phd: 0.8 }],
+  ['bass', 'bass78', 'bass · wah funk finger', { bpq: 3, lfo: 'bpf', lfow: 'sine', lfor: '0.5', lfolo: 400, lfohi: 2500 }],
+  ['lead', 'lead6', 'melody · lofi sax', { lpf: 2800, crush: 10, vib: 3, vibmod: 0.2, room: 0.4 }],
+  ['lead', 'lead65', 'melody · talkbox', { vowel: 'o', lpq: 4 }],
+  ['arp', 'arp12', 'arp · stutter harp', { apan: 0.8, apr: '1', deg: 0.35, ply: 2 }],
+  ['arp', 'arp8', 'arp · marimba ping-pong', { jux: 'rev', delay: 0.35, dtime: '3/8', dfb: 0.4 }],
+  // ---- chip: bit crush and sample-rate cuts
+  ['bass', 'bass17', 'bass · chip crush', { lpf: 4000, crush: 6, coarse: 4 }],
+  ['bass', 'bass23', 'bass · chip duty 12%', { wave: 'pulse', pw: 0.12, crush: 7 }],
+  ['pad', 'pad8', 'chords · chip crush', { rel: 0.2, crush: 8, coarse: 2 }],
+  ['arp', 'arp15', 'arp · chip coarse', { crush: 6, coarse: 8 }],
+  ['arp', 'arp66', 'arp · chip duty ratchet', { wave: 'pulse', pw: 0.12, crush: 7, ply: 2 }],
+  ['lead', 'lead96', 'melody · chip duty', { wave: 'pulse', pw: 0.25, crush: 7, vib: 6, vibmod: 0.1 }],
+  ['lead', 'lead7', 'melody · chip crush', { lpf: 5000, crush: 6, coarse: 3 }],
+  ['kick', 'kick', 'kick · chip crush', { pitch: -3, crush: 4, coarse: 4 }],
+  ['snare', 'clap', 'snare · chip crush', { hpf: 400, crush: 3, coarse: 6 }],
+  ['hat', 'hats', 'hat · chip crush', { crush: 4, coarse: 3 }],
+  ['perc', 'perc13', 'perc · chip toms', { pitch: 12, crush: 5, coarse: 4 }],
+  ['fx', 'fx5', 'fx · chip glitch zap', { crush: 6, coarse: 8, ply: 2 }],
+  ['texture', 'texture1', 'texture · chip rain crush', { crush: 7, coarse: 4 }],
+  // ---- ambient: slow attacks, big rooms, long echoes
+  ['bass', 'bass12', 'bass · soft sine swell', { att: 0.2, sus: 0.8, rel: 1.2, lpf: 250, room: 0.6, rsize: 6 }],
+  ['pad', 'pad12', 'chords · air swell', { att: 1.2, rel: 3, lpf: 900, room: 0.9, rsize: 8 }],
+  ['pad', 'pad17', 'chords · glass pad', { wave: 'sine', fm: 1.5, fmh: 4, fmdec: 1, fmsus: 0.2, room: 0.8, rsize: 7 }],
+  ['arp', 'arp6', 'arp · glass drift', { room: 0.9, rsize: 8, delay: 0.45, dtime: '3/8', dfb: 0.6 }],
+  ['arp', 'arp70', 'arp · soft sine space', { att: 0.03, rel: 0.6, lpf: 2500, apan: 1, apr: '2', room: 0.8, rsize: 6 }],
+  ['lead', 'lead1', 'melody · soft long echo', { lpf: 1600, room: 0.8, rsize: 7, delay: 0.5, dtime: '3/8', dfb: 0.65 }],
+  ['lead', 'lead58', 'melody · glass bells', { fm: 6, fmh: 3.5, fmdec: 0.6, room: 0.8, delay: 0.4, dfb: 0.55 }],
+  ['lead', 'lead3', 'melody · soft air triangle', { wave: 'triangle', att: 0.1, rel: 0.8, lpf: 1800, vib: 4, vibmod: 0.2, room: 0.8, rsize: 6 }],
+  ['kick', 'kickBroken', 'kick · soft dub space', { lpf: 250, room: 0.6, rsize: 6, delay: 0.35, dtime: '3/16', dfb: 0.45 }],
+  ['snare', 'snare9', 'snare · dub snap in a big space', { hpf: 300, room: 0.85, rsize: 8, rlp: 4000 }],
+  ['hat', 'hat20', 'hat · dub air shimmer', { hpf: 7000, apan: 1, apr: '4', room: 0.8, rsize: 7, deg: 0.45 }],
+  ['perc', 'perc3', 'perc · dub space echo', { lpf: 2500, room: 0.7, rsize: 6, delay: 0.5, dtime: '3/16', dfb: 0.6 }],
+  ['texture', 'texture8', 'texture · drift drone', { uni: 8, det: 0.6, lfo: 'lpf', lfow: 'perlin', lfor: '16', lfolo: 200, lfohi: 1200, room: 0.9, rsize: 9 }],
+  ['fx', 'fx1', 'fx · space swell', { room: 0.8, rsize: 8, delay: 0.4, dtime: '1/4', dfb: 0.6 }],
+  // ---- more for the small vibes
+  ['pad', 'pad1', 'chords · chip square crush', { wave: 'square', att: 0.01, rel: 0.3, crush: 8, coarse: 3 }],
+  ['lead', 'lead11', 'melody · chip duty 12%', { wave: 'pulse', pw: 0.12, crush: 6, coarse: 2 }],
+  ['perc', 'perc4', 'perc · chip blips', { pitch: 7, crush: 4, coarse: 6 }],
+  ['bass', 'bass18', 'bass · soft triangle drift', { att: 0.1, sus: 0.7, rel: 1.5, room: 0.7, rsize: 6, delay: 0.3, dtime: '3/8', dfb: 0.4 }],
+  ['pad', 'pad6', 'chords · soft drift pad', { wave: 'triangle', att: 0.8, rel: 2.5, lpf: 1200, apan: 0.6, apr: '4', room: 0.9, rsize: 8 }],
+  ['arp', 'arp14', 'arp · soft sine echo', { wave: 'sine', att: 0.02, lpf: 2000, room: 0.85, rsize: 7, delay: 0.5, dtime: '3/8', dfb: 0.6 }],
+  ['texture', 'texture7', 'texture · wide hum space', { apan: 1, apr: '4', room: 0.9, rsize: 9 }],
+];
+function generateEdits(existing) {
+  const r = rng(2623);
+  const byBase = Object.fromEntries(existing.map((l) => [l.id, l]));
+  const used = new Set(existing.map((l) => l.name));
+  const name = (cat) => {
+    const nouns = NOUNS[cat].split(' ');
+    for (let k = 0; k < 500; k++) {
+      const n = `${r.pick(ADJ)} ${r.pick(nouns)}`;
+      if (!used.has(n)) {
+        used.add(n);
+        return n;
+      }
+    }
+    return `${r.pick(ADJ)} ${r.pick(nouns)} ${used.size}`;
+  };
+  const color = (cat) => {
+    const [h0, h1, sat, l] = HUES[cat];
+    return hex((h0 + r() * ((h1 - h0 + 360) % 360)) % 360, sat + r.int(-10, 10), l + r.int(-8, 8));
+  };
+  const next = {};
+  const nextId = (cat) => {
+    next[cat] ??= Math.max(0, ...existing.map((l) => (l.cat === cat && /\d+$/.exec(l.id)?.[0]) || 0).map(Number));
+    return `${cat}${++next[cat]}`;
+  };
+  return EDIT_ORBS.map(([cat, from, kind, e]) => {
+    const b = byBase[from];
+    if (!b?.code || b.cat !== cat) throw new Error(`edit orb: no ${cat} orb ${from}`);
+    // the base as generated, before TRIM (the level trims below give this orb its own)
+    const c0 = b.code, own = typeof c0 === 'function' ? c0 : () => c0;
+    // a choke group of its own (sharing the base's would cut one off when both play)
+    const cut = /\.cut\(\d+\)/.test(own(rng(1))) ? choke() : '';
+    const recut = (s) => (cut ? s.replace(/\.cut\(\d+\)/g, cut) : s);
+    const sample = own(rng(1));
+    const chain = editChain(cleanEdit(e), kindOf(b, sample));
+    return {
+      id: nextId(cat), cat, name: name(cat), color: color(cat), tag: 'edits', kind, from, recipe: cleanEdit(e),
+      ...(b.samples && { samples: b.samples }),
+      code: (v) => recut(own(v)) + chain,
+      ...(b.voice && { voice: { ...b.voice, sound: recut(b.voice.sound) + chain } }),
+    };
+  });
+}
+export const LAYERS = [...TWELFTH, ...generateEdits(TWELFTH), ...EQ_ORBS];
 
 // Level trims from tools/orb-levels.html: every sound orb rendered alone (4 bars at 124 BPM,
 // variation seeds 1-3) and its K-weighted loudness (LUFS) matched to the median of its category,
@@ -2148,6 +2268,12 @@ export const TRIM = {
   lead73: 0.46, lead75: 1.92, lead76: 0.6, lead77: 2.04, lead78: 0.51, lead79: 2.15, lead80: 3.67, lead81: 1.47, lead82: 2.39,
   lead83: 20, lead84: 2.26, lead86: 2.42, lead87: 1.49, lead88: 9.12, lead89: 1.52, lead90: 2.78, lead92: 2.15, lead94: 0.55,
   lead95: 0.69, lead98: 2.09,
+  // sound-edit batch (measured from the base orbs' untrimmed lines, so these trims stand alone)
+  bass105: 2, bass106: 1.94, bass107: 0.56, pad58: 1.58, pad59: 0.76, arp82: 3.7, arp83: 1.9, arp84: 4.26, lead107: 2.55,
+  lead108: 3.43, fx51: 1.81, lead110: 0.45, pad60: 3.14, pad61: 0.48, pad62: 1.61, bass111: 2.73, lead111: 0.74, lead112: 3.58,
+  arp85: 1.41, arp86: 14.3, bass113: 1.56, pad63: 0.52, arp88: 2.42, lead113: 2.61, lead114: 1.29, kick38: 0.64, perc59: 1.36,
+  fx52: 1.33, texture28: 4.78, bass114: 0.25, pad64: 2.5, pad65: 0.27, arp89: 0.63, arp90: 0.43, lead115: 0.41, kick39: 0.51,
+  hat48: 2.36, perc60: 0.64, texture29: 0.18, pad66: 0.55, lead118: 3.28, perc61: 1.97, bass115: 0.22, pad67: 2.03, arp91: 1.28,
 };
 // perc20 drew the mallet roll (tom_mallet:6). Its Euclidean rhythm cuts each roll off before it swells,
 // which went unnoticed while tom_mallet failed to load (samples.js); it plays the hardest mallet hit instead.

@@ -27,7 +27,7 @@ export const loadDrums = () => samples(DRUMS_URL, DRUMS_BASE);
 // - background: the rest keeps loading quietly with fewer requests at a time, so it doesn't
 //   crowd out the orb / song samples fetched on demand. drumsAll() resolves when it is done.
 // `first`: sample names ("TR909_bd", "Kit_sd:5") to put at the front of the boot set, so the
-// orbs that play them are ready when the page opens (the opening rain in orbs.js only drops orbs
+// orbs that play them are ready when the page opens (the opening rain in orbs/field.js only drops orbs
 // whose sounds are all booted, see isBooted). Names outside this bank are skipped. The boot set
 // grows past BOOT_COUNT if `first` alone is longer.
 const BOOT_COUNT = 100;
@@ -53,7 +53,7 @@ export function preloadDrums(onProgress, first = []) {
     drumMap = map;
     const lists = Object.entries(map)
       // fx_* (≈2 MB) and the pitched instruments (note maps, ≈2.5 MB) are longer and only a few
-      // orbs play them: those load when the orb is hovered, grabbed or added (warm in orbs.js)
+      // orbs play them: those load when the orb is hovered, grabbed or added (warm in orbs/audio.js)
       .filter(([k, v]) => !k.startsWith('_') && !k.startsWith('fx_') && Array.isArray(v));
     // round-robin over the sounds (every sound's :0 first, then every :1 …), after `first`
     const keys = new Set(first.map(drumKey).filter(Boolean));

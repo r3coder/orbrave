@@ -141,7 +141,7 @@ const STR = {
     shDown: '서버 이용 불가능: 연결할 수 없어요. 잠시 뒤에 다시 시도해 주세요', shFail: '올리지 못했어요: {msg}',
     // phone dock
     mPresets: '📁 프리셋', mMenu: '메뉴', mExport: '⇪ 내보내기', mClose: '✕ 닫기',
-    // step-by-step guide (orbs.js tutorial, tutorial.js)
+    // step-by-step guide (orbs/guide.js tutorial, tutorial.js)
     tutCombo: '이건 콤보 오브예요! 여러 악기가 하나로 묶여 있어서, 던지면 그 악기들이 한꺼번에 곡에 들어가요',
     tutStash: '마음에 드는 오브는 오른쪽 보관함에 던져 두세요. 떨어지던 오브가 사라져도 여기 남아 있어서 언제든 다시 꺼내 쓸 수 있어요',
     tutStashPhone: '마음에 드는 오브는 아래 보관함에 던져 두세요. 떨어지던 오브가 사라져도 여기 남아 있어서 언제든 다시 꺼내 쓸 수 있어요',

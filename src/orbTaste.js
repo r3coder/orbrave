@@ -228,7 +228,7 @@ export function add(id) {
   state.pen = state.pen.map((x) => x * 0.5);
   if (!byId[id].scaleFamily) state.scale *= 0.5;
 }
-// the factor on the other-scale family's share (SCALE_SHARE in orbs.js): 1, down to 1 − scaleCut
+// the factor on the other-scale family's share (SCALE_SHARE in orbs/field.js): 1, down to 1 − scaleCut
 export function scaleKeep() {
   settle();
   return 1 - TUNE.scaleCut * Math.min(1, state.scale / TUNE.scaleFull);

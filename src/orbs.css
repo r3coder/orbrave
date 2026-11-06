@@ -331,7 +331,7 @@ button.loop-mode:hover { background: color-mix(in srgb, var(--acc) 24%, var(--de
 .volring .knob { fill: var(--cursor); }
 .volring #volTicks line { stroke: color-mix(in srgb, var(--fg) 18%, transparent); stroke-width: 1.5; }
 .volring #volTicks line.lit { stroke: color-mix(in srgb, var(--acc) 75%, transparent); }
-/* first-orb volume tip: everything but the dial dims (orbs.js volFocus) */
+/* first-orb volume tip: everything but the dial dims (orbs/audio.js volFocus) */
 .vol-dim {
   position: fixed; z-index: 59; pointer-events: none; border-radius: 50%;
   box-shadow: 0 0 0 200vmax var(--scrim);
@@ -369,10 +369,10 @@ body.loading .play { animation: blink 0.8s infinite alternate; }
   background: var(--band, none), radial-gradient(circle at 35% 30%, #fff 0, var(--c) 35%, color-mix(in srgb, var(--c) 40%, var(--shadow)) 100%);
   box-shadow: 0 0 14px var(--g, var(--c));
   transition: opacity 0.3s;
-  will-change: transform, opacity; /* moved every frame (orbs.js frame) */
+  will-change: transform, opacity; /* moved every frame (orbs/visuals.js frame) */
 }
 .sat.dark { box-shadow: 0 0 0 1.5px var(--g), 0 0 14px var(--g); }
-/* first-orb volume demo (orbs.js showVolumeTip): the orbs light up neon, --neon 0..1 following the dip */
+/* first-orb volume demo (orbs/guide.js showVolumeTip): the orbs light up neon, --neon 0..1 following the dip */
 body.vol-demo .sat {
   outline: 2px solid color-mix(in srgb, var(--g, var(--c)) 50%, #fff); outline-offset: 2px;
   box-shadow:
@@ -389,7 +389,7 @@ body.vol-demo .sat {
   isolation: isolate; /* the art and its dimming sit behind the orbs but above the page */
 }
 /* optional art (public/orbs-field.webp), drifting with the fall: its own layer, moved by
-   transform from JS (orbs.js updateRain), so the drift never repaints the field */
+   transform from JS (orbs/field.js updateRain), so the drift never repaints the field */
 .field-art {
   position: absolute; left: 0; right: 0; top: 0; z-index: -2;
   background: var(--field-bg, none) center top / 100% auto repeat-y;
@@ -522,7 +522,7 @@ body.vol-demo .sat {
 .orb.absorb .ball { transition: transform 0.3s ease-in, opacity 0.3s; transform: scale(0.1); opacity: 0; }
 .orb.absorb .label, .orb.absorb .kind { opacity: 0; transition: opacity 0.15s; }
 
-/* ---------- what the slots did to an orb (orbs.js decorate) ----------
+/* ---------- what the slots did to an orb (orbs/list.js decorate) ----------
    Volume: turned down = smaller, turned up = a bit bigger (--vol-scale, one step each slot).
    Variation: a faint pattern over the ball, picked by its seed (--vpat, turned by --vpat-rot). */
 .orb.vol .ball, .mini.vol, .sat.vol { scale: var(--vol-scale, 1); transition: scale 0.3s cubic-bezier(.3, 1.6, .5, 1); }
@@ -531,7 +531,7 @@ body.vol-demo .sat {
   background: var(--vpat); rotate: var(--vpat-rot, 0deg);
 }
 
-/* ---------- combo orbs: the orbs it brings in, huddled together (orbs.js orbInner) ---------- */
+/* ---------- combo orbs: the orbs it brings in, huddled together (orbs/list.js orbInner) ---------- */
 .orb.cluster .ball, .mini.cluster {
   background: none; box-shadow: none; animation: none; overflow: visible;
 }
@@ -838,23 +838,32 @@ body.server-down .ptile .share.cloud { display: none; } /* no ☁ on tiles while
 .ptile .multi .swirl { inset: 0; border-radius: 50%; filter: none; animation: none; }
 .ptile:hover .multi .swirl { animation: spin 5s linear infinite; }
 .ptile .mini { box-shadow: 0 0 6px var(--g); }
-/* a preset is drawn like a combo (orbs.js paintPreset): its orbs huddled, still until hovered */
+/* a preset is drawn like a combo (orbs/presets.js paintPreset): its orbs huddled, still until hovered */
 .ptile .mini.cluster { box-shadow: none; }
 .ptile .bub:not(.dark) { box-shadow: 0 0 5px color-mix(in srgb, var(--g, var(--c)) 60%, transparent), inset 0 -2px 4px color-mix(in srgb, var(--shadow) 35%, transparent); }
 .ptile .bub { animation-play-state: paused; }
 .ptile:hover .bub { animation-play-state: running; }
-/* a stem: one bright orb in the middle, like an atom's nucleus */
-.bub.core {
-  --x: 50%; --y: 50%; --d: 36%; z-index: 1;
-  background: radial-gradient(circle at 40% 36%, #fff 0 38%, color-mix(in srgb, var(--acc) 45%, #fff) 72%, var(--acc) 100%);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--acc) 70%, transparent), 0 0 6px 2px rgba(255, 255, 255, 0.9), 0 0 14px 3px color-mix(in srgb, var(--acc) 70%, transparent);
-  animation: corePulse 1.6s ease-in-out infinite alternate;
+/* a stem: a white ring around its orbs and a glowing white ▶ in the middle (orbs/list.js bubbles) */
+.stem-ring {
+  position: absolute; inset: -8%; border-radius: 50%; pointer-events: none;
+  border: 1.5px solid #fff;
 }
-@keyframes corePulse { from { transform: scale(0.92); } to { transform: scale(1.1); } }
-.ptile .bub.core { box-shadow: 0 0 0 1px color-mix(in srgb, var(--acc) 70%, transparent), 0 0 5px 2px rgba(255, 255, 255, 0.85), 0 0 10px 2px color-mix(in srgb, var(--acc) 60%, transparent); }
-.lite .bub.core { box-shadow: 0 0 0 1px var(--acc); }
+.stem-play {
+  position: absolute; left: 50%; top: 50%; width: 34%; height: 34%; translate: -40% -50%;
+  z-index: 1; pointer-events: none;
+  /* the glow sits on the wrapper: a clip-path would cut a filter on the triangle itself */
+  filter: drop-shadow(0 0 2px #fff) drop-shadow(0 0 5px rgba(255, 255, 255, 0.8));
+}
+.stem-play::before {
+  content: ''; position: absolute; inset: 0; background: #fff;
+  clip-path: polygon(8% 0, 100% 50%, 8% 100%);
+}
+.lite .stem-play { filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.6)); }
+/* on the light page a thin dark edge keeps the white ring and ▶ visible */
+:root[data-theme='light'] .stem-ring { box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.18), inset 0 0 0 1px rgba(0, 0, 0, 0.18); }
+:root[data-theme='light'] .stem-play { filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.55)) drop-shadow(0 0 4px rgba(255, 255, 255, 0.9)); }
 
-/* the preset tiles' tooltip (orbs.js showPtip), in the tutorial note's style */
+/* the preset tiles' tooltip (orbs/presets.js showPtip), in the tutorial note's style */
 .ptip {
   position: fixed; z-index: 70; left: 0; top: 0; pointer-events: none;
   display: flex; flex-direction: column; gap: 3px;
@@ -1041,7 +1050,7 @@ body.server-down .ptile .share.cloud { display: none; } /* no ☁ on tiles while
 /* a hand-edited orb: its C01 tag stays put, ↺ goes back to the orb it came from */
 .strip span.snum.custom { color: color-mix(in srgb, var(--g), var(--fg) var(--ink-mix)); font-size: 9px; max-width: none; cursor: default; }
 .strip span.snum.custom:hover { text-decoration: none; }
-/* 12 or more orbs in the song (orbs.js renderChips): smaller strips, 8 to a row */
+/* 12 or more orbs in the song (orbs/list.js renderChips): smaller strips, 8 to a row */
 .chips.many { gap: 4px; max-width: 560px; }
 .chips.many .strip { width: 64px; padding: 2px 2px 3px; }
 .chips.many .strip .mini { width: 26px; height: 26px; margin: 4px 0 2px; }
@@ -1377,7 +1386,7 @@ button.arm::after {
 .sat.major { outline: 2px solid var(--gold); outline-offset: 2px; }
 .role > i.major { box-shadow: 0 0 0 1.5px var(--gold), 0 0 8px var(--gold); }
 
-/* first-visit hint: shown until the first orb ever goes into the song (orbs.js FIRST_ORB_KEY) */
+/* first-visit hint: shown until the first orb ever goes into the song (orbs/guide.js FIRST_ORB_KEY) */
 .empty-hint {
   position: fixed; left: 50%; top: 30%; transform: translate(-50%, -50%); z-index: 5;
   width: min(560px, calc(100vw - 32px)); margin: 0; padding: 14px 18px;
@@ -1418,7 +1427,7 @@ body.has-orbs .empty-hint, body.first-orb-done .empty-hint { opacity: 0; visibil
 .lite .multi .swirl { filter: none; animation-duration: 10s; }
 .lite .orb.ejected .ball, .lite .core.gulp .ring { animation: none; }
 
-/* ---------- tools that show up later (orbs.js tutorial) ----------
+/* ---------- tools that show up later (orbs/guide.js tutorial) ----------
    Each step of the guide unlocks a part with a body class: .roll-ready (the slots, above),
    .midi-ready (편집 beside the 변주 slot), .share-ready (loop WAV / share / server share, ⇪ on a phone),
    .song-ready (📂 스템 열기). Selected by id and class rather than position: on a phone
@@ -1603,7 +1612,10 @@ body.orbedit-open .orbedit { display: flex; }
 /* a custom orb (🎛 편집): a band across the lower right of its ball, like a sash (its name starts
    with ✦ too). It is the balls' top background layer (--band), so the variation pattern (::after)
    and the pattern number (::before) still fit on it. */
-.custom { --band-c: #ff7a1a; --band: linear-gradient(135deg, transparent 67%, var(--band-c) 67% 81%, transparent 81%); }
+.custom { --band-c: #ff7a1a; --band: linear-gradient(135deg, transparent 70.5%, var(--band-c) 70.5% 77.5%, transparent 77.5%); }
+/* the catalogue's sound-edit orbs (orbCatalog.js EDIT_ORBS) are made the way custom orbs are:
+   the same sash, in white */
+.soundedit { --band-c: rgba(255, 255, 255, 0.92); --band: linear-gradient(135deg, transparent 70.5%, var(--band-c) 70.5% 77.5%, transparent 77.5%); }
 @container right (max-width: 560px) {
   .oe-rows { grid-template-columns: minmax(90px, max-content) 1fr 64px 24px; }
 }

@@ -101,7 +101,7 @@
         box.style.height = h * s + 'px';
       }
     }
-    // tutorial progress lives in localStorage (src/orbs.js TUT_KEY / FIRST_ORB_KEY)
+    // tutorial progress lives in localStorage (src/orbs/guide.js TUT_KEY / FIRST_ORB_KEY)
     function applyState() {
       const v = document.getElementById('state').value;
       if (v === 'keep') return;
@@ -111,7 +111,7 @@
       const step = v === 'slots' ? 2 : 6;
       localStorage.setItem('orbTutorial', JSON.stringify({ step, thrown: step === 6 ? 20 : 5, moves: 20, thrownAt: 0, movesAt: 0, at: Date.now(), banner: false, bannerMoves: 0, used: false, combo: true }));
       if (v !== 'song' && v !== 'roll') return;
-      // a song restored from the session (src/orbs.js restoreSession)
+      // a song restored from the session (src/orbs/presets.js restoreSession)
       localStorage.setItem('orbSession', JSON.stringify({
         layers: ['kick2', 'hat2', 'bass1', 'pad2', 'lead2', 'arp2'], drawn: [], copies: [],
         stash: ['snare3', 'perc4', 'lead5', 'fx2', 'bass7'], variation: 0, seeds: {}, steps: {}, held: {}, name: '',

@@ -1,6 +1,6 @@
 // First-visit guide UI for the orb page: a spotlight that dims everything but one part of the
 // screen for a few seconds with a short note beside it, and a banner under the title that stays
-// up until orbs.js takes it down. When each one shows is decided in orbs.js ("tutorial" section);
+// up until orbs/guide.js takes it down. When each one shows is decided in orbs/guide.js ("tutorial" section);
 // this file only draws them. Nothing here takes clicks: the page keeps working underneath.
 
 const SHOW_MS = 8000; // a spotlight goes away by itself after this…

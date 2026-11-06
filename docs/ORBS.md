@@ -1,7 +1,7 @@
 # Orb catalogue
 
-What the orb page (`index.html`, `src/orbs.js`) offers, as built by `src/orbCatalog.js`. Counts are
-from the catalogue as of 2026-11-05 (816 orbs). To refresh them, see [Recounting](#recounting).
+What the orb page (`index.html`, `src/orbs.js` + `src/orbs/`) offers, as built by `src/orbCatalog.js`. Counts are
+from the catalogue as of 2026-11-07 (875 orbs). To refresh them, see [Recounting](#recounting).
 
 ## The musical frame
 
@@ -16,15 +16,15 @@ Every orb plugs into one frame, so any set of orbs plays together:
 
 | | Orbs |
 |---|---|
-| Sound orbs (play a part) | **622** |
+| Sound orbs (play a part) | **681** |
 | Combos (several orbs at once) | 91 |
 | Moods (effect on every part, or mutes) | 50 |
 | EQ moods (tone of every part) | 9 |
 | Keys (12 roots × minor / major) | 24 |
 | Tempos | 20 |
-| **All** | **816** |
+| **All** | **875** |
 
-373 sound orbs play samples; the rest are synthesised (superdough synths, ZZFX chip sounds, noise).
+388 sound orbs play samples; the rest are synthesised (superdough synths, ZZFX chip sounds, noise).
 
 ## Sound orbs by category and family
 
@@ -33,17 +33,17 @@ Families decide how often an orb falls (see [Spawn balance](#spawn-balance)).
 
 | Category | TR909 | TR808 | TR707 | TR606 | TR727 | RD6 | Kit | kitbreak | Bass guitar | Upright | Wurlitzer | Piano | Organ | Sampled (VCSL …) | Synth | ZZFX | Block FX | Other scales | **Total** |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| kick | 8 | 2 | 2 | 1 | – | 6 | 6 | – | – | – | – | – | – | 8 | 2 | 4 | – | – | **39** |
-| snare | 5 | 4 | 4 | 2 | – | 3 | 8 | – | – | – | – | – | – | 9 | 1 | 4 | – | – | **40** |
-| hat | 5 | 4 | 4 | 4 | 4 | 3 | 3 | – | – | – | – | – | – | 16 | 1 | 4 | – | – | **48** |
-| perc | 2 | 5 | 6 | 4 | 2 | 1 | 4 | 1 | – | – | – | – | – | 30 | 1 | 4 | – | – | **60** |
-| bass | – | – | – | – | – | – | – | – | 6 | 4 | – | 2 | 2 | 2 | 55 | 12 | – | 24 | **107** |
-| pad | – | – | – | – | – | – | – | – | – | – | 3 | 4 | 4 | 15 | 25 | 7 | – | – | **58** |
-| arp | – | – | – | – | – | – | – | – | – | – | 1 | 1 | 2 | 32 | 18 | 7 | – | 22 | **83** |
-| lead | – | – | – | – | – | – | – | – | – | – | 1 | 3 | 3 | 38 | 31 | 12 | – | 20 | **108** |
-| fx | 1 | 1 | 1 | 1 | 3 | 1 | 1 | – | – | – | – | – | – | 14 | 10 | 12 | 6 | – | **51** |
-| texture | 1 | 2 | – | – | 1 | – | – | – | – | – | – | – | – | 12 | 7 | 5 | – | – | **28** |
-| **Total** | 22 | 18 | 17 | 12 | 10 | 14 | 22 | 1 | 6 | 4 | 5 | 10 | 11 | 176 | 151 | 71 | 6 | 66 | **622** |
+| kick | 10 | 2 | 2 | 1 | – | 6 | 6 | – | – | – | – | – | – | 8 | 2 | 4 | – | – | **41** |
+| snare | 6 | 4 | 5 | 2 | – | 3 | 8 | – | – | – | – | – | – | 9 | 1 | 4 | – | – | **42** |
+| hat | 6 | 5 | 4 | 4 | 4 | 3 | 3 | – | – | – | – | – | – | 16 | 1 | 4 | – | – | **50** |
+| perc | 2 | 5 | 8 | 5 | 2 | 1 | 4 | 1 | – | – | – | – | – | 30 | 1 | 4 | – | – | **63** |
+| bass | – | – | – | – | – | – | – | – | 7 | 4 | – | 2 | 2 | 2 | 65 | 12 | – | 24 | **118** |
+| pad | – | – | – | – | – | – | – | – | – | – | 4 | 5 | 4 | 15 | 34 | 7 | – | – | **69** |
+| arp | – | – | – | – | – | – | – | – | – | – | 1 | 1 | 2 | 34 | 26 | 7 | – | 22 | **93** |
+| lead | – | – | – | – | – | – | – | – | – | – | 1 | 3 | 3 | 39 | 42 | 12 | – | 20 | **120** |
+| fx | 1 | 1 | 1 | 1 | 3 | 1 | 1 | – | – | – | – | – | – | 14 | 13 | 12 | 6 | – | **54** |
+| texture | 1 | 2 | – | – | 1 | – | – | – | – | – | – | – | – | 12 | 10 | 5 | – | – | **31** |
+| **Total** | 26 | 19 | 20 | 13 | 10 | 14 | 22 | 1 | 7 | 4 | 6 | 11 | 11 | 179 | 195 | 71 | 6 | 66 | **681** |
 
 Families: drum machines are the self-hosted CC0 bank (TR-8 models of the 909/808/707/606/727 and an
 RD-6), **Kit** the Big Rusty Drums acoustic kit, **kitbreak** an original break played on it.
@@ -56,17 +56,17 @@ five- or six-note scale (see below), whatever instrument they use, so the set ca
 
 | Category | Scale `A?:minor` | Other scale | Chord progression | Sample `speed` only | No pitch | Total |
 |---|---|---|---|---|---|---|
-| bass | **83** | **24** | – | – | – | 107 |
-| arp | **61** | **22** | – | – | – | 83 |
-| lead | **88** | **20** | – | – | – | 108 |
-| pad | **21** | – | **37** | – | – | 58 |
-| fx | 13 | – | – | – | 38 | 51 |
-| texture | 3 | – | 1 | – | 24 | 28 |
-| kick | – | – | – | 9 | 30 | 39 |
-| snare | – | – | – | 6 | 34 | 40 |
-| hat | – | – | – | – | 48 | 48 |
-| perc | – | – | – | 20 | 40 | 60 |
-| **Total** | **269** | **66** | **38** | **35** | **214** | **622** |
+| bass | **94** | **24** | – | – | – | 118 |
+| arp | **71** | **22** | – | – | – | 93 |
+| lead | **100** | **20** | – | – | – | 120 |
+| pad | **21** | – | **48** | – | – | 69 |
+| fx | 15 | – | – | – | 39 | 54 |
+| texture | 3 | – | 2 | – | 26 | 31 |
+| kick | – | – | – | 10 | 31 | 41 |
+| snare | – | – | – | 6 | 36 | 42 |
+| hat | – | – | – | – | 50 | 50 |
+| perc | – | – | – | 23 | 40 | 63 |
+| **Total** | **304** | **66** | **50** | **39** | **222** | **681** |
 
 - **Scale** — notes are scale degrees, `n("0 2 4 …").scale("A2:minor")`. The root is always **A**, only the
   octave differs: A1–A2 bass, A3 arps, A4–A5 melodies and pitched effects (laser, coin …).
@@ -145,6 +145,7 @@ so adding a batch never changes an existing orb's id, name or sound (saved prese
 | 10th | `generateVariations` | 132 line variations: 36 basses, 22 chords, 24 arpeggios, 50 melodies (tag `variations`, see below) |
 | 11th | `generateAcoustic` | 38 concert-percussion orbs: 6 hats, 14 percussion, 10 effects, 8 textures (tag `acoustic`, see below) |
 | 12th | `generateVibes` | 81 chip / ambient / world orbs for every category (tag `vibes`, see below) |
+| 13th | `generateEdits` | 59 sound edits: catalogue orbs with 🎛 편집 knobs on top (tag `edits`, see below) |
 | EQ | `EQ_ORBS` | 9 EQ moods (category `mood`, `eq: true`), appended last |
 
 **Block FX** (`spot`) are accents: in the stem grid they get a single block (impacts and down-sweeps on
@@ -210,9 +211,35 @@ batch: dance 187, organic 185, world 96, ambient 81, chip 73 (before: 187 / 185 
 other-scale orbs take their vibe from their instrument (see Spawn balance), 66 of those world orbs moved:
 dance 200, organic 215, ambient 98, world 36, chip 73. Those 36 world orbs are now left out of the taste.
 
+## Sound edits (13th batch)
+
+`generateEdits` (seed 2623, `EDIT_ORBS`) makes orbs the way the 🎛 편집 panel makes a custom orb: a
+catalogue orb (`from`) with an edit (`recipe`, keys of `server/orbEditSpec.mjs`) on top. The line is the
+base orb's generator followed by `editChain(edit)`, the exact calls the editor writes, so opening one in
+the editor reads its knobs back. Each orb draws its own notes (it hashes under its own id), keeps the base's
+instrument for drawn variations, and gets a choke group of its own where the base has one.
+
+| Group | Orbs |
+|---|---|
+| supersaw / FM / pulse (14) | reese supersaw with a moving filter, PWM bass / stabs / pluck / lead, FM growl, metal, keys, pluck and horn, supersaw wall, gate and lead, hoover rise |
+| effects on existing lines (11) | acid ladder bass and acid melody, house pump (tremolo), trance gate, dub piano, phaser e-piano, wah bass, lofi sax, talkbox, stutter harp, marimba ping-pong |
+| chip (16) | bit-crushed and sample-rate-cut basses, chords, arps and melodies (some on a 12% pulse), crushed 909 kick / clap / hats, 707 toms and blips, a glitch zap, crushed rain |
+| ambient (18) | slow-attack swells, glass FM pad and bells, long echoes, soft sine / triangle lines, dub-space kick, snare, hat and toms, a drifting supersaw drone, a wide hum, a space swell |
+
+By category: bass 11, pad 11, arp 10, lead 12, kick 2, snare 2, hat 2, perc 3, fx 3, texture 3. Dominant
+vibe of the batch: dance 19, ambient 18, chip 16, organic 6; over all sound orbs now dance 219, organic 221,
+ambient 116, chip 89.
+
+- **No tempo knob on pitched lines.** `.slow(2)` / `.fast(2)` would move a line off the chord progression.
+- **Crush gates quiet lines.** `crush` rounds the signal to its bit depth before the gain, so a quiet line
+  (gain about 0.1) at 3–5 bits rounds to silence. The chip lines use 6–8 bits; drums, which are louder,
+  can go to 3–4.
+- **Levels:** trims are measured from the bases' untrimmed lines, so each edit orb's `TRIM` stands alone
+  and a later change to a base orb's trim doesn't move it.
+
 ## Spawn balance
 
-Falling orbs are picked in two steps (`spawnWeights` in `src/orbs.js`):
+Falling orbs are picked in two steps (`spawnWeights` in `src/orbs/field.js`):
 
 1. **Category**, by a fixed share (`CAT_SHARE`: kick 28, snare 29, hat 31, perc 39, bass 34, pad 23,
    arp 28, lead 29, fx 27, texture 14, combo 87, mood 50, key 24, tempo 20). A category the song is
@@ -296,7 +323,7 @@ which the ×20 cap on corrections leaves a few dB under.
    `__orbs.LAYERS.filter((l) => l.code && !l.combo).reduce((t, l) => (__orbs.taste.memberOf(l)?.forEach((x, i) => (t[i] += x)), t), [0, 0, 0, 0])`
    (dance, organic, chip, ambient); `__orbs.taste.isWorld(l)` for the world orbs.
 3. Open `/tools/orb-levels.html?run` on the dev server and paste the printed `TRIM` entries.
-4. Listen with the test mode: `/?only=new` (or `?only=fx`, `?only=dub`, `?only=inst`, `?only=scale`, `?only=var`, `?only=ac`, `?only=vibe`, `?only=id1,id2`)
+4. Listen with the test mode: `/?only=new` (or `?only=fx`, `?only=dub`, `?only=inst`, `?only=scale`, `?only=var`, `?only=ac`, `?only=vibe`, `?only=edit`, `?only=id1,id2`)
    drops only those orbs. Give new orbs a `tag` so they show up there.
 
 ## Recounting

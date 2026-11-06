@@ -7,6 +7,26 @@ import './licenses.css';
 
 // [version, date, { ko: [...], en: [...], ja: [...] }]
 const NOTES = [
+  ['0.5.2', '2026-11-07', {
+    ko: [
+      '🎛 편집 칸의 손잡이로 만든 새 오브 59개: 슈퍼소 · FM · 펄스 신스, 애시드 · 와우 · 페이저 · 게이트 같은 이펙트, 비트를 깎은 칩 사운드, 느리게 부풀고 길게 울리는 앰비언트',
+      '새 오브를 🎛 편집 칸에 넣으면 어떤 손잡이로 만들었는지 그대로 보여요',
+      '오브를 빠르게 끌다가 멈추고 놓으면 던져지지 않고 그 자리에 놓여요',
+      '오브를 재빨리 던져 넣으면 곡이 멈추고 그 오브만 미리듣기로 남던 문제를 고쳤어요',
+    ],
+    en: [
+      '59 new orbs made with the 🎛 Edit knobs: supersaw, FM and pulse synths, effects like acid, wah, phaser and gate, bit-crushed chip sounds, and slow, long-echo ambient ones',
+      'Drop one of the new orbs into the 🎛 Edit slot to see the knobs it was made with',
+      'Dragging an orb fast, stopping, then letting go now drops it there instead of throwing it',
+      'Fixed: a quick throw into the player could leave that orb previewing alone, silencing the song',
+    ],
+    ja: [
+      '🎛 編集のつまみで作った新しいオーブ59個:スーパーソー・FM・パルスのシンセ、アシッド・ワウ・フェイザー・ゲートなどのエフェクト、ビットを削ったチップサウンド、ゆっくり膨らんで長く響くアンビエント',
+      '新しいオーブを 🎛 編集に入れると、どのつまみで作ったかがそのまま見えます',
+      'オーブを速くドラッグして止めてから離すと、投げずにその場に置かれます',
+      'オーブを素早く投げ入れると、曲が止まってそのオーブだけ試聴のまま残る問題を直しました',
+    ],
+  }],
   ['0.5.1', '2026-11-07', {
     ko: [
       '커스텀 오브 창이 내 오브와 서버 오브 두 칸으로 나뉘었어요. 내 오브는 삭제할 수 있고, 아직 안 올린 오브는 거기서 바로 서버에 올릴 수 있어요',
