@@ -53,7 +53,8 @@ export async function getPreset(id) {
 // Publish a local preset; resolves to the stored preset (with the server's id) or throws.
 // `extra` is what the share dialog asks: { kind, author, description, agree, website }.
 export async function uploadPreset(p, extra = {}) {
-  const saved = fromWire(await request('/presets', { method: 'POST', body: JSON.stringify(toWire(p, extra)) }));
+  // `client`: this browser's random id, so the server limits shares per browser, not per network
+  const saved = fromWire(await request('/presets', { method: 'POST', body: JSON.stringify({ ...toWire(p, extra), client: voterId() ?? '' }) }));
   if (!saved) throw new Error('bad response');
   return saved;
 }
@@ -68,7 +69,7 @@ export async function fetchOrbs({ limit = 60, mix = true } = {}) {
 }
 // Publish one custom orb definition; resolves to the stored record or throws with the server's message.
 export async function uploadOrb(orb, { author = '', agree = false, website = '' } = {}) {
-  return request('/orbs', { method: 'POST', body: JSON.stringify({ orb, author, agree, website }) });
+  return request('/orbs', { method: 'POST', body: JSON.stringify({ orb, author, agree, website, client: voterId() ?? '' }) });
 }
 
 // ---------- 👍 / 👎 ----------

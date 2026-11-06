@@ -13,6 +13,7 @@
 //     DELETE /admin/presets/<id>                 DELETE /admin/orbs/<id>
 // `req.url` is the part after /api, e.g. "/presets?limit=50".
 import { timingSafeEqual, createHash } from 'node:crypto';
+import { gzipSync } from 'node:zlib';
 import { LIMITS, PresetError, validateOrbUpload, validatePreset } from './presetSchema.mjs';
 import { createPresetStore } from './presetStore.mjs';
 
@@ -23,9 +24,13 @@ const HEADERS = {
   'Content-Security-Policy': "default-src 'none'; frame-ancestors 'none'",
   'Referrer-Policy': 'no-referrer',
 };
+// JSON out, gzipped when the browser takes it and it is worth it (lists shrink 5–10×)
 const send = (res, status, body) => {
-  res.writeHead(status, HEADERS);
-  res.end(JSON.stringify(body));
+  const json = Buffer.from(JSON.stringify(body));
+  const gz = json.length >= 1024 && /\bgzip\b/.test(res.req?.headers['accept-encoding'] ?? '');
+  const vary = [res.getHeader('Vary'), 'Accept-Encoding'].filter(Boolean).join(', ');
+  res.writeHead(status, { ...HEADERS, Vary: vary, ...(gz ? { 'Content-Encoding': 'gzip' } : {}) });
+  res.end(gz ? gzipSync(json) : json);
 };
 
 class HttpError extends Error {
@@ -83,7 +88,23 @@ export function createPresetApi({ dataDir, trustProxy = false, maxPerDay, rate, 
   const allowed = new Set(allowedOrigins.map((o) => o.trim().replace(/\/+$/, '')).filter(Boolean));
   const store = createPresetStore(dataDir, { maxPerDay });
   const orbStore = createPresetStore(dataDir, { maxPerDay, folder: 'orbs', check: (rec) => validateOrbUpload({ ...rec, agree: true }), votesName: 'orb-votes.json' });
+  // Shares and votes are limited per browser (the random id the page keeps in localStorage,
+  // sent along as `client` / `voter`) inside one address, so many people behind one network
+  // (a venue's Wi-Fi, a school) don't use up each other's turns; a much looser cap per address
+  // stops one machine from making up ids. A request without an id counts as the address alone.
   const limit = rateLimiter(rate);
+  const netLimit = rateLimiter({ max: 40, windowMs: 10 * 60_000, gapMs: 0, tooMany: '이 네트워크에서 공유가 너무 많아요. 잠시 뒤에 다시 해 주세요' });
+  const voteNetLimit = rateLimiter({ max: 1500, windowMs: 10 * 60_000, gapMs: 0, tooMany: '이 네트워크에서 평가가 너무 많아요. 잠시 뒤에 다시 해 주세요' });
+  const BROWSER = /^[a-z0-9-]{16,40}$/;
+  const browserKey = (req, id) => (typeof id === 'string' && BROWSER.test(id) ? `${clientKey(req)}|${id}` : clientKey(req));
+  // both checked first, so a refused try doesn't count against the other
+  const limitBoth = (perBrowser, perNet, req, id) => {
+    const k = browserKey(req, id), n = clientKey(req);
+    perBrowser.check(k);
+    perNet.check(n);
+    perBrowser.record(k);
+    perNet.record(n);
+  };
   // votes from one address: plenty for someone listening along, too few to swing the list
   // wrong admin passwords from one address: 10, then that address is shut out for 15 minutes
   // (even with the right one, so guessing on stays pointless); only wrong tries are recorded
@@ -155,7 +176,7 @@ export function createPresetApi({ dataDir, trustProxy = false, maxPerDay, rate, 
         }
         if (body?.website) throw new HttpError(400, '요청을 처리할 수 없어요');
         const clean = validateOrbUpload(body);
-        limit(clientKey(req));
+        limitBoth(limit, netLimit, req, body?.client);
         return send(res, 201, await orbStore.add(clean));
       }
       res.setHeader('Allow', 'GET, POST');
@@ -226,7 +247,7 @@ export function createPresetApi({ dataDir, trustProxy = false, maxPerDay, rate, 
           if (e.status) throw e;
           throw new HttpError(400, '데이터를 읽을 수 없어요');
         }
-        voteLimit(clientKey(req));
+        limitBoth(voteLimit, voteNetLimit, req, body?.voter);
         const ok = await store.vote(id, body?.voter, body?.v);
         return ok ? send(res, 200, { ok: true, v: body.v }) : send(res, 404, { error: '찾을 수 없는 프리셋이에요' });
       }
@@ -252,7 +273,7 @@ export function createPresetApi({ dataDir, trustProxy = false, maxPerDay, rate, 
         // honeypot: a field the page keeps hidden and empty, which form-filling bots fill in
         if (body?.website) throw new HttpError(400, '요청을 처리할 수 없어요');
         const clean = validatePreset(body); // throws PresetError with a message for the user
-        limit(clientKey(req));
+        limitBoth(limit, netLimit, req, body?.client);
         return send(res, 201, await store.add(clean));
       }
       res.setHeader('Allow', id ? 'GET' : 'GET, POST');
