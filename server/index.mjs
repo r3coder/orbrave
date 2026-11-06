@@ -7,12 +7,14 @@
 //   PRESET_MAX_PER_DAY=2000      shares accepted per day (also caps files per folder)
 //   TRUST_PROXY=1                behind Nginx etc.: take the client address from X-Forwarded-For
 //   PRESET_ALLOWED_ORIGINS=https://user.github.io   other sites allowed to use the API (CORS), comma-separated
+//   ADMIN_TOKEN=...              password of the admin page (/admin/, server/admin/); unset: no admin API
 import { createServer } from 'node:http';
 import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import { extname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createPresetApi } from './presetApi.mjs';
+import { serveAdminPage } from './adminPage.mjs';
 
 // fileURLToPath instead of import.meta.dirname so the server also runs on Node 18
 const ROOT = resolve(fileURLToPath(new URL('.', import.meta.url)), '..');
@@ -25,6 +27,7 @@ const api = createPresetApi({
   maxPerDay: Number(process.env.PRESET_MAX_PER_DAY) || 2000,
   trustProxy: process.env.TRUST_PROXY === '1',
   allowedOrigins: (process.env.PRESET_ALLOWED_ORIGINS || '').split(','),
+  adminToken: process.env.ADMIN_TOKEN || '',
 });
 
 const TYPES = {
@@ -70,6 +73,17 @@ createServer((req, res) => {
   if (req.url === '/api' || req.url.startsWith('/api/')) {
     req.url = req.url.slice(4) || '/';
     return api(req, res);
+  }
+  // the admin page (server/admin/), served from here only, never part of dist/
+  if (req.url === '/admin' || req.url.startsWith('/admin/') || req.url.startsWith('/admin?')) {
+    const path = new URL(req.url, 'http://local').pathname.slice(6);
+    return serveAdminPage(req, res, path)
+      .then((ok) => ok || res.writeHead(404).end())
+      .catch((e) => {
+        console.error(e);
+        if (!res.headersSent) res.writeHead(500);
+        res.end();
+      });
   }
   if (req.method !== 'GET' && req.method !== 'HEAD') return res.writeHead(405, { Allow: 'GET, HEAD' }).end();
   serveStatic(req, res).catch((e) => {

@@ -120,6 +120,18 @@ PORT=3800 HOST=127.0.0.1 TRUST_PROXY=1 PRESET_DATA_DIR=./data PRESET_ALLOWED_ORI
 
   Presets are stored as JSON files in `PRESET_DATA_DIR` (default `server/data/`).
 
+- Admin page (list / delete uploaded songs and custom orbs): served by this server itself at `/admin/` (`server/admin/`, not part of the site build, so it is not on GitHub Pages). Set `ADMIN_TOKEN=<password>` to turn it on, and forward it next to the API:
+
+  ```nginx
+  location /orbrave/admin/ {
+      proxy_pass http://127.0.0.1:3800/admin/;
+      proxy_set_header Host $host;
+      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+  }
+  ```
+
+  Then open `https://r3c0d3r.mooo.com/orbrave/admin/`. The admin API only takes requests from that same origin.
+
 Nginx example:
 
 ```nginx

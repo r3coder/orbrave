@@ -76,12 +76,16 @@ export function createPresetStore(dataDir, { maxPerDay = 2000, folder = 'presets
     }, VOTE_SAVE_MS);
     voteTimer.unref?.();
   }
-  const weightOf = (id) => {
+  const tally = (id) => {
     const m = votes?.get(id);
-    if (!m) return 1;
     let up = 0;
-    for (const v of m.values()) up += v > 0;
-    return voteWeight(up, m.size - up);
+    for (const v of m?.values() ?? []) up += v > 0;
+    return { up, down: (m?.size ?? 0) - up };
+  };
+  const weightOf = (id) => {
+    if (!votes?.has(id)) return 1;
+    const { up, down } = tally(id);
+    return voteWeight(up, down);
   };
 
   // a stored file, re-checked on the way out so a hand-edited or damaged file never reaches a page
@@ -98,7 +102,8 @@ export function createPresetStore(dataDir, { maxPerDay = 2000, folder = 'presets
   const subdirs = async (dir) => (await readdir(dir, { withFileTypes: true }).catch(() => []))
     .filter((e) => e.isDirectory()).map((e) => e.name).sort().reverse();
 
-  async function loadCache() {
+  // the newest `max` records on disk, newest first (stops reading once it has them)
+  async function loadCache(max = CACHE) {
     const out = [];
     for (const month of await subdirs(root)) {
       if (!/^\d{4}-\d{2}$/.test(month)) continue;
@@ -108,7 +113,7 @@ export function createPresetStore(dataDir, { maxPerDay = 2000, folder = 'presets
         const files = (await readdir(dir).catch(() => [])).filter((f) => ID.test(f.replace(/\.json$/, '')) && f.endsWith('.json'));
         const recs = (await Promise.all(files.map((f) => readRecord(join(dir, f))))).filter(Boolean);
         out.push(...recs.sort((a, b) => b.createdAt.localeCompare(a.createdAt)));
-        if (out.length >= CACHE) return out.slice(0, CACHE);
+        if (out.length >= max) return out.slice(0, max);
       }
     }
     return out;
@@ -165,6 +170,34 @@ export function createPresetStore(dataDir, { maxPerDay = 2000, folder = 'presets
     async get(id) {
       const dir = typeof id === 'string' && dirOf(id);
       return dir ? readRecord(join(dir, `${id}.json`)) : null;
+    },
+
+    // For the admin page: `limit` records from `offset` on, newest first, with their vote
+    // counts; `more` when there are older ones still. Pages inside the in-memory list come from
+    // it; deeper ones are read from disk.
+    async page(offset = 0, limit = 50) {
+      const o = Math.max(0, Math.floor(offset) || 0);
+      const n = Math.max(1, Math.min(200, Math.floor(limit) || 50));
+      const recs = o + n + 1 <= CACHE ? (cache ??= await loadCache()) : await loadCache(o + n + 1);
+      await loadVotes();
+      const items = recs.slice(o, o + n).map((r) => ({ ...r, ...tally(r.id) }));
+      return { items, more: recs.length > o + n };
+    },
+
+    // Deletes one record (its file and its votes). Resolves to false when there is no such record.
+    async remove(id) {
+      const dir = typeof id === 'string' && dirOf(id);
+      if (!dir) return false;
+      try {
+        await rm(join(dir, `${id}.json`));
+      } catch (e) {
+        if (e.code === 'ENOENT') return false;
+        throw e;
+      }
+      cache = null; // read again on the next list, so the one after the cut moves up
+      await loadVotes();
+      if (votes.delete(id)) saveVotesSoon();
+      return true;
     },
 
     // `clean` must already have passed validatePreset

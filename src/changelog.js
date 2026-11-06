@@ -7,6 +7,26 @@ import './licenses.css';
 
 // [version, date, { ko: [...], en: [...], ja: [...] }]
 const NOTES = [
+  ['0.5.1', '2026-11-07', {
+    ko: [
+      '커스텀 오브 창이 내 오브와 서버 오브 두 칸으로 나뉘었어요. 내 오브는 삭제할 수 있고, 아직 안 올린 오브는 거기서 바로 서버에 올릴 수 있어요',
+      '커스텀 오브에 마우스를 올리면 누가, 언제 올렸는지 보여요. 올릴 때 닉네임을 적을 수 있어요 (생략 가능)',
+      '서버 오브는 10개씩 받아요. 10개가 다 모이면 가끔 오브 비에 차례로 섞여 내리고, 다 내리거나 ↻를 누르면 새로 10개를 받아요',
+      '곡에서 꺼내 오른쪽으로 던진 오브는 화면 밖으로 날아가지 않고 필드 가운데쯤 내려앉아요',
+    ],
+    en: [
+      'The custom orbs panel is split into My orbs and Server orbs. Your own orbs can be deleted, and ones not uploaded yet can be uploaded right there',
+      'Hover a custom orb to see who uploaded it and when. You can add a nickname when uploading (optional)',
+      'Server orbs come 10 at a time. With all 10 in, they now and then fall with the rain in order; once all have fallen, or with ↻, 10 new ones come in',
+      'An orb taken out of the song and flicked to the right now settles in the middle of the field instead of flying off the screen',
+    ],
+    ja: [
+      'カスタムオーブの画面が「自分のオーブ」と「サーバーのオーブ」に分かれました。自分のオーブは削除でき、まだアップしていないオーブはその場でアップできます',
+      'カスタムオーブにマウスを乗せると、誰がいつアップしたかが表示されます。アップ時にニックネームを付けられます(省略可)',
+      'サーバーのオーブは10個ずつ受け取ります。10個そろうと、ときどき順番にオーブの雨に混ざって降り、全部降るか ↻ を押すと新しく10個受け取ります',
+      '曲から取り出して右へ投げたオーブは、画面の外へ飛ばずにフィールドの中ほどに降ります',
+    ],
+  }],
   ['0.5.0', '2026-11-07', {
     ko: [
       '🎛 편집 칸(전문가용): 오브를 던져 넣고 어택 · 디케이 · 필터 · EQ · 이펙트를 바꿔 나만의 오브를 만들어요. 만든 오브는 서버에 올려 다른 사람과 나눌 수 있어요',

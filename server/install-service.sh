@@ -11,6 +11,7 @@
 #   PRESET_ALLOWED_ORIGINS=https://r3coder.github.io
 #   PRESET_DATA_DIR=...           default: taken from an already running copy, else ./data if it exists, else server/data
 #   PRESET_MAX_PER_DAY=...        default: the server's own (2000)
+#   ADMIN_TOKEN=...               password of the admin page (/admin/), kept in /etc/$NAME.env (root only)
 #   NO_SLEEP=1                    also stop this machine from suspending (for a laptop / desktop used as a server)
 #
 # Afterwards:
@@ -83,6 +84,15 @@ EXTRA_ENV=""
 [ -n "${PRESET_DATA_DIR:-}" ] && EXTRA_ENV+="Environment=\"PRESET_DATA_DIR=$PRESET_DATA_DIR\""$'\n'
 [ -n "${PRESET_MAX_PER_DAY:-}" ] && EXTRA_ENV+="Environment=\"PRESET_MAX_PER_DAY=$PRESET_MAX_PER_DAY\""$'\n'
 
+# The admin page's password goes in a root-only file, not the (world-readable) unit. Run again
+# without ADMIN_TOKEN and the one already there is kept.
+SECRET_ENV=/etc/$NAME.env
+if [ -n "${ADMIN_TOKEN:-}" ]; then
+  [[ "$ADMIN_TOKEN" =~ ^[^[:space:]\"\\]+$ ]] || die "ADMIN_TOKEN: no spaces, quotes or backslashes"
+  say "writing $SECRET_ENV (admin page password)"
+  printf 'ADMIN_TOKEN=%s\n' "$ADMIN_TOKEN" | sudo install -m 600 -o root -g root /dev/stdin "$SECRET_ENV"
+fi
+
 say "writing $UNIT"
 sudo tee "$UNIT" >/dev/null <<EOF
 [Unit]
@@ -99,6 +109,7 @@ Environment="PORT=$PORT"
 Environment="HOST=$HOST"
 Environment="TRUST_PROXY=1"
 Environment="PRESET_ALLOWED_ORIGINS=$ORIGINS"
+EnvironmentFile=-$SECRET_ENV
 $EXTRA_ENV
 Restart=always
 RestartSec=3

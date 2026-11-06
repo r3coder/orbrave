@@ -218,7 +218,9 @@ Falling orbs are picked in two steps (`spawnWeights` in `src/orbs.js`):
    arp 28, lead 29, fx 27, texture 14, combo 87, mood 50, key 24, tempo 20). A category the song is
    missing counts 4×; combos, moods, keys and tempos count ¼×. Adding orbs to a category does **not**
    make it fall more often. Once the song has a mood, moods are held at a fixed **8%** of all drops
-   (`MOOD_SHARE`) instead of the ¼×, since several are worth trying. Custom orbs don't fall at all (`CUSTOM_RAIN` 0): they show only in ✦ 커스텀 오브.
+   (`MOOD_SHARE`) instead of the ¼×, since several are worth trying. Custom orbs made here never fall. Uploaded ones (✦ 커스텀 오브 > 서버 오브) come in batches of 10
+   (`SERVER_BATCH`); only while a full batch is in, about 1.5% of drops (`SERVER_RAIN`) are the next
+   one of the batch, in the panel's order, and after the last one a new batch is fetched.
 2. **Family** inside the category, weighted by **√(orbs in the family)**, then evenly inside the family.
    A big new family comes up somewhat more often but cannot crowd out the others (20 brush hats would
    take about 22% of hat drops, not 38%). Block FX fall at 0.15× their family weight. The other-scale

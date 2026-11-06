@@ -180,8 +180,8 @@ export function registerCustom(def, byId) {
     edit: { value: def.e, enumerable: true },
     def: { value: def },
     custom: { value: true },
-    name: { value: def.name || `✦ ${b.name}`, enumerable: true },
-    kind: { value: `✦ ${b.kind}` },
+    name: { value: def.name || b.name, enumerable: true },
+    kind: { value: b.kind },
     ...(def.color ? { color: { value: def.color }, glow: { value: def.color }, colors: { value: undefined } } : {}),
   });
   byId[def.id] = l;

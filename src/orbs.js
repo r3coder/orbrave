@@ -16,6 +16,7 @@ import { lite, setLite, onLite, watchFrame } from './liteMode.js';
 import { tone, toneHex, ink, onTheme, setPalette, mountThemeButton, theme as themeNow } from './theme.js';
 import { drawMidiBackdrop } from './midiBackdrop.js';
 import { ot, secName, allLangs, mountLangButtons } from './orbsI18n.js';
+import { getLang } from './i18n.js';
 import { isPhone } from './phoneLayout.js';
 import { mountLicenses, attributionsFor, creditLine, soundName } from './licenses.js';
 import { copyText } from './copyBox.js';
@@ -1410,9 +1411,13 @@ let opening = true;
 let bootDone = false;
 const instant = (l) => (l.combo ? l.combo.map((c) => byId[c]) : [l]).every((x) => x && (x.samples ?? []).every(isBooted));
 // Pick a layer to drop in, favouring parts the song doesn't have yet and orbs not already shown.
-// the chance a falling orb is a custom one, while there are any to drop: 0 for now, custom orbs
-// show only in the ✦ 커스텀 오브 panel (under 🔍)
-const CUSTOM_RAIN = 0;
+// Uploaded custom orbs (✦ 커스텀 오브 > 서버) come SERVER_BATCH at a time and fall now and then
+// (SERVER_RAIN of the drops), one by one in the panel's order; only while a full batch is in, so a
+// server with fewer has none in the rain. When the last one of a batch has fallen, a new batch
+// is fetched (refreshSharedOrbs). Custom orbs made here never fall.
+const SERVER_BATCH = 10, SERVER_RAIN = 0.015;
+let serverOrbs = []; // [{ id, at, by }]: the definition's id, uploaded at, by
+let serverNext = 0; // the next of serverOrbs to fall
 // The song, the stash and the slots don't hold an orb back (a second one falls as a copy, freshOrb);
 // only one of each falls at a time.
 function pickCandidate() {
@@ -1424,10 +1429,13 @@ function pickCandidate() {
   const first = !firstOrbDone;
   if (opening && !bootDone && !onlyIds) return null;
   const allowed = (l) => onlyIds || (!(early && noSound(l)) && !(l.combo && comboHeld()) && (!first || FIRST_CATS.has(l.cat)) && (!opening || instant(l)));
-  // now and then a custom orb (made here, or uploaded by someone) instead of a catalogue one
-  if (CUSTOM_RAIN > 0 && !onlyIds && !first && Math.random() < CUSTOM_RAIN) {
-    const cs = allCustoms().filter((l) => allowed(l) && !shown.has(l.id));
-    if (cs.length) return cs[Math.floor(Math.random() * cs.length)].id;
+  // now and then the next uploaded custom orb of the batch instead of a catalogue one
+  if (!onlyIds && !first && serverOrbs.length >= SERVER_BATCH && Math.random() < SERVER_RAIN) {
+    const l = byId[serverOrbs[serverNext]?.id];
+    if (l && allowed(l) && !shown.has(l.id)) {
+      serverFell();
+      return l.id;
+    }
   }
   let pool = from.filter((l) => allowed(l) && !shown.has(l.id) && !(l.combo && l.combo.every((c) => active.has(c))));
   if (!pool.length && !onlyIds) pool = from.filter((l) => allowed(l));
@@ -1990,6 +1998,19 @@ function goHome(el, home) {
   }, 360);
 }
 
+// (tx, ty) pushed sideways out of the player's drop zone, to `side` (1 right, -1 left) where it
+// fits between the field's edges (inset by `pad`), else the other way; returns the new x
+function clearOfCore(tx, ty, fr, pad, side) {
+  const c = coreCenter();
+  const clear = c.drop + 40;
+  if (Math.hypot(tx - c.x, ty - c.y) >= clear) return tx;
+  const dy = Math.min(Math.abs(ty - c.y), clear - 1);
+  const off = Math.sqrt(clear * clear - dy * dy);
+  tx = c.x + side * off;
+  if (tx < fr.left + pad || tx > fr.right - pad) tx = c.x - side * off;
+  return Math.max(fr.left + pad, Math.min(fr.right - pad, tx));
+}
+
 // An orb thrown up out of a slot: it lands a little above where it was let go (further for a
 // harder throw), inside the field and clear of the player's drop zone, then falls from there.
 function hopUp(el, home, x, y, vx, vy) {
@@ -2000,15 +2021,7 @@ function hopUp(el, home, x, y, vx, vy) {
   tx = Math.max(fr.left + pad, Math.min(fr.right - pad, tx));
   ty = Math.max(fr.top + pad, Math.min(fr.bottom - pad, ty));
   // pushed out of the player's drop zone, sideways (it falls down from there, past the player)
-  const c = coreCenter();
-  const clear = c.drop + 40;
-  if (Math.hypot(tx - c.x, ty - c.y) < clear) {
-    const side = tx >= c.x ? 1 : -1;
-    const dy = Math.min(Math.abs(ty - c.y), clear - 1);
-    tx = c.x + side * Math.sqrt(clear * clear - dy * dy);
-    if (tx < fr.left + pad || tx > fr.right - pad) tx = c.x - side * Math.sqrt(clear * clear - dy * dy);
-    tx = Math.max(fr.left + pad, Math.min(fr.right - pad, tx));
-  }
+  tx = clearOfCore(tx, ty, fr, pad, tx >= coreCenter().x ? 1 : -1);
   el.classList.add('flying');
   el.style.left = tx + 'px';
   el.style.top = ty + 'px';
@@ -2018,25 +2031,27 @@ function hopUp(el, home, x, y, vx, vy) {
   }, 360);
 }
 
-// An orb taken out of the song and flicked to the right: it flies straight on, caught by nothing
-// (stash, slots), until it is off the screen, then falls back into the field from the top.
+// An orb taken out of the song and flicked to the right: it glides a little way that way, caught
+// by nothing (stash, slots), settles somewhere in the middle of the field, clear of the player's
+// drop zone, and falls slowly from there with the rain.
 function throwOut(el, x, y, vx, vy) {
-  const sp = Math.max(Math.hypot(vx, vy), 1400);
-  const ux = vx / Math.hypot(vx, vy), uy = vy / Math.hypot(vx, vy);
-  let last = performance.now();
+  const fr = ui.field.getBoundingClientRect();
+  const padX = Math.min(120, fr.width * 0.15);
+  let tx = x + Math.min(320, 140 + (vx - 900) * 0.08);
+  let ty = y + Math.max(-120, Math.min(120, vy * 0.1)) - 60;
+  tx = Math.max(fr.left + padX, Math.min(fr.right - padX, tx));
+  ty = Math.max(fr.top + fr.height * 0.2, Math.min(fr.top + fr.height * 0.55, ty));
+  // pushed out of the player's drop zone, to the right where it can
+  tx = clearOfCore(tx, ty, fr, padX, 1);
+  // a soft glide that slows into its spot
+  const x0 = x, y0 = y, t0 = performance.now(), dur = 520;
   const step = (now) => {
-    const dt = Math.min(0.05, (now - last) / 1000);
-    last = now;
-    x += ux * sp * dt;
-    y += uy * sp * dt;
-    el.style.left = x + 'px';
-    el.style.top = y + 'px';
-    if (x < -60 || x > innerWidth + 60 || y < -60 || y > innerHeight + 60) {
-      const { w } = rainSize();
-      rainAdd(el.dataset.id, pickX(w), -40, { el });
-      return;
-    }
-    requestAnimationFrame(step);
+    const t = Math.min(1, (now - t0) / dur);
+    const e = 1 - Math.pow(1 - t, 3);
+    el.style.left = x0 + (tx - x0) * e + 'px';
+    el.style.top = y0 + (ty - y0) * e - Math.sin(Math.PI * t) * 30 + 'px';
+    if (t < 1) return requestAnimationFrame(step);
+    rainAdd(el.dataset.id, tx - fr.left, ty - fr.top, { el });
   };
   requestAnimationFrame(step);
 }
@@ -2481,29 +2496,76 @@ function loadCustoms() {
   }
   for (const d of myCustoms) registerCustom(d, byId);
 }
-function keepCustom(def) {
-  myCustoms = [def, ...myCustoms.filter((d) => d.id !== def.id)].slice(0, CUSTOM_MAX);
+function saveCustoms() {
   try {
     localStorage.setItem(CUSTOM_KEY, JSON.stringify(myCustoms));
   } catch {}
 }
+function keepCustom(def) {
+  myCustoms = [def, ...myCustoms.filter((d) => d.id !== def.id)].slice(0, CUSTOM_MAX);
+  saveCustoms();
+  if (!customMeta[def.id]?.at) setCustomMeta(def.id, { at: new Date().toISOString() });
+}
+// what this browser knows about its own custom orbs, for the hover card:
+// { id: { at: made, up: uploaded to the server, by: the nickname it went up with } }
+const CUSTOM_META_KEY = 'orbCustomMeta';
+let customMeta = {};
+try {
+  const m = JSON.parse(localStorage.getItem(CUSTOM_META_KEY));
+  if (m && typeof m === 'object' && !Array.isArray(m)) customMeta = m;
+} catch {}
+function setCustomMeta(id, patch) {
+  if (patch) customMeta[id] = { ...(customMeta[id] ?? {}), ...patch };
+  else delete customMeta[id];
+  try {
+    localStorage.setItem(CUSTOM_META_KEY, JSON.stringify(customMeta));
+  } catch {}
+}
+// 🗑 on one of 내 오브: gone from this browser's list only. Songs, presets and the orbs out on
+// screen keep it (it stays registered); a copy uploaded earlier stays on the server.
+function deleteCustom(id) {
+  myCustoms = myCustoms.filter((d) => d.id !== id);
+  saveCustoms();
+  setCustomMeta(id, null);
+}
 loadCustoms();
-// custom orbs others uploaded (GET /api/orbs), registered as they arrive
-const sharedCustoms = new Set();
+// custom orbs others uploaded (GET /api/orbs): a batch of SERVER_BATCH, registered as they arrive
+let serverLoad = null; // the fetch under way
+let serverErr = false;
+const customPanelOpen = () => searchMode === 'custom' && ui.search.classList.contains('open');
+const refreshCustomPanel = () => customPanelOpen() && renderSearch();
 function refreshSharedOrbs() {
-  fetchOrbs({ limit: 60 })
+  if (serverLoad) return serverLoad;
+  serverLoad = fetchOrbs({ limit: SERVER_BATCH })
     .then((recs) => {
+      const out = [];
       for (const r of recs) {
         const d = checkCustom(r.orb, byId);
-        if (!d) continue;
+        if (!d || out.some((x) => x.id === d.id)) continue;
         registerCustom(d, byId);
-        sharedCustoms.add(d.id);
+        out.push({ id: d.id, at: String(r.createdAt ?? ''), by: String(r.author ?? '') });
       }
+      serverOrbs = out;
+      serverNext = 0;
+      serverErr = false;
     })
-    .catch((e) => console.info('custom orbs unavailable:', e.message));
+    .catch((e) => {
+      serverErr = true;
+      console.info('custom orbs unavailable:', e.message);
+    })
+    .finally(() => {
+      serverLoad = null;
+      refreshCustomPanel();
+    });
+  refreshCustomPanel();
+  return serverLoad;
 }
-// every custom orb this page knows, for the rain and the search
-const allCustoms = () => [...new Set([...myCustoms.map((d) => d.id), ...sharedCustoms])].map((id) => byId[id]).filter(Boolean);
+// one of the batch has fallen: the next one is up, or after the last a new batch
+function serverFell() {
+  serverNext++;
+  if (serverNext >= serverOrbs.length) refreshSharedOrbs();
+  else refreshCustomPanel();
+}
 // the definitions a preset needs for the custom orbs it names (directly, or through copies / drawings)
 function customDefsFor(ids) {
   const out = new Map();
@@ -2539,6 +2601,23 @@ function openOrbUpload(def) {
   orbUpErr.classList.remove('ok');
   orbUpDlg.showModal();
 }
+// 🗑 on one of 내 오브: asks first, and says so when it went up to the server once
+const orbDelDlg = $('orbDelDlg');
+let orbDelId = null;
+function openOrbDelete(id) {
+  orbDelId = id;
+  $('orbDelName').textContent = byId[id]?.name ?? '';
+  $('orbDelWarn').hidden = !customMeta[id]?.up;
+  orbDelDlg.showModal();
+}
+$('orbDelCancel').addEventListener('click', () => orbDelDlg.close());
+$('orbDelForm').addEventListener('submit', (e) => {
+  e.preventDefault();
+  if (orbDelId) deleteCustom(orbDelId);
+  orbDelId = null;
+  orbDelDlg.close();
+  refreshCustomPanel();
+});
 $('orbUpCancel').addEventListener('click', () => orbUpDlg.close());
 $('orbUpAgree').addEventListener('change', (e) => (orbUpOk.disabled = !e.target.checked));
 $('orbUpForm').addEventListener('submit', async (e) => {
@@ -2552,7 +2631,8 @@ $('orbUpForm').addEventListener('submit', async (e) => {
   orbUpErr.textContent = ot('uploading');
   try {
     await uploadOrb(orbUpDef, { author, agree: true, website: $('orbUpWebsite').value });
-    sharedCustoms.add(orbUpDef.id);
+    setCustomMeta(orbUpDef.id, { up: new Date().toISOString(), by: author.trim() });
+    refreshCustomPanel();
     orbUpErr.textContent = ot('orbUpDone');
     orbUpErr.classList.add('ok');
     setTimeout(() => orbUpDlg.close(), 1200);
@@ -5156,38 +5236,154 @@ function parseTerm(raw) {
   const value = field ? m[2] : body;
   return value ? { neg, field, value } : null;
 }
-// the panel shows either the catalogue (🔍 오브 검색) or only the custom orbs (✦ 커스텀 오브):
-// custom orbs (made here, or uploaded by someone) show nowhere else
+// the panel shows either the catalogue (🔍 오브 검색) or only the custom orbs (✦ 커스텀 오브), in
+// two parts: 내 오브 (made here, can be deleted) and 서버 (a batch of uploaded ones, ↻ for the next).
+// Custom orbs show nowhere else, apart from the server ones falling now and then.
 let searchMode = 'catalogue';
-const searchOrbs = (q) => {
+// the search box's terms as one test on an orb
+const searchTest = (q) => {
   const terms = q.toLowerCase().split(/[\s/,]+/).map(parseTerm).filter(Boolean);
   const ok = (l, t) => (t.field ? matchesField(l, t.field, t.value) : matchesTerm(l, t.value)) !== t.neg;
-  if (searchMode === 'custom') return allCustoms().filter((l) => terms.every((t) => ok(l, t))).slice(0, 96);
-  return terms.length ? LAYERS.filter((l) => terms.every((t) => ok(l, t))).slice(0, 96) : [];
+  return (l) => terms.every((t) => ok(l, t));
 };
 function renderSearch() {
   const q = ui.searchInput.value;
-  const found = searchOrbs(q);
-  const empty = searchMode === 'custom' ? (q.trim() ? 'noMatch' : 'customEmpty') : q.trim() ? 'noMatch' : 'searchEx';
-  ui.searchResults.innerHTML = found.length ? '' : `<p class="empty">${ot(empty)}</p>`;
-  for (const l of found) {
-    const item = document.createElement('div');
-    item.className = 'hit' + (active.has(l.id) ? ' on' : '');
-    item.style.setProperty('--g', ctint(l));
-    const name = document.createElement('span');
-    name.textContent = l.name;
-    const kind = document.createElement('small');
-    kind.textContent = l.kind;
-    item.append(miniOrb(l), name, kind);
-    item.title = active.has(l.id) ? `${ot('inSong')} · ${ot('hitTip')}` : ot('hitTip');
-    item.addEventListener('mouseenter', () => {
-      hoverOn(l.id);
-      hoverCombo(l.id, item);
-    });
-    item.addEventListener('mouseleave', hoverOff);
-    item.addEventListener('pointerdown', (e) => grabFromSearch(e, l.id));
-    ui.searchResults.append(item);
+  hideHitMeta();
+  if (searchMode === 'custom') return renderCustomSearch(q);
+  const found = q.trim() ? LAYERS.filter(searchTest(q)).slice(0, 96) : [];
+  ui.searchResults.innerHTML = found.length ? '' : `<p class="empty">${ot(q.trim() ? 'noMatch' : 'searchEx')}</p>`;
+  for (const l of found) ui.searchResults.append(hitEl(l));
+}
+function renderCustomSearch(q) {
+  const test = searchTest(q);
+  const box = ui.searchResults;
+  box.innerHTML = '';
+  const head = (key, extra = []) => {
+    const h = document.createElement('div');
+    h.className = 'hit-head';
+    const b = document.createElement('b');
+    b.textContent = ot(key);
+    h.append(b, ...extra);
+    box.append(h);
+  };
+  const note = (key, vars) => {
+    const p = document.createElement('p');
+    p.className = 'empty';
+    p.innerHTML = ot(key, vars);
+    box.append(p);
+  };
+  const small = (text) => Object.assign(document.createElement('small'), { textContent: text });
+  // 내 오브
+  const mine = myCustoms.map((d) => byId[d.id]).filter((l) => l && test(l));
+  head('customMine', [small(String(myCustoms.length))]);
+  if (!mine.length) note(myCustoms.length ? 'noMatch' : 'customMineEmpty');
+  for (const l of mine) box.append(hitEl(l, { mine: true }));
+  // 서버: this batch, in the order they fall
+  const reload = document.createElement('button');
+  reload.type = 'button';
+  reload.className = 'hit-reload';
+  reload.textContent = '↻';
+  reload.title = ot('customReloadTip');
+  reload.disabled = !!serverLoad;
+  reload.addEventListener('click', () => refreshSharedOrbs());
+  head('customServer', [small(serverOrbs.length ? `${Math.min(serverNext, serverOrbs.length)}/${serverOrbs.length}` : ''), reload]);
+  const list = serverOrbs.map((r, i) => ({ r, i, l: byId[r.id] })).filter((x) => x.l && test(x.l));
+  if (serverLoad && !serverOrbs.length) note('loading');
+  else if (serverErr && !serverOrbs.length) note('customServerDown');
+  else if (!serverOrbs.length) note('customServerEmpty');
+  else {
+    note(serverOrbs.length >= SERVER_BATCH ? 'customServerRain' : 'customServerFew', { n: SERVER_BATCH });
+    if (!list.length) note('noMatch');
   }
+  for (const x of list) box.append(hitEl(x.l, { server: x.r, fell: x.i < serverNext }));
+}
+// one orb in the panel. A custom one shows who made it and when on hover (hitMeta); one of 내 오브
+// also has 🗑 (and ☁ while it hasn't been uploaded from here).
+function hitEl(l, { mine = false, server = null, fell = false } = {}) {
+  const item = document.createElement('div');
+  item.className = 'hit' + (active.has(l.id) ? ' on' : '') + (fell ? ' fell' : '');
+  item.style.setProperty('--g', ctint(l));
+  const name = document.createElement('span');
+  name.textContent = l.name;
+  const kind = document.createElement('small');
+  kind.textContent = l.kind;
+  item.append(miniOrb(l), name, kind);
+  const custom = mine || !!server;
+  if (!custom) item.title = active.has(l.id) ? `${ot('inSong')} · ${ot('hitTip')}` : ot('hitTip');
+  item.addEventListener('mouseenter', () => {
+    hoverOn(l.id);
+    hoverCombo(l.id, item);
+    if (custom) showHitMeta(item, l, server);
+  });
+  item.addEventListener('mouseleave', () => {
+    hoverOff();
+    hideHitMeta();
+  });
+  item.addEventListener('pointerdown', (e) => {
+    hideHitMeta();
+    grabFromSearch(e, l.id);
+  });
+  if (mine) {
+    const tools = document.createElement('div');
+    tools.className = 'hit-tools';
+    const tool = (text, tip, run) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = text;
+      b.title = tip;
+      b.addEventListener('pointerdown', (e) => e.stopPropagation());
+      b.addEventListener('click', (e) => {
+        e.stopPropagation();
+        hideHitMeta();
+        run();
+      });
+      tools.append(b);
+    };
+    const def = myCustoms.find((d) => d.id === l.id);
+    if (def && !customMeta[l.id]?.up && serverUp !== false) tool(ot('customUp'), ot('customUpTip'), () => openOrbUpload(def));
+    tool(ot('customDel'), ot('customDelTip'), () => openOrbDelete(l.id));
+    item.append(tools);
+  }
+  return item;
+}
+// the hover card on a custom orb: who uploaded it and when (a server one), or when it was made
+// here and whether it went up (one of 내 오브)
+const hitMeta = document.createElement('div');
+hitMeta.className = 'hit-meta';
+document.body.append(hitMeta);
+const LOCALES = { ko: 'ko-KR', en: 'en-US', ja: 'ja-JP' };
+const fmtWhen = (iso) => {
+  const d = new Date(iso);
+  return isNaN(d) ? '' : d.toLocaleString(LOCALES[getLang()] ?? undefined, { dateStyle: 'medium', timeStyle: 'short' });
+};
+function showHitMeta(item, l, server) {
+  const rows = [];
+  const add = (cls, text) => text && rows.push([cls, text]);
+  add('t', l.name);
+  if (server) {
+    add('', ot('metaBy', { a: server.by || ot('metaAnon') }));
+    add('', ot('metaUpAt', { t: fmtWhen(server.at) || '?' }));
+  } else {
+    const m = customMeta[l.id] ?? {};
+    add('', ot('metaMine'));
+    if (m.at) add('', ot('metaMadeAt', { t: fmtWhen(m.at) }));
+    if (m.up) add('', ot('metaMyUp', { t: fmtWhen(m.up), a: m.by || ot('metaAnon') }));
+    else add('', ot('metaNotUp'));
+  }
+  const base = byId[l.def?.base];
+  if (base) add('', ot('metaBase', { n: base.name }));
+  add('d', ot('hitTip'));
+  hitMeta.replaceChildren(...rows.map(([cls, text]) => Object.assign(document.createElement('div'), { className: cls, textContent: text })));
+  hitMeta.classList.add('show');
+  const r = item.getBoundingClientRect();
+  const w = hitMeta.offsetWidth, h = hitMeta.offsetHeight;
+  const x = Math.max(8, Math.min(r.left + r.width / 2 - w / 2, innerWidth - w - 8));
+  const y = r.bottom + 6 + h <= innerHeight - 8 ? r.bottom + 6 : Math.max(8, r.top - h - 6);
+  hitMeta.style.left = `${x}px`;
+  hitMeta.style.top = `${y}px`;
+}
+function hideHitMeta() {
+  hitMeta.classList.remove('show');
 }
 // click: the orb drops into the field near the top; drag: it is held straight away
 // (an orb already on screen comes out as a copy of it)
@@ -5224,6 +5420,7 @@ function toggleSearch(mode) {
   if (searchMode !== mode) ui.searchInput.value = '';
   searchMode = mode;
   ui.search.classList.toggle('open', open);
+  if (!open) hideHitMeta();
   ui.search.classList.toggle('custom', mode === 'custom');
   for (const [m, id] of Object.entries(SEARCH_BTNS)) $(id)?.classList.toggle('on', open && m === mode);
   ui.searchInput.placeholder = ot(mode === 'custom' ? 'customPh' : 'searchPh');

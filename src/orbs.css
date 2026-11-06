@@ -1067,12 +1067,37 @@ body.server-down .ptile .share.cloud { display: none; } /* no ☁ on tiles while
 .search input:focus { outline: none; border-color: var(--acc); }
 .search-results { overflow: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 6px; }
 .search-results .empty { grid-column: 1 / -1; color: var(--dim); font-size: 12px; margin: 4px; }
-.hit { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 4px; border: 1px solid transparent; cursor: grab; text-align: center; touch-action: none; }
+.hit { position: relative; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 4px; border: 1px solid transparent; cursor: grab; text-align: center; touch-action: none; }
 .hit:hover { border-color: var(--g); background: color-mix(in srgb, var(--g) 10%, transparent); }
 /* already in the song: still takes out another one (a copy), just marked */
 .hit.on { box-shadow: inset 0 -2px 0 color-mix(in srgb, var(--g) 70%, transparent); }
 .hit span { font-size: 11px; color: color-mix(in srgb, var(--g), var(--fg) var(--ink-mix)); }
 .hit small { font-size: 9px; color: var(--dim); letter-spacing: 0.1em; text-transform: uppercase; }
+/* ✦ 커스텀 오브: 내 오브 / 서버 오브 as two parts of the grid */
+.hit-head { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; padding: 6px 2px 2px; border-bottom: 1px solid var(--line); font-size: 12px; }
+.hit-head ~ .hit-head { margin-top: 10px; }
+.hit-head small { color: var(--dim); font-size: 11px; }
+.hit-head .hit-reload { margin-left: auto; font: inherit; color: var(--fg); background: transparent; border: 1px solid var(--line); padding: 1px 9px; cursor: pointer; }
+.hit-head .hit-reload:hover { border-color: var(--acc); color: var(--acc); }
+.hit-head .hit-reload:disabled { opacity: 0.4; cursor: default; }
+/* one of the server batch that has already fallen */
+.hit.fell { opacity: 0.45; }
+.hit-tools { position: absolute; top: 2px; right: 2px; display: flex; gap: 2px; opacity: 0; transition: opacity 0.12s; }
+.hit:hover .hit-tools, .hit:focus-within .hit-tools { opacity: 1; }
+@media (hover: none) { .hit-tools { opacity: 0.8; } }
+.hit-tools button { font-size: 11px; line-height: 1; padding: 3px 4px; color: var(--fg); background: var(--panel); border: 1px solid var(--line); cursor: pointer; }
+.hit-tools button:hover { border-color: var(--acc); }
+/* the hover card on a custom orb: who uploaded it and when */
+.hit-meta {
+  position: fixed; z-index: 30; display: none; max-width: 260px; padding: 7px 10px; pointer-events: none;
+  background: var(--panel); border: 1px solid var(--line); box-shadow: 0 6px 24px color-mix(in srgb, var(--shadow) 50%, transparent);
+  font-size: 12px; line-height: 1.5; color: var(--fg);
+}
+.hit-meta.show { display: block; }
+.hit-meta .t { font-weight: bold; margin-bottom: 2px; }
+.hit-meta .d { color: var(--dim); font-size: 11px; margin-top: 3px; }
+.orbdel-warn { color: var(--warn) !important; }
+.import-btns button.danger { border-color: var(--warn); color: var(--warn); }
 
 /* ---------- stems: the full song as an editable grid ---------- */
 .stems {

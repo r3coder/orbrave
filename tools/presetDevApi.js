@@ -4,14 +4,21 @@
 // the same list. Not part of any build.
 import { resolve } from 'node:path';
 import { createPresetApi } from '../server/presetApi.mjs';
+import { serveAdminPage } from '../server/adminPage.mjs';
 
 export function presetDevApi() {
   return {
     name: 'preset-dev-api',
     apply: 'serve',
     configureServer(server) {
-      const api = createPresetApi({ dataDir: resolve(import.meta.dirname, '..', '.preset-data') });
+      // admin page (admin.html) password in dev: ADMIN_TOKEN, or "dev"
+      const api = createPresetApi({ dataDir: resolve(import.meta.dirname, '..', '.preset-data'), adminToken: process.env.ADMIN_TOKEN || 'dev' });
       server.middlewares.use('/api', (req, res, next) => api(req, res, next));
+      // the admin page at /admin/, as the production server serves it
+      server.middlewares.use('/admin', (req, res, next) => {
+        const path = new URL(req.originalUrl ?? req.url, 'http://local').pathname.slice(6);
+        serveAdminPage(req, res, path).then((ok) => ok || next(), next);
+      });
     },
   };
 }

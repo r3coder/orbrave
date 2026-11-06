@@ -110,7 +110,7 @@
       <div class="field" id="field">
         <div class="field-tools">
           <button id="searchBtn" data-i18n="search" data-i18n-title="searchTip">🔍 오브 검색</button>
-          <button id="customBtn" data-i18n="customOrbs" data-i18n-title="customOrbsTip">✦ 커스텀 오브</button>
+          <button id="customBtn" data-i18n="customOrbs" data-i18n-title="customOrbsTip">커스텀 오브</button>
         </div>
       </div>
       <section class="stems" id="stems">
@@ -239,17 +239,30 @@
     <form method="dialog" id="orbUpForm" autocomplete="off">
       <div class="side-head" data-i18n="orbUpTitle">오브를 서버에 올리기</div>
       <p class="orbup-name" id="orbUpName"></p>
-      <label class="fld"><span data-i18n="orbUpAuthor">만든 사람</span> <small data-i18n="shOptional">(생략 가능)</small>
+      <label class="fld"><span data-i18n="orbUpAuthor">닉네임</span> <small data-i18n="shOptional">(생략 가능)</small>
         <input id="orbUpAuthor" maxlength="24" />
       </label>
       <input class="hp" id="orbUpWebsite" name="website" tabindex="-1" aria-hidden="true" />
       <p data-i18n-html="orbUpBody">올린 오브는 누구나 쓸 수 있고, 다른 사람들의 오브 비에도 섞여 내려요.
-        저장되는 건 원본 오브, 바꾼 값, 이름, 색과 만든 사람뿐이에요. 한 번 올린 오브는 여기서 지울 수 없어요.</p>
+        저장되는 건 원본 오브, 바꾼 값, 이름, 색, 닉네임과 올린 시각뿐이에요. 한 번 올린 오브는 여기서 지울 수 없어요.</p>
       <label class="agree"><input type="checkbox" id="orbUpAgree" /> <span data-i18n="orbUpAgree">이 오브를 서버에 업로드하는 것에 동의합니다.</span></label>
       <p class="import-err" id="orbUpErr"></p>
       <div class="import-btns">
         <button type="button" class="ghost" id="orbUpCancel" data-i18n="cancel">취소</button>
-        <button id="orbUpOk" class="go" disabled data-i18n="orbUpOk">☁ 올리기</button>
+        <button id="orbUpOk" class="go" disabled data-i18n="orbUpOk">올리기</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog class="import" id="orbDelDlg">
+    <form method="dialog" id="orbDelForm" autocomplete="off">
+      <div class="side-head" data-i18n="orbDelTitle">내 오브에서 지우기</div>
+      <p class="orbup-name" id="orbDelName"></p>
+      <p data-i18n="orbDelBody">이 브라우저의 내 오브 목록에서 지워요. 이미 곡이나 프리셋에 들어간 오브는 그대로 남아요.</p>
+      <p class="orbdel-warn" id="orbDelWarn" data-i18n="orbDelServer" hidden>서버에 올린 적 있는 오브예요. 여기서 지워도 서버에서는 지워지지 않았을 수 있어요.</p>
+      <div class="import-btns">
+        <button type="button" class="ghost" id="orbDelCancel" data-i18n="cancel">취소</button>
+        <button id="orbDelOk" class="go danger" data-i18n="orbDelOk">지우기</button>
       </div>
     </form>
   </dialog>

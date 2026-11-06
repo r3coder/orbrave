@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>ORBRAVE 관리</title>
+  <link rel="stylesheet" href="admin.css" />
+</head>
+<body>
+  <header>
+    <h1>● ORBRAVE 관리</h1>
+    <nav class="tabs" id="tabs" hidden>
+      <button type="button" data-tab="presets" class="on">곡</button>
+      <button type="button" data-tab="orbs">커스텀 오브</button>
+    </nav>
+    <button type="button" id="logout" class="ghost" hidden>로그아웃</button>
+  </header>
+
+  <form id="login" class="login" autocomplete="off">
+    <label>관리자 비밀번호 <input type="password" id="token" autocomplete="current-password" required /></label>
+    <button>들어가기</button>
+    <p class="err" id="loginErr"></p>
+  </form>
+
+  <main id="main" hidden>
+    <div class="bar">
+      <span id="count"></span>
+      <button type="button" id="reload" class="ghost">↻ 새로고침</button>
+    </div>
+    <p class="err" id="err"></p>
+    <table>
+      <thead id="thead"></thead>
+      <tbody id="rows"></tbody>
+    </table>
+    <button type="button" id="more" class="ghost" hidden>더 보기</button>
+  </main>
+
+  <script type="module" src="admin.js"></script>
+</body>
+</html>

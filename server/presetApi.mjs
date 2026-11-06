@@ -6,7 +6,13 @@
 //   POST /presets/<id>/vote 👍 / 👎 from one browser: { voter, v: 1 | -1 | 0 }
 //   GET  /orbs?limit=N      newest uploaded custom orbs (&order=mix: N picked at random)
 //   POST /orbs              upload one custom orb ({ orb, author, agree }, validateOrbUpload)
+//   /admin/...              for the admin page (server/admin/, same origin only: no CORS): list and
+//                           delete songs and orbs, with `Authorization: Bearer <adminToken>`; off
+//                           when no token is set
+//     GET    /admin/presets?offset=0&limit=50    GET    /admin/orbs?offset=0&limit=50
+//     DELETE /admin/presets/<id>                 DELETE /admin/orbs/<id>
 // `req.url` is the part after /api, e.g. "/presets?limit=50".
+import { timingSafeEqual, createHash } from 'node:crypto';
 import { LIMITS, PresetError, validateOrbUpload, validatePreset } from './presetSchema.mjs';
 import { createPresetStore } from './presetStore.mjs';
 
@@ -58,25 +64,31 @@ function rateLimiter({
     const cut = Date.now() - windowMs;
     for (const [k, v] of hits) if (!v.length || v.at(-1) < cut) hits.delete(k);
   }, windowMs).unref();
-  return (key) => {
-    const now = Date.now();
-    const v = (hits.get(key) ?? []).filter((t) => t > now - windowMs);
+  const recent = (key) => (hits.get(key) ?? []).filter((t) => t > Date.now() - windowMs);
+  // check: throws when this address is over the limit; record: counts one more hit
+  const check = (key) => {
+    const v = recent(key);
     if (v.length >= max) throw new HttpError(429, tooMany);
-    if (v.length && now - v.at(-1) < gapMs) throw new HttpError(429, tooSoon);
-    v.push(now);
-    hits.set(key, v);
+    if (v.length && Date.now() - v.at(-1) < gapMs) throw new HttpError(429, tooSoon);
   };
+  const record = (key) => hits.set(key, [...recent(key), Date.now()]);
+  return Object.assign((key) => { check(key); record(key); }, { check, record });
 }
 
 // allowedOrigins: other sites whose pages may use this API (CORS), e.g. ['https://user.github.io'].
 // Origins are compared as scheme://host[:port], so a GitHub Pages sub-path needs no extra entry.
-export function createPresetApi({ dataDir, trustProxy = false, maxPerDay, rate, allowedOrigins = [] } = {}) {
+// adminToken: the password of the admin page (ADMIN_TOKEN); without one the /admin routes answer 404.
+export function createPresetApi({ dataDir, trustProxy = false, maxPerDay, rate, allowedOrigins = [], adminToken = '' } = {}) {
   if (!dataDir) throw new Error('createPresetApi: dataDir is required');
   const allowed = new Set(allowedOrigins.map((o) => o.trim().replace(/\/+$/, '')).filter(Boolean));
   const store = createPresetStore(dataDir, { maxPerDay });
   const orbStore = createPresetStore(dataDir, { maxPerDay, folder: 'orbs', check: (rec) => validateOrbUpload({ ...rec, agree: true }), votesName: 'orb-votes.json' });
   const limit = rateLimiter(rate);
   // votes from one address: plenty for someone listening along, too few to swing the list
+  // wrong admin passwords from one address: 10, then that address is shut out for 15 minutes
+  // (even with the right one, so guessing on stays pointless); only wrong tries are recorded
+  const adminFails = rateLimiter({ max: 10, windowMs: 15 * 60_000, gapMs: 0, tooMany: '비밀번호를 너무 많이 틀렸어요. 15분 뒤에 다시 해 주세요' });
+  const tokenHash = adminToken ? createHash('sha256').update(String(adminToken)).digest() : null;
   const voteLimit = rateLimiter({ max: 60, windowMs: 10 * 60_000, gapMs: 300, tooMany: '평가를 너무 많이 했어요. 잠시 뒤에 다시 해 주세요', tooSoon: '조금 천천히 눌러 주세요' });
 
   const clientKey = (req) => {
@@ -84,6 +96,14 @@ export function createPresetApi({ dataDir, trustProxy = false, maxPerDay, rate, 
     return fwd || req.socket.remoteAddress || 'unknown';
   };
 
+  const sameHost = (req, origin) => {
+    try {
+      const host = (trustProxy && req.headers['x-forwarded-host']) || req.headers.host;
+      return new URL(origin).host === host;
+    } catch {
+      return false;
+    }
+  };
   // a browser posting from another site is refused, unless that site is in allowedOrigins
   const sameOrigin = (req) => {
     const origin = req.headers.origin;
@@ -96,19 +116,28 @@ export function createPresetApi({ dataDir, trustProxy = false, maxPerDay, rate, 
     }
   };
 
-  // custom orbs uploaded on their own: a list to read, and one upload at a time (same limits
-  // and checks as a preset share)
-  async function handleOrbs(req, res, url) {
+  // CORS for one route: an allowed origin gets the header, and a preflight is answered here
+  // (true when it was, so the handler stops)
+  const cors = (req, res, { methods, headers = 'Content-Type', maxAge = '86400' }) => {
     const origin = req.headers.origin;
-    if (origin && allowed.has(origin)) {
+    const ok = !!origin && allowed.has(origin);
+    if (ok) {
       res.setHeader('Access-Control-Allow-Origin', origin);
       res.setHeader('Vary', 'Origin');
     }
-    if (req.method === 'OPTIONS') {
-      if (!origin || !allowed.has(origin)) return send(res, 403, { error: 'origin not allowed' });
-      res.writeHead(204, { 'Access-Control-Allow-Methods': 'GET, POST', 'Access-Control-Allow-Headers': 'Content-Type', 'Access-Control-Max-Age': '86400' });
-      return res.end();
+    if (req.method !== 'OPTIONS') return false;
+    if (!ok) send(res, 403, { error: 'origin not allowed' });
+    else {
+      res.writeHead(204, { 'Access-Control-Allow-Methods': methods, 'Access-Control-Allow-Headers': headers, 'Access-Control-Max-Age': maxAge });
+      res.end();
     }
+    return true;
+  };
+
+  // custom orbs uploaded on their own: a list to read, and one upload at a time (same limits
+  // and checks as a preset share)
+  async function handleOrbs(req, res, url) {
+    if (cors(req, res, { methods: 'GET, POST' })) return;
     try {
       if (req.method === 'GET') {
         const n = Number(url.searchParams.get('limit')) || 100;
@@ -139,28 +168,49 @@ export function createPresetApi({ dataDir, trustProxy = false, maxPerDay, rate, 
     }
   }
 
+  // the admin page: list and delete what was uploaded. Every request carries the token.
+  async function handleAdmin(req, res, url) {
+    const m = /^\/admin\/(presets|orbs)(?:\/([^/]+))?\/?$/.exec(url.pathname);
+    if (!tokenHash || !m) return send(res, 404, { error: 'not found' });
+    // the admin page is served next to the API (server/adminPage.mjs): nothing from another
+    // site, not even an allowed one, gets in (no CORS headers, and a cross-site Origin is refused)
+    const origin = req.headers.origin;
+    if (req.method === 'OPTIONS' || (origin && !sameHost(req, origin))) return send(res, 403, { error: 'origin not allowed' });
+    const which = m[1] === 'orbs' ? orbStore : store;
+    const id = m[2] ?? '';
+    try {
+      const key = clientKey(req);
+      adminFails.check(key);
+      const given = /^Bearer (.+)$/.exec(req.headers.authorization ?? '')?.[1] ?? '';
+      if (!timingSafeEqual(createHash('sha256').update(given).digest(), tokenHash)) {
+        adminFails.record(key);
+        throw new HttpError(401, '관리자 비밀번호가 맞지 않아요');
+      }
+      if (req.method === 'GET' && !id) {
+        return send(res, 200, await which.page(Number(url.searchParams.get('offset')), Number(url.searchParams.get('limit'))));
+      }
+      if (req.method === 'DELETE' && id) {
+        return (await which.remove(id)) ? send(res, 200, { ok: true }) : send(res, 404, { error: '이미 없어요' });
+      }
+      res.setHeader('Allow', id ? 'DELETE' : 'GET');
+      return send(res, 405, { error: 'method not allowed' });
+    } catch (e) {
+      if (e.status) return send(res, e.status, { error: e.message });
+      console.error('[admin api]', e);
+      return send(res, 500, { error: '서버 오류' });
+    }
+  }
+
   return async function handle(req, res, next) {
     const url = new URL(req.url ?? '/', 'http://local');
+    if (url.pathname.startsWith('/admin/')) return handleAdmin(req, res, url);
     if (/^\/orbs\/?$/.test(url.pathname)) return handleOrbs(req, res, url);
     const m = /^\/presets(?:\/([^/]+)(\/vote)?)?\/?$/.exec(url.pathname);
     if (!m) return next ? next() : send(res, 404, { error: 'not found' });
     const id = m[1] ?? ''; // ids are [a-z0-9-] only, so no decoding is needed (anything else is a 404)
     const isVote = !!m[2];
-    const origin = req.headers.origin;
-    if (origin && allowed.has(origin)) {
-      res.setHeader('Access-Control-Allow-Origin', origin);
-      res.setHeader('Vary', 'Origin');
-    }
     // CORS preflight (a JSON POST from another origin sends one first)
-    if (req.method === 'OPTIONS') {
-      if (!origin || !allowed.has(origin)) return send(res, 403, { error: 'origin not allowed' });
-      res.writeHead(204, {
-        'Access-Control-Allow-Methods': isVote ? 'POST' : id ? 'GET' : 'GET, POST',
-        'Access-Control-Allow-Headers': 'Content-Type',
-        'Access-Control-Max-Age': '86400',
-      });
-      return res.end();
-    }
+    if (cors(req, res, { methods: isVote ? 'POST' : id ? 'GET' : 'GET, POST' })) return;
     try {
       if (isVote) {
         if (req.method !== 'POST') {
