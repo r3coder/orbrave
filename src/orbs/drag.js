@@ -62,7 +62,8 @@ const hasCls = (c) => document.body.classList.contains(c);
 const slotsOn = () => isPhone.matches || hasCls('roll-ready');
 // the guide wakes the slots up a group at a time (dimmed and shut until then, phones too):
 // 약하게 · 세게 with the slots (2), 변주 at 3, 🎛 편집 at 6
-const slotLive = (m) => (m === 'vary' ? hasCls('midi-ready') : m === 'edit' ? hasCls('song-ready') : true);
+// 🎛 편집 is hidden on a phone (orbsMobile.css): it takes nothing there
+const slotLive = (m) => (m === 'vary' ? hasCls('midi-ready') : m === 'edit' ? hasCls('song-ready') && !isPhone.matches : true);
 function slotAt(x, y) {
   if (!slotsOn()) return null;
   for (const m of SLOTS) if (slotLive(m) && inRect(slotEls[m], x, y)) return m;

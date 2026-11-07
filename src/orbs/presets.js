@@ -11,6 +11,7 @@ import {
   $, S, VOL_STEPS, active, gainStep, heldSeed, orbStep, orbVars, ownGains, ownSeed, ownSeeds,
   presetVars, setStep, setVars, ui, varCount, varIndexOf, varSeed,
 } from './state.js';
+import { isPhone } from '../phoneLayout.js';
 import { layers, nextBar, nextPhrase, play, put, removeLayer, returnOrb, seeded, sync } from './audio.js';
 import { tutEvent } from './guide.js';
 import { bubbles, paint, tint } from './list.js';
@@ -476,6 +477,8 @@ function undo() {
   stash.length = 0;
   for (const id of s.stash) if (byId[id] && stash.length < STASH_MAX) stash.push(id);
   for (const m of FX_SLOTS) slotOrbs[m] = s.slots[m] && byId[s.slots[m].id] ? { ...s.slots[m] } : null;
+  // 🎛 편집 is hidden on a phone: an orb the set left there goes home instead
+  if (isPhone.matches && slotOrbs.edit) { returnOrb(slotOrbs.edit.id, slotOrbs.edit.home); slotOrbs.edit = null; }
   S.variation = s.variation;
   // volumes, seeds and variations of every orb either set has
   for (const id of new Set([...before, ...keep])) {

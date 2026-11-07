@@ -3,13 +3,15 @@
 // same order as the one file did. See orbs/state.js.
 import { loopPos, updateSongCursor } from './stems.js';
 import { getAnalyserById } from '@strudel/web';
-import { rng, hash, setMode } from '../orbCatalog.js';
+import { rng, hash, setMode, role } from '../orbCatalog.js';
 import { lite, watchFrame } from '../liteMode.js';
 import { toneHex, ink, setPalette, theme as themeNow } from '../theme.js';
 import { drawMidiBackdrop } from '../midiBackdrop.js';
+import { drawHitRipples, RIPPLE_ROLES } from '../hitRipples.js';
+import { createMood, easeMood, readMood, pixelScale, styleCanvas, drawMoodUnder, drawMoodOver, moodHit, eqBandGain } from '../moodVisuals.js';
 import { isPhone } from '../phoneLayout.js';
-import { $, S, active, seedOf, ui } from './state.js';
-import { analyser, chanOf, ducked, keyMode, layers, nowCycle } from './audio.js';
+import { $, S, active, seedOf, ui, volStep } from './state.js';
+import { analyser, chanOf, ducked, fxOrbs, keyMode, layers, nowCycle } from './audio.js';
 import { strips, tint } from './list.js';
 import { updateRain } from './field.js';
 import { coreCenter } from './drag.js';
@@ -19,6 +21,8 @@ import { drawRoll } from './slots.js';
 
 const canvas = $('viz');
 const g = canvas.getContext('2d');
+// the mood orbs' look (moodVisuals.js): eased every frame toward what the moods in the song ask for
+const mood = createMood();
 let buf;
 let lastTs = performance.now();
 function frame(ts) {
@@ -28,7 +32,11 @@ function frame(ts) {
   const dt = Math.min(0.1, (ts - lastTs) / 1000);
   lastTs = ts;
   // low-spec mode draws the full-screen canvas at 1x: at 2x / 3x scaling that is 4-9x fewer pixels
-  const dpr = lite ? 1 : window.devicePixelRatio || 1;
+  // the mood: what the mood orbs in the song (or the one auditioned) ask for, eased in. A crushed
+  // (8-bit) mood draws the canvas coarser, pixelated
+  easeMood(mood, readMood(S.started ? fxOrbs() : [], (o) => volStep(o.id)), dt);
+  styleCanvas(canvas, mood, lite, ts);
+  const dpr = (lite ? 1 : window.devicePixelRatio || 1) * pixelScale(mood);
   const w = innerWidth, h = innerHeight;
   // rounded: at 125% / 150% scaling w * dpr is fractional and would never match, resizing every frame
   if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
@@ -39,6 +47,7 @@ function frame(ts) {
   g.clearRect(0, 0, w, h);
 
   const c = coreCenter();
+  drawMoodUnder(g, mood, { cx: c.x, cy: c.y, w, h, dt, lite });
   drawBackdrop(c, dt, w, h);
   let level = 0;
   if (analyser && S.playing) {
@@ -72,7 +81,7 @@ function frame(ts) {
   const now = S.repl && S.playing ? nowCycle() : 0;
   sats.forEach((a, i) => {
     const tilt = (i / sats.length) * Math.PI + 0.35;
-    const rx = cr.width / 2 + 26 + (i % 3) * 12 + level * 10, ry = rx * 0.32;
+    const rx = cr.width / 2 + 26 + (i % 3) * 12, ry = rx * 0.32;
     const dir = i % 2 ? -1 : 1;
     const ang = (dir * ts) / (900 + (i % 4) * 260) + i * 1.7;
     const lx = Math.cos(ang) * rx, ly = Math.sin(ang) * ry;
@@ -85,19 +94,12 @@ function frame(ts) {
     const z = depth > 0 ? 3 : 1;
     if (a.z !== z) a.sat.style.zIndex = a.z = z;
     a.sat.style.opacity = (dim ? 0.3 : 0.7 + depth * 0.3).toFixed(2);
-    g.save();
-    g.strokeStyle = toneHex(tint(a.layer));
-    g.globalAlpha = soloed ? 0.6 : S.solo ? 0.06 : 0.16;
-    g.lineWidth = soloed ? 1.5 : 1;
-    g.beginPath();
-    g.ellipse(c.x, c.y, rx, ry, tilt, 0, Math.PI * 2);
-    g.stroke();
-    g.restore();
   });
 
   drawEq(c, cr, ts);
   updateRain(dt, ts);
   drawRoll();
+  drawMoodOver(g, mood, { canvas, cx: c.x, cy: c.y, w, h, lite });
   updateSongCursor();
 }
 
@@ -159,7 +161,8 @@ function drawBackdrop(c, dt, w, h) {
           return mode === 'minor' ? code : code.replaceAll(':minor"', `:${mode}"`);
         },
         color: toneHex(tint(l)),
-        dim: 1,
+        // a balance mood turning this part down fades it here too
+        dim: Math.max(0.15, ducked(l)),
       };
     });
   // the loop spans the page between the preset bar and the orb field
@@ -169,6 +172,32 @@ function drawBackdrop(c, dt, w, h) {
   // the sweep follows the song's own 4-bar blocks, and stays away while a jump counts in
   const pos = on ? loopPos(now) : 0;
   drawMidiBackdrop(g, { x: wide ? x0 : 0, w: wide ? x1 - x0 : w, h, cy: c.y, pos, on, parts, dark: themeNow === 'dark', ink: ink().ink, lite, dt });
+  drawRipples(c, dt, w, h, wide ? x0 : 0, wide ? x1 : w);
+}
+
+// the drums and effects have no notes for the roll: each hit drops a ring around the player instead
+function drawRipples(c, dt, w, h, x0, x1) {
+  const on = S.playing && !!S.repl;
+  const now = on ? nowCycle() : 0;
+  const parts = !on ? [] : [...active.values()]
+    .filter(({ layer: l, at }) => l.code && RIPPLE_ROLES.has(role(l)) && !l.pitched && now >= at)
+    .map(({ layer: l }) => {
+      const seed = seedOf(l);
+      return {
+        key: `${l.id}|${seed}|${l.raw ? l.raw.join() : ''}`,
+        code: () => (typeof l.code === 'function' ? l.code(rng(hash(l.base ?? l.id) + seed * 7919)) : l.code),
+        role: role(l),
+        color: toneHex(tint(l)),
+        dim: (S.solo && S.solo !== l.id ? 0.2 : 1) * Math.max(0.12, ducked(l)),
+      };
+    });
+  const core = ui.core.getBoundingClientRect().width / 2;
+  const reach = Math.min(x1 - x0, h) * 0.42;
+  drawHitRipples(g, {
+    parts, pos: on ? loopPos(now) : null, cx: c.x, cy: c.y,
+    inner: core + 30, outer: Math.max(core + 60, reach), box: [x0, 0, x1, h], dt, lite,
+    mood, onHit: (r) => moodHit(mood, r),
+  });
 }
 
 // Equaliser: every sounding orb has its own analyser channel. Around the player each channel
@@ -216,7 +245,7 @@ function drawEq(c, cr, ts) {
       g.beginPath();
       for (const b of group) {
         const a = ts / 9000 + i * span + ((b + 0.5) / EQ_BANDS) * span * 0.86;
-        const len = 3 + bands[b] * 46;
+        const len = 3 + bands[b] * 46 * eqBandGain(mood, b, EQ_BANDS);
         const cos = Math.cos(a), sin = Math.sin(a);
         g.moveTo(c.x + cos * inner, c.y + sin * inner);
         g.lineTo(c.x + cos * (inner + len), c.y + sin * (inner + len));

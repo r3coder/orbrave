@@ -686,6 +686,12 @@ body:not(.roll-ready) .roll { flex-basis: 0 !important; border-top-width: 0; }
   100% { transform: translate(-0.5px, 1.5px) rotate(4deg); }
 }
 .lite .orb-slot > .mini { animation-duration: 0.2s; }
+/* 변주 · 편집 keep their orb still, but with the pointer on it (or on 변주's buttons) its sound
+   plays, so it shivers then to show that it is the one being heard */
+@media (hover: hover) {
+  .vary-wrap:not(.editing):hover #slotVary > .mini,
+  #slotEdit > .mini:hover { animation: shiver 0.11s linear infinite alternate; }
+}
 /* 약하게 / 세게: the orb shakes hard for 0.3s first */
 @keyframes splitShake {
   0% { transform: translate(-4px, 1px) rotate(-8deg); }
@@ -1063,7 +1069,9 @@ body.server-down .ptile .share.cloud { display: none; } /* no ☁ on tiles while
 .strip .snum { left: 2px; font-size: 9px; color: color-mix(in srgb, var(--g), var(--fg) var(--ink-mix)); }
 .strip .snum:hover { text-decoration: line-through; }
 .strip:hover { border-color: var(--g); background: color-mix(in srgb, var(--g) 12%, var(--surface)); }
-.strip .mini { width: 36px; height: 36px; margin: 6px 0 4px; cursor: grab; touch-action: none; transition: transform 0.06s linear; will-change: transform; }
+/* z-index: its glow (up to 34px while it swells, visuals.js drawEq) spills past the strip, and the
+   next strips' backgrounds would paint over it, cutting it off square */
+.strip .mini { z-index: 1; width: 36px; height: 36px; margin: 6px 0 4px; cursor: grab; touch-action: none; transition: transform 0.06s linear; will-change: transform; }
 .strip b { font-size: 11px; font-weight: 400; color: color-mix(in srgb, var(--g), var(--fg) var(--ink-mix)); white-space: nowrap; }
 .strip span { font-size: 9px; color: var(--dim); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* a hand-edited orb: its C01 tag stays put, ↺ goes back to the orb it came from */
@@ -1379,7 +1387,12 @@ button.arm::after {
   /* many orbs in on a short / narrow window: the orb list gives up height first and scrolls in
      place, so the player and the save / share buttons stay on screen */
   .left > * { flex-shrink: 0; }
-  .left > .chips { flex-shrink: 1; min-height: 76px; overflow-y: auto; overscroll-behavior: contain; }
+  .left > .chips { flex-shrink: 1; min-height: 76px; overscroll-behavior: contain; }
+  /* the hint's two reserved lines, while it has nothing to say, give their height up before the orb
+     list does (the big weight makes it shrink to 0 first), so a zoomed-in window shows more orbs */
+  .left > .solo-hint:empty { flex-shrink: 1000; min-height: 0; }
+  /* only once it doesn't fit (orbs/list.js fitChips): a scroll box clips the orbs' glow at its edges */
+  .left > .chips.scroll { overflow-y: auto; }
 }
 
 @media (max-width: 760px) {
@@ -1621,6 +1634,13 @@ body.orbedit-open .orbedit { display: flex; }
 }
 .oe-row { display: contents; }
 .oe-row.opt .oe-opts { grid-column: span 2; }
+/* 옥타브 · 반음 · 마이크로튠: one line across the section, the octave narrower */
+.oe-trio { grid-column: 1 / -1; display: flex; gap: 14px; }
+.oe-trio .oe-row { display: flex; align-items: center; gap: 5px; flex: 1 1 0; min-width: 0; }
+.oe-trio .oe-row[data-k="oct"] { flex-grow: 0.6; }
+.oe-trio .oe-range { flex: 1; min-width: 30px; }
+.oe-trio .oe-val { min-width: 34px; }
+.oe-trio .oe-back { padding: 2px 4px; }
 .oe-label { font-size: 12px; color: var(--dim); white-space: nowrap; }
 .oe-row.set .oe-label { color: var(--g); }
 .oe-range { width: 100%; accent-color: var(--g); min-width: 0; }

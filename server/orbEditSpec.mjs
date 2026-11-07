@@ -13,6 +13,7 @@ export const EDIT_PARAMS = {
   bank: { grp: 'sound', only: 'bank', opts: ['TR909', 'TR808', 'TR707', 'TR606', 'TR727', 'RD6'] },
   oct: { grp: 'sound', only: 'pitched', min: -2, max: 2, int: true, def: 0 },
   semi: { grp: 'sound', only: 'pitched', min: -12, max: 12, int: true, def: 0 },
+  cents: { grp: 'sound', only: 'pitched', min: -50, max: 50, int: true, def: 0 }, // microtune, 1/100 semitone
   pitch: { grp: 'sound', only: 'drum', min: -24, max: 24, int: true, def: 0 },
   // ---- envelope
   att: { grp: 'env', min: 0, max: 2, step: 0.005, def: 0.001 },

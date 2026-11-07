@@ -77,6 +77,9 @@ export function editChain(e, kind) {
   if (on('bank') && kind.banks.includes(e.bank)) out.push(`.bank("${e.bank}")`);
   const tr = (on('oct') ? e.oct * 12 : 0) + (on('semi') ? e.semi : 0);
   if (tr) out.push(`.transpose(${tr})`);
+  // microtune: transpose() only moves note names by whole semitones, so the note becomes a MIDI
+  // number (valueToMidi, a Strudel core helper) with the cents added
+  if (on('cents') && e.cents) out.push(`.withValue((v) => (v.note == null ? v : { ...v, note: valueToMidi(v) + ${num(e.cents / 100)} }))`);
   if (on('pitch') && e.pitch) out.push(`.mul(speed(${num(2 ** (e.pitch / 12))}))`);
   for (const [k, c] of Object.entries(CALL)) {
     if (!on(k) || (k === e.lfo)) continue; // a moving filter replaces the fixed one

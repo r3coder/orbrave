@@ -128,7 +128,14 @@ function renderChips() {
   }
   // 12 or more orbs: smaller strips, so a third row doesn't push the buttons below off the screen
   ui.chips.classList.toggle('many', ui.chips.children.length >= 12);
+  fitChips();
 }
+// the strips scroll in place only when they don't fit (orbs.css .chips.scroll): a scroll box would
+// cut the swelling orbs' glow off square along its edges, so while they fit it stays open
+function fitChips() {
+  ui.chips.classList.toggle('scroll', ui.chips.scrollHeight > ui.chips.clientHeight + 1);
+}
+new ResizeObserver(fitChips).observe(ui.chips);
 
 // hand-edited orbs in the song, numbered C01, C02 … in the order they went in (strips and stem grid)
 function customTags() {

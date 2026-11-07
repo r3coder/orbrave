@@ -438,7 +438,7 @@ function returnOrb(id, home) {
 
 export {
   VA0, VOL_DEFAULT, VR, VSWEEP, addLayer, analyser, audioUnlocked, bpm, buildCode, chanOf, codeOf,
-  drawVolume, ducked, ensureStarted, hoverOrb, keyMode, keyShift, keyText, layers, lineFor, nextBar,
+  drawVolume, ducked, ensureStarted, fxOrbs, hoverOrb, keyMode, keyShift, keyText, layers, lineFor, nextBar,
   nextPhrase, nowCycle, pitchedCode, play, put, removeLayer, returnOrb, seeded, setVolume, stop, sync,
   syncSoon, volFocus, volRing, volValue, volume, vpt, warm,
 };

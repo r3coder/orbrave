@@ -16,7 +16,8 @@ const TABS = {
 };
 const NAMES = {
   wave: L('파형', 'Waveform', '波形'), bank: L('드럼 머신', 'Drum machine', 'ドラムマシン'),
-  oct: L('옥타브', 'Octave', 'オクターブ'), semi: L('반음 올리기', 'Semitones', '半音'), pitch: L('음높이', 'Pitch', 'ピッチ'),
+  oct: L('옥타브', 'Octave', 'オクターブ'), semi: L('반음', 'Semitones', '半音'),
+  cents: L('마이크로튠', 'Microtune', 'マイクロチューン'), pitch: L('음높이', 'Pitch', 'ピッチ'),
   att: L('어택', 'Attack', 'アタック'), dec: L('디케이', 'Decay', 'ディケイ'), sus: L('서스테인', 'Sustain', 'サステイン'), rel: L('릴리스', 'Release', 'リリース'),
   clip: L('음 길이', 'Note length', '音の長さ'), penv: L('피치 엔벨로프', 'Pitch envelope', 'ピッチEG'),
   patt: L('피치 어택', 'Pitch attack', 'ピッチ アタック'), pdec: L('피치 디케이', 'Pitch decay', 'ピッチ ディケイ'),
@@ -119,6 +120,8 @@ const HIDDEN = new Set(['lfo', 'lfow', 'apr', 'phr', 'phd']);
 const FULL_OPTS = new Set(['wave', 'bank']);
 // sections that take the panel's whole width (the others sit two to a line when there is room)
 const WIDE = new Set(['sound', 'env', 'filter']);
+// octave / semitones / microtune: one line of their own, the octave slider narrower
+const TUNE = ['oct', 'semi', 'cents'];
 const gKeys = (g) => g.keys ?? [g.x, g.y, g.amt, g.a, g.d, g.s, g.r].filter(Boolean);
 const EQ_PRESETS = [
   [L('저음 강화', 'Bass boost', '低音強調'), { hpf: 70, hpq: 9 }],
@@ -148,6 +151,7 @@ function fmt(k, v) {
   if (k === 'comp') return v ? `${v} dB` : 'off';
   if (k === 'crat') return `${v}:1`;
   if (k === 'oct') return `${v > 0 ? '+' : ''}${v}`;
+  if (k === 'cents') return `${v > 0 ? '+' : ''}${v} ¢`;
   if (k === 'pan') return v === 0.5 ? 'C' : v < 0.5 ? `L${Math.round((0.5 - v) * 200)}` : `R${Math.round((v - 0.5) * 200)}`;
   if (k === 'nudge') return v ? `${v > 0 ? '+' : ''}${v}/32` : '0';
   if (k === 'clip') return `×${v}`;
@@ -376,7 +380,15 @@ export function createOrbEditor(root, hooks) {
       if (rest.length) {
         const list = el('div', 'oe-rows');
         // choices first, then sliders
-        for (const k of [...rest.filter((k) => EDIT_PARAMS[k].opts), ...rest.filter((k) => !EDIT_PARAMS[k].opts)]) list.append(knob(k));
+        let trio = null;
+        for (const k of [...rest.filter((k) => EDIT_PARAMS[k].opts), ...rest.filter((k) => !EDIT_PARAMS[k].opts)]) {
+          if (!TUNE.includes(k)) list.append(knob(k));
+          else if (!trio) {
+            trio = el('div', 'oe-trio');
+            for (const t of TUNE) if (rest.includes(t)) trio.append(knob(t));
+            list.append(trio);
+          }
+        }
         sec.append(list);
       }
       pane.append(sec);

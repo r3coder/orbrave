@@ -359,6 +359,16 @@ function leaveSlots() {
   sync();
 }
 isPhone.addEventListener('change', leaveSlots);
+// turning into a phone layout: 🎛 편집 is hidden there, so its orb goes home (what was changed is dropped)
+isPhone.addEventListener('change', () => {
+  const sat = isPhone.matches && slotOrbs.edit;
+  if (!sat) return;
+  if (orbEditing) closeOrbEdit();
+  slotOrbs.edit = null;
+  returnOrb(sat.id, sat.home);
+  renderSlots();
+  sync();
+});
 // 수정 완료: the roll goes down; the orb stays in the 변주 slot with what was drawn as its variation
 ui.rollDone.addEventListener('click', closeEditor);
 // the 변주 slot's buttons

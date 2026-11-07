@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mobile Layouts</title>
+<!-- Dev only: open /tools/mobile-test.html on `npm run dev`. Each frame is the orb page at one
+     device's CSS size. Frames can't fake a phone's user agent or touch, only its size, so this
+     checks layout (the PHONE_QUERY media rules), not touch handling. -->
+<style>
+  :root { --bg: #111; --panel: #1b1b1b; --ink: #ddd; --dim: #888; --line: #333; --acc: #7cf; --ok: #6d6; --no: #e77; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 13px/1.4 system-ui, sans-serif; }
+  header { position: sticky; top: 0; z-index: 2; display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center;
+    padding: 10px 16px; background: var(--panel); border-bottom: 1px solid var(--line); }
+  header b { font-size: 14px; letter-spacing: 0.05em; }
+  header label { display: flex; align-items: center; gap: 6px; color: var(--dim); }
+  button, select, input[type=text] { background: #222; color: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 5px 9px; font: inherit; }
+  button:hover { border-color: var(--acc); }
+  .picks { display: flex; flex-wrap: wrap; gap: 4px 10px; width: 100%; }
+  .picks label { color: var(--ink); }
+  main { display: flex; flex-wrap: wrap; gap: 24px; padding: 16px; align-items: flex-start; }
+  .dev { display: flex; flex-direction: column; gap: 6px; }
+  .cap { display: flex; gap: 8px; align-items: baseline; font-size: 12px; }
+  .cap .name { font-weight: 600; }
+  .cap .size { color: var(--dim); }
+  .cap .mode { margin-left: auto; font-size: 11px; padding: 1px 6px; border-radius: 4px; border: 1px solid var(--line); }
+  .cap .mode.phone { color: var(--ok); border-color: var(--ok); }
+  .cap .mode.wide { color: var(--no); border-color: var(--no); }
+  .cap button { padding: 1px 6px; font-size: 11px; }
+  .box { overflow: hidden; border: 1px solid var(--line); border-radius: 14px; background: #000; }
+  .box iframe { border: 0; display: block; transform-origin: 0 0; background: #000; }
+</style>
+</head>
+<body>
+<header>
+  <b>📱 모바일 레이아웃</b>
+  <label>배율 <input id="scale" type="range" min="0.3" max="1" step="0.05" value="0.6"> <span id="scaleOut">60%</span></label>
+  <label>주소 <input id="path" type="text" value="/" size="14"></label>
+  <button id="reload">↻ 전부 새로고침</button>
+  <button id="rotate">⟲ 전부 가로/세로</button>
+  <button id="all">전부 선택</button>
+  <button id="none">전부 해제</button>
+  <div class="picks" id="picks"></div>
+</header>
+<main id="grid"></main>
+<script>
+  // CSS sizes (portrait). on: shown at first. Each frame loads the whole page and its sounds,
+  // so only a handful start on.
+  const DEVICES = [
+    { name: 'Galaxy S8 · 소형', w: 360, h: 740, on: true },
+    { name: 'iPhone SE', w: 375, h: 667, on: true, note: '낮은 화면 (≤667)' },
+    { name: 'iPhone 13 mini', w: 375, h: 812 },
+    { name: 'iPhone 15', w: 393, h: 852, on: true },
+    { name: 'Pixel 8', w: 412, h: 915 },
+    { name: 'iPhone 15 Pro Max', w: 430, h: 932, on: true },
+    { name: 'Z Fold 접힘', w: 344, h: 882, on: true, note: '아주 좁음' },
+    { name: 'Z Fold 펼침', w: 690, h: 830, on: true, note: '정사각형 가까움' },
+    { name: 'Pixel Fold 펼침', w: 840, h: 700 },
+    { name: '경계 760', w: 760, h: 1024, note: '폰 레이아웃 마지막 폭' },
+    { name: 'iPad mini', w: 768, h: 1024, note: '폰 아님이어야 함' },
+    { name: 'iPhone 15 가로', w: 852, h: 393 },
+  ];
+  const $ = (id) => document.getElementById(id);
+  const PREF = 'mobileTestPicks';
+  let picks;
+  try { picks = JSON.parse(localStorage.getItem(PREF)); } catch {}
+  if (!Array.isArray(picks)) picks = DEVICES.filter((d) => d.on).map((d) => d.name);
+  const flipped = new Set();
+  let scale = +$('scale').value;
+
+  function savePicks() { try { localStorage.setItem(PREF, JSON.stringify(picks)); } catch {} }
+
+  function renderPicks() {
+    $('picks').replaceChildren(...DEVICES.map((d) => {
+      const l = document.createElement('label');
+      const c = document.createElement('input');
+      c.type = 'checkbox';
+      c.checked = picks.includes(d.name);
+      c.onchange = () => {
+        picks = c.checked ? [...picks, d.name] : picks.filter((n) => n !== d.name);
+        savePicks();
+        renderGrid();
+      };
+      l.append(c, `${d.name} ${d.w}×${d.h}`);
+      return l;
+    }));
+  }
+
+  const sizeOf = (d) => (flipped.has(d.name) ? { w: d.h, h: d.w } : { w: d.w, h: d.h });
+
+  // phone layout or not, read from inside the frame (same origin) with the page's own query
+  async function markMode(frame, tag) {
+    try {
+      const { PHONE_QUERY } = await frame.contentWindow.eval("import('/src/phoneLayout.js')");
+      const phone = frame.contentWindow.matchMedia(PHONE_QUERY).matches;
+      tag.textContent = phone ? '폰 레이아웃' : '와이드 레이아웃';
+      tag.className = 'mode ' + (phone ? 'phone' : 'wide');
+    } catch { tag.textContent = '?'; tag.className = 'mode'; }
+  }
+
+  function card(d) {
+    const { w, h } = sizeOf(d);
+    const el = document.createElement('div');
+    el.className = 'dev';
+    el.dataset.name = d.name;
+    const cap = document.createElement('div');
+    cap.className = 'cap';
+    const tag = document.createElement('span');
+    tag.className = 'mode';
+    tag.textContent = '…';
+    const rot = document.createElement('button');
+    rot.textContent = '⟲';
+    rot.title = '가로/세로';
+    rot.onclick = () => { flipped.has(d.name) ? flipped.delete(d.name) : flipped.add(d.name); renderGrid(); };
+    const re = document.createElement('button');
+    re.textContent = '↻';
+    re.title = '새로고침';
+    cap.innerHTML = `<span class="name"></span><span class="size">${w}×${h}${d.note ? ' · ' + d.note : ''}</span>`;
+    cap.querySelector('.name').textContent = d.name;
+    cap.append(tag, rot, re);
+    const box = document.createElement('div');
+    box.className = 'box';
+    box.style.width = w * scale + 'px';
+    box.style.height = h * scale + 'px';
+    const f = document.createElement('iframe');
+    f.width = w;
+    f.height = h;
+    f.style.transform = `scale(${scale})`;
+    f.src = $('path').value || '/';
+    f.onload = () => markMode(f, tag);
+    re.onclick = () => { tag.textContent = '…'; f.contentWindow.location.reload(); };
+    box.append(f);
+    el.append(cap, box);
+    return el;
+  }
+
+  function renderGrid() {
+    $('grid').replaceChildren(...DEVICES.filter((d) => picks.includes(d.name)).map(card));
+  }
+
+  // the scale changes in place (no reload)
+  $('scale').oninput = () => {
+    scale = +$('scale').value;
+    $('scaleOut').textContent = Math.round(scale * 100) + '%';
+    for (const el of $('grid').children) {
+      const d = DEVICES.find((x) => x.name === el.dataset.name);
+      const { w, h } = sizeOf(d);
+      const box = el.querySelector('.box');
+      box.style.width = w * scale + 'px';
+      box.style.height = h * scale + 'px';
+      el.querySelector('iframe').style.transform = `scale(${scale})`;
+    }
+  };
+  $('reload').onclick = renderGrid;
+  $('path').onchange = renderGrid;
+  $('rotate').onclick = () => {
+    const shown = DEVICES.filter((d) => picks.includes(d.name));
+    const anyFlat = shown.some((d) => !flipped.has(d.name));
+    for (const d of shown) anyFlat ? flipped.add(d.name) : flipped.delete(d.name);
+    renderGrid();
+  };
+  $('all').onclick = () => { picks = DEVICES.map((d) => d.name); savePicks(); renderPicks(); renderGrid(); };
+  $('none').onclick = () => { picks = []; savePicks(); renderPicks(); renderGrid(); };
+
+  renderPicks();
+  renderGrid();
+</script>
+</body>
+</html>
