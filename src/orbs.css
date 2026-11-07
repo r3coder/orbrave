@@ -724,18 +724,34 @@ body:not(.roll-ready) .roll { flex-basis: 0 !important; border-top-width: 0; }
   opacity: 0; pointer-events: none; transition: opacity 0.25s, transform 0.25s;
 }
 .slot-hint.on { opacity: 1; transform: translate(-50%, 0); }
-/* a narrow field (an iPad held either way, a small window): the slots don't fit in one row,
-   so they go in two (약하게 · 세게 over 변주 and 편집 with their buttons), a little smaller */
+/* a narrow field (an iPad held either way, a small window): still one row, with smaller slots;
+   변주's buttons stack in two columns beside it (◀ over 변주 제거, ▶ over ✎ 악보) and 편집's 열기
+   goes under its slot's side, so the row gets narrower instead of wrapping */
 @container right (max-width: 820px) {
-  .slots {
-    flex-wrap: wrap; align-content: center; row-gap: 8px; column-gap: clamp(12px, 5cqi, 28px);
-    height: 172px; padding: 6px 12px;
+  .slots { gap: clamp(8px, 2.2cqi, 20px); height: 92px; padding: 0 8px; }
+  .orb-slot { --d: clamp(54px, 8.5cqi, 70px); }
+  .slot-label { font-size: 10px; padding: 0 5px; }
+  .slot-label i { font-size: 14px; }
+  .slot-sep { height: 52px; margin: 0 calc(-0.4 * clamp(8px, 2.2cqi, 20px)); }
+  .vary-wrap {
+    display: grid; gap: 4px 5px; align-items: center;
+    grid-template-areas: 'prev slot next' 'del slot edit';
   }
-  .orb-slot { --d: 72px; }
-  .slots::after { content: ''; order: 2; flex-basis: 100%; height: 0; } /* the line break */
-  #slotQuieter, #slotLouder { order: 1; }
-  .slot-sep { display: none; }
-  .vary-wrap, .edit-wrap { order: 3; }
+  #varyPrev { grid-area: prev; justify-self: end; align-self: end; }
+  #varyNext { grid-area: next; justify-self: start; align-self: end; }
+  #varyDel { grid-area: del; align-self: start; }
+  #varyEdit { grid-area: edit; align-self: start; }
+  #slotVary { grid-area: slot; }
+  .vbtn { font-size: 11px; padding: 0 6px; height: 25px; line-height: 1; }
+  .varrow { padding: 0 10px; }
+  .edit-wrap { gap: 4px; }
+}
+/* narrower still: 변주 제거 · 악보 as signs only */
+@container right (max-width: 600px) {
+  #varyDel, #varyEdit { font-size: 0; }
+  #varyDel::before { content: '✕'; font-size: 12px; }
+  #varyEdit::before { content: '✎'; font-size: 13px; }
+  .orb-slot small { display: none; }
 }
 .roll-head { display: flex; align-items: center; gap: 10px; padding: 10px 12px; flex-wrap: wrap; min-height: 76px; }
 .roll-slot {
@@ -1131,7 +1147,6 @@ body.stem-open.roll-full.roll-min .roll { flex-basis: 76px; }
 .stem-head #songBtn { color: var(--fg); }
 /* ? (stem mode help) just left of ↩ 루프 모드로 */
 .stem-head .stem-help { width: 24px; height: 24px; padding: 0; border-radius: 50%; font-weight: 700; color: var(--acc); }
-.stem-help-dlg li { padding-left: 8px; font-size: 12px; }
 .stem-head #songBtn:hover { color: var(--acc); }
 .stem-head button.loop-mode { color: var(--acc); }
 .stem-body { position: relative; flex: 1; min-height: 0; overflow: auto; }
@@ -1462,6 +1477,17 @@ body.share-ready :is(#wavBtn, #shareBtn, #serverShareBtn, .m-export-btn), body.s
   opacity: 0; transform: translateY(6px); transition: opacity 0.35s, transform 0.35s;
 }
 .tut-tip.on { opacity: 1; transform: none; }
+/* the stems' ? tour: a note you step through (◀ / ▶ / ✕), clicks kept off the page underneath */
+.tut-catch { position: fixed; inset: 0; z-index: 59; }
+.tut-tour { pointer-events: auto; width: min(360px, calc(100vw - 16px)); padding: 10px 14px 10px; font-size: 13px; }
+.tut-tour .tour-head { display: flex; align-items: center; gap: 8px; }
+.tut-tour .tour-title { flex: 1; color: var(--acc); font-size: 14px; }
+.tut-tour .tour-x { padding: 2px 6px; color: var(--dim); }
+.tut-tour .tour-text { margin: 6px 0 10px; }
+.tut-tour .tour-foot { display: flex; align-items: center; gap: 6px; }
+.tut-tour .tour-n { flex: 1; font-size: 11px; color: var(--dim); }
+.tut-tour .tour-next { border-color: var(--acc); color: var(--acc); }
+.tut-tour .tour-prev:disabled { opacity: 0.3; }
 /* a note that stays under the title (no dimming) */
 .tut-banner {
   position: fixed; z-index: 5; pointer-events: none;
@@ -1567,6 +1593,8 @@ body.orbedit-open .orbedit { display: flex; }
 .oe-slab { font-size: 11px; color: var(--dim); margin-right: 3px; }
 .oe-tools .oe-slots.all { margin-right: 8px; }
 .oe-tools .oe-slot { padding: 4px 7px; }
+/* ? : a tour of the panel (like the stems' ?) */
+.oe-tools .oe-help { width: 26px; height: 26px; padding: 0; border-radius: 50%; font-weight: 700; color: var(--acc); }
 .oe-graph { position: relative; margin-bottom: 10px; min-width: 0; }
 .oe-wides { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 0 14px; }
 .oe-gh { display: flex; align-items: center; gap: 6px; min-height: 22px; margin-bottom: 4px; }

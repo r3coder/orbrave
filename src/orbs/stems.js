@@ -2,7 +2,7 @@
 // Split out of orbs.js; the files load in a chain (each imports the one before it first), so they run in the
 // same order as the one file did. See orbs/state.js.
 import { updateShareButtons, wavStemBtn } from './share.js';
-import { LAYERS, rng, byId, role } from '../orbCatalog.js';
+import { rng, byId, role } from '../orbCatalog.js';
 import { BARS, VAR_MAX } from '../orbPreset.js';
 import { ot, secName } from '../orbsI18n.js';
 import { isPhone } from '../phoneLayout.js';
@@ -12,13 +12,13 @@ import {
   codeOf, keyText, layers, lineFor, nextPhrase, nowCycle, pitchedCode, play, seeded, sync, syncSoon,
 } from './audio.js';
 import { tutEvent } from './guide.js';
+import { tour } from '../tutorial.js';
 import { ctint, customTags, orbInner, paint, roleText } from './list.js';
 import { dropVarCells, newSeedVar } from './variations.js';
 
 // ---------- full song ----------
 // The current set becomes the centre of a whole track: an intro and build-up lead into it,
-// then a break and a second drop in a new key (with a different variation and one or two
-// parts swapped for a sibling), and an outro back home.
+// then a break and a second drop in a new key (with a different variation), and an outro back home.
 
 // the kinds of section: their usual length and which parts play in them (also what ＋ adds)
 const SECTION_KINDS = {
@@ -33,14 +33,9 @@ const SECTION_KINDS = {
 function songPlan() {
   const r = rng(S.song.seed);
   const base = layers().filter((l) => l.code);
-  const swaps = new Map();
-  for (const l of r.shuffle(base.filter((x) => !x.raw))) {
-    if (swaps.size >= 2) break;
-    if (l.spot) continue; // a block FX stays itself (and is never swapped in for another orb)
-    const alts = LAYERS.filter((x) => x.cat === l.cat && x.code && !x.spot && !active.has(x.id));
-    if (alts.length && r.chance(0.7)) swaps.set(l.id, r.pick(alts));
-  }
-  const swapped = base.map((l) => swaps.get(l.id) ?? l);
+  // only the orbs in the set play: the later sections change by key and variation, never by
+  // bringing in an orb that wasn't added (songs saved with swapped-in rows still load as they were)
+  const swapped = base;
   const up = r.pick([2, 3, 5, -2]);
   const K = SECTION_KINDS;
   const plan = [
@@ -340,26 +335,32 @@ function deleteSection(i) {
   sync();
 }
 
-// ＋ on a section head: a new section of `kind` right after section i, in its key. Of the parts
-// playing at the end of section i it keeps the ones the kind wants (all of them if none fit);
-// a block FX stays out.
+// ＋ on a section head: a new section of `kind` right after section i, in its key, laid out the
+// way the song plan lays that kind out (whatever section i had playing): of the song's orbs, the
+// ones the kind wants (all of them if none fit), with the kind's variations, fills and strength.
+// The orbs are the set section i comes from: the song's own, or with the stems' swapped-in
+// alternates (rows marked alt) once the song has moved on to them (break, drop 2, bridge).
+// A block FX stays out.
 function insertSection(i, kind) {
   const secs = S.song.sections, prev = secs[i];
   const { len, keep } = SECTION_KINDS[kind];
   const same = secs.filter((s) => s.name.split(' ')[0] === kind).length;
   const sec = { name: same ? `${kind} ${same + 1}` : kind, len, shift: prev.shift ?? 0, v: prev.v ?? 0 };
+  const rows = S.song.rows.filter((r) => byId[r.id] && !byId[r.id].spot);
+  const alts = rows.filter((r) => r.alt);
+  const swapped = alts.length && (prev.v > 0 || alts.some((r) => S.song.cells[r.id][i].some((c) => c.on)));
+  // in the swapped set an alternate stands in for the song's orb of its kind
+  const from = swapped ? rows.filter((r) => r.alt || !alts.some((a) => byId[a.id].cat === byId[r.id].cat)) : rows.filter((r) => !r.alt);
+  const kept = from.filter((r) => keep(byId[r.id]));
+  const on = new Set((kept.length ? kept : from).map((r) => r.id));
   secs.splice(i + 1, 0, sec);
-  const wasOn = (r) => S.song.cells[r.id][i].at(-1).on && !byId[r.id]?.spot;
-  const kept = S.song.rows.filter((r) => wasOn(r) && keep(byId[r.id]));
-  const on = new Set((kept.length ? kept : S.song.rows.filter(wasOn)).map((r) => r.id));
   for (const r of S.song.rows) {
-    const tail = S.song.cells[r.id][i].at(-1);
-    S.song.cells[r.id].splice(i + 1, 0, Array.from({ length: blocksIn(sec) }, (_, j) => ({
-      on: on.has(r.id),
-      k: tail.k ?? 0,
-      ...(tail.g0 != null || tail.g1 != null ? { g0: gEnd(tail) } : {}),
-      fill: false,
-    })));
+    const l = byId[r.id];
+    S.song.cells[r.id].splice(i + 1, 0, Array.from({ length: blocksIn(sec) }, (_, j) => {
+      const c = { on: on.has(r.id), k: l ? blockVar(l, sec, j) : 0, ...(l ? blockFx(l, i + 1, j) : {}) };
+      if (!c.on) c.fill = false;
+      return c;
+    }));
   }
   if (S.song.audition > i) S.song.audition++;
   sync();
@@ -568,15 +569,59 @@ function renderStem() {
           c.append(pick, tools);
         }
       }
+      c.dataset.row = r.id;
+      if (!cell.on) c.addEventListener('pointerdown', (e) => brushDown(e, r.id, cell));
       c.addEventListener('click', () => {
+        if (brushClick) return; // the end of a drag across empty cells: they are on already
         cell.on = !cell.on;
         if (!cell.on) cell.fill = false;
         sync();
       });
+      c.cellRef = cell;
       grid.append(c);
     }));
   }
 }
+
+// A press on an empty cell and a drag along its row: every empty cell of that instrument the
+// drag spans is put in (a press without a drag is a plain click). The grid is redrawn as
+// it goes; the cells under the mouse are found by their row id.
+let brush = null, brushClick = false;
+function brushDown(e, rowId, cell) {
+  if (e.button > 0 || e.target.closest('button')) return;
+  e.preventDefault(); // no text selection while dragging
+  brush = { rowId, start: cell, x: e.clientX, y: e.clientY, moved: false };
+}
+addEventListener('pointermove', (e) => {
+  if (!brush) return;
+  if (!brush.moved && Math.hypot(e.clientX - brush.x, e.clientY - brush.y) < 4) return;
+  brush.moved = true;
+  // every cell between the one pressed and the one under the mouse (a quick drag skips none)
+  const el = document.elementFromPoint(e.clientX, e.clientY)?.closest('.stem-grid .cell');
+  const row = S.song?.cells[brush.rowId]?.flat() ?? [];
+  const a = row.indexOf(brush.start), b = el?.dataset.row === brush.rowId ? row.indexOf(el.cellRef) : -1;
+  const cells = b < 0 ? [brush.start] : row.slice(Math.min(a, b), Math.max(a, b) + 1);
+  let changed = false;
+  for (const c of cells) {
+    if (c.on) continue;
+    c.on = true;
+    changed = true;
+  }
+  if (changed) {
+    renderSong();
+    syncSoon();
+  }
+});
+addEventListener('pointerup', () => {
+  if (!brush) return;
+  const moved = brush.moved;
+  brush = null;
+  if (!moved) return;
+  // the click that follows the drag (on the cell it started on) must not take it out again
+  brushClick = true;
+  setTimeout(() => (brushClick = false), 0);
+  sync();
+});
 
 // The block of an orb without variations: | start ⌁ shape …… ✕ end |. The two edges are drag
 // handles (up = stronger, down = softer) for the strength at its start and end; the end follows
@@ -820,18 +865,28 @@ ui.songBtn.addEventListener('click', () => askFirst(ui.songBtn, ot('otherSongAsk
 $('stemReopen').addEventListener('click', () => !S.song && startSong(!!S.lastSong));
 $('songOff').addEventListener('click', closeSong);
 $('stemClose').addEventListener('click', closeSong);
-// ? beside ↩ 루프 모드로: what stem mode is and how to work it (the license dialog's frame)
-const stemHelpDlg = document.createElement('dialog');
-stemHelpDlg.className = 'lic stem-help-dlg';
-document.body.append(stemHelpDlg);
-stemHelpDlg.addEventListener('click', (e) => e.target === stemHelpDlg && stemHelpDlg.close());
-$('stemHelp').addEventListener('click', () => {
-  stemHelpDlg.innerHTML = `<div class="lic-head"><b>${ot('stemHelpTitle')}</b><button type="button" class="ghost lic-x" aria-label="✕">✕</button></div>
-    <div class="lic-body">${ot('stemHelpBody')}</div>`;
-  stemHelpDlg.setAttribute('aria-label', ot('stemHelpTitle'));
-  stemHelpDlg.querySelector('.lic-x').onclick = () => stemHelpDlg.close();
-  stemHelpDlg.showModal();
-});
+// ? beside ↩ 루프 모드로: a tour of stem mode, pointing at each part in turn (tutorial.js tour).
+// Parts not on screen (no fill-able or strength-only orb in the song, say) are passed over.
+const grid1 = (sel) => () => ui.stemGrid.querySelector(sel);
+const STEM_TOUR = [
+  ['Intro', () => $('stemBody')],
+  ['Section', grid1('.sh')],
+  ['Bars', () => [...ui.stemGrid.querySelectorAll('.barnum')].slice(0, 8)],
+  ['Grip', grid1('.sh .grip')],
+  ['SecTools', () => [...(ui.stemGrid.querySelector('.sh')?.querySelectorAll('.secsub, .secadd, .secdel') ?? [])]],
+  ['Row', grid1('.rh')],
+  ['Cell', grid1('.cell.on')],
+  ['Vars', () => [...ui.stemGrid.querySelectorAll('.cvars')].find((v) => v.firstChild?.style.visibility !== 'hidden')],
+  ['Fill', grid1('.cellfill')],
+  ['Ramp', grid1('.cell.ramp')],
+  ['Random', () => ui.songBtn],
+  ['Save', () => stemTools],
+  ['Close', () => $('stemClose')],
+];
+$('stemHelp').addEventListener('click', () => tour(
+  STEM_TOUR.map(([k, target]) => ({ target, title: ot('stemTour' + k), text: ot('stemTour' + k + 'Text') })),
+  { prev: ot('tourPrev'), next: ot('tourNext'), done: ot('tourDone'), close: ot('tourClose') },
+));
 
 // where the song is now: the section and how far into it (a looped section counts on its own)
 // Where in its 4-bar loop the music is now (0 to BARS), for the backdrop's sweep and the edit

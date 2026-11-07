@@ -7,6 +7,7 @@ import { byId } from '../orbCatalog.js';
 import { fetchOrbs, uploadOrb } from '../presetApi.js';
 import { editOf, kindOf, rootId, checkCustom, registerCustom, makeDef } from '../orbEdit.js';
 import { createOrbEditor } from '../orbEditor.js';
+import { busy, tour } from '../tutorial.js';
 import { ot } from '../orbsI18n.js';
 import { $, S, active, drawnOf, heldSeed, orbVars, setStep, setVars, ui, volStep } from './state.js';
 import { chanOf, codeOf, play, returnOrb, seeded, stop, syncSoon } from './audio.js';
@@ -40,6 +41,7 @@ const orbEditor = createOrbEditor(ui.orbEdit, {
   },
   onDone: (s) => finishOrbEdit(s),
   onCancel: () => closeOrbEdit(),
+  onHelp: () => editTour(),
   paintOrb(el, l, color) {
     el.className = 'oe-ball mini';
     paint(el, color ? Object.create(l, { color: { value: color }, glow: { value: color }, colors: { value: undefined } }) : l);
@@ -90,10 +92,39 @@ function openOrbEdit(id) {
   orbEditor.open({ orb: l, code, kind: kindOf(l, code, start), start, name: def?.name || editName(l), color: def?.color ?? '' });
   bump(ui.orbEdit, 'gulp');
   renderSlots();
+  firstEditTour();
   if (!S.playing) {
     editStartedPlay = !active.size;
     play();
   } else syncSoon();
+}
+// ? in the panel's top line: a tour of the knobs panel (tutorial.js tour), the parts it points at
+// from orbEditor.parts. Parts this orb's kind doesn't have (no graph, say) are passed over.
+const EDIT_TOUR = ['Intro', 'Orb', 'Graph', 'Knobs', 'Section', 'Slots', 'All', 'AB', 'Solo', 'Reset', 'Done'];
+function editTour() {
+  if (!orbEditing) return;
+  tour(
+    EDIT_TOUR.map((k) => ({ target: orbEditor.parts[k.toLowerCase()], title: ot('editTour' + k), text: ot('editTour' + k + 'Text') })),
+    { prev: ot('tourPrev'), next: ot('tourNext'), done: ot('tourDone'), close: ot('tourClose') },
+  );
+}
+// The first time the panel opens in this browser the tour starts by itself, once the panel has
+// slid in and any first-visit note (tutorial.js spotlight) is gone.
+const EDIT_TOUR_KEY = 'orbEditTourSeen';
+function firstEditTour() {
+  try {
+    if (localStorage.getItem(EDIT_TOUR_KEY)) return;
+    localStorage.setItem(EDIT_TOUR_KEY, '1');
+  } catch {
+    return;
+  }
+  const at = orbEditing;
+  const tryStart = (left) => {
+    if (orbEditing !== at) return; // closed (or another orb) before it could start
+    if (busy() && left) return setTimeout(() => tryStart(left - 1), 500);
+    editTour();
+  };
+  setTimeout(() => tryStart(20), 600);
 }
 // a new custom orb's name to start from: one more adjective in front of the orb's own name
 function editName(l) {

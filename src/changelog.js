@@ -7,6 +7,32 @@ import './licenses.css';
 
 // [version, date, { ko: [...], en: [...], ja: [...] }]
 const NOTES = [
+  ['0.5.4', '2026-11-08', {
+    ko: [
+      '스템 모드의 ? 가 기능 둘러보기로 바뀌었어요: 섹션 · 칸 · 변주 · 필인 · 세기를 하나씩 짚어 가며 ◀ ▶ 로 넘겨 봐요',
+      '🎛 편집 화면에도 ? 둘러보기가 생겼어요. 편집 화면을 처음 열면 한 번 저절로 시작해요',
+      '스템: 빈 칸에서 옆으로 드래그하면 그 악기의 여러 칸을 한 번에 켜요',
+      '스템: ＋ 로 넣은 섹션이 곡을 짤 때와 같은 구성(변주 · 필인 · 세기)으로 채워져요',
+      '스템: 곡 뒷부분에 세트에 없던 오브가 끼어들지 않아요. 키와 변주만 바뀌어요',
+      '좁은 창에서도 슬롯이 한 줄로 놓여요 · 휴대폰에서는 🎛 편집이 빠졌어요 (넓은 화면 전용)',
+    ],
+    en: [
+      'The ? in stem mode is now a tour: it points at sections, cells, variations, fills and strength one by one, with ◀ ▶ to step through',
+      'The 🎛 Edit panel gets a ? tour too, and runs it once by itself the first time you open the panel',
+      'Stems: drag along a row from an empty cell to put that instrument into several cells at once',
+      'Stems: a section added with ＋ is laid out the way the song plan lays it out (variations, fills, strength)',
+      'Stems: later sections no longer bring in orbs that are not in your set; only the key and variations change',
+      'Narrow windows keep the slots in one row · on phones 🎛 Edit is gone (wide screens only)',
+    ],
+    ja: [
+      'ステムモードの ? が機能ツアーに:セクション・マス・変奏・フィル・強さを一つずつ指して ◀ ▶ で進みます',
+      '🎛 編集画面にも ? ツアーができました。編集画面を初めて開くと一度だけ自動で始まります',
+      'ステム:空のマスから横にドラッグすると、その楽器のマスをまとめてオンにできます',
+      'ステム:＋ で足したセクションが、曲を組むときと同じ構成(変奏・フィル・強さ)で埋まります',
+      'ステム:曲の後半にセットにないオーブが入り込まなくなりました。変わるのはキーと変奏だけです',
+      '狭いウィンドウでもスロットが一列に並びます · スマホでは 🎛 編集を外しました (広い画面専用)',
+    ],
+  }],
   ['0.5.3', '2026-11-07', {
     ko: [
       '메뉴와 버튼이 더 깔끔해졌어요: 아이콘을 빼고 글자만 남겼어요 (서버 공유 · 모두의 곡 · 커스텀 오브만 🌐)',

@@ -2,7 +2,7 @@
    One-row header (📁 presets sheet, 🔍, ⋯ menu) / the orbs raining around the player, with the
    song's orbs and buttons under it / the stash as a strip at the bottom.
    Along the top of the player area: 전부 비우기 · what the touched orb is · ⇪ 내보내기. The full-song
-   stems stay on wide screens. The orb slots (편집 · 약하게 · 세게 · 변주) are always out, a low row
+   stems and 🎛 편집 (the sound editor) stay on wide screens. The orb slots (약하게 · 세게 · 변주) are always out, a low row
    between the orbs and the stash, and 편집's piano roll slides up over the bottom of the field.
    orbsMobile.js moves the elements around. */
 .m-head-btns, .m-credit, .m-sheet, .m-export, .m-rotate { display: none; }
@@ -101,12 +101,12 @@
   .slot-label i { font-size: 13px; }
   .orb-slot small { display: none; }
   .orb-slot.hot { transform: scale(1.06); }
-  /* 🎛 편집: its 열기 button as a sign only; the knobs panel takes the whole screen under the top bar */
+  /* 🎛 편집 (the sound editor) is for wide screens: its slot, the line before it and its panel are hidden
+     (drag.js doesn't take orbs into it here). The rules below are kept for when it comes back. */
+  #editWrap, #varyWrap + .slot-sep, .orbedit { display: none !important; }
   .edit-wrap { gap: 3px; }
   #slots .orb-slot { --d: 46px; }
   .edit-wrap:not(.on) #editOpen { display: none; }
-  #editOpen { font-size: 0; }
-  #editOpen::before { content: '🎛'; font-size: 13px; }
   .orbedit { position: fixed; top: var(--top-h, 52px); bottom: 0 !important; left: 0; right: 0; z-index: 40; }
   .oe-head { gap: 6px; padding: 8px; }
   .oe-tools button { font-size: 11px; padding: 5px 6px; }

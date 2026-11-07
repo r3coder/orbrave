@@ -58,6 +58,7 @@ const W = {
   ab: L('A/B 원본 듣기', 'A/B hear original', 'A/B 元の音'), abOn: L('🅰 원본 듣는 중', '🅰 hearing original', '🅰 元の音'),
   solo: L('🎧 솔로', '🎧 Solo', '🎧 ソロ'), resetAll: L('↺ 전부 되돌리기', '↺ Reset all', '↺ 全部戻す'),
   cancel: L('✕ 취소', '✕ Cancel', '✕ キャンセル'), done: L('✓ 편집 완료', '✓ Finish editing', '✓ 編集完了'),
+  help: L('편집 화면 둘러보기', 'Tour of the editor', '編集画面ツアー'),
   ask: L('이 프리셋을 서버에 전송할까요?', 'Send this preset to the server?', 'このプリセットをサーバーに送信しますか？'),
   askYes: L('네', 'Yes', 'はい'),
   askKeep: L('아직 아니요, 편집을 계속합니다.', 'Not yet, keep editing.', 'まだです、編集を続けます。'),
@@ -193,6 +194,9 @@ export function createOrbEditor(root, hooks) {
   const resetBtn = el('button', 'oe-reset');
   const cancelBtn = el('button', 'oe-cancel');
   const doneBtn = el('button', 'oe-done go');
+  // ?: a tour of the panel (the orb page runs it: hooks.onHelp)
+  const helpBtn = el('button', 'oe-help', '?');
+  helpBtn.setAttribute('aria-label', '?');
   // ✓ 편집 완료 asks first whether the orb goes to the server too
   const ask = el('dialog', 'import oe-ask');
   const askText = el('p', 'oe-ask-q');
@@ -215,7 +219,7 @@ export function createOrbEditor(root, hooks) {
     return b;
   });
   allBox.append(allLabel, ...allBtns);
-  tools.append(allBox, abBtn, soloBtn, resetBtn, cancelBtn, doneBtn);
+  tools.append(allBox, abBtn, soloBtn, resetBtn, cancelBtn, doneBtn, helpBtn);
   head.append(ball, colorIn, who, tools);
   root.append(ask);
   const pane = el('div', 'oe-pane');
@@ -291,6 +295,7 @@ export function createOrbEditor(root, hooks) {
     cancelBtn.textContent = say(W.cancel);
     doneBtn.textContent = say(W.done);
     doneBtn.disabled = !n;
+    helpBtn.title = say(W.help);
     nameIn.placeholder = say(W.name);
     colorIn.title = say(W.color);
     allLabel.textContent = say(W.all);
@@ -960,6 +965,7 @@ export function createOrbEditor(root, hooks) {
     emit({ rerender: true });
   });
   cancelBtn.addEventListener('click', () => hooks.onCancel?.());
+  helpBtn.addEventListener('click', () => hooks.onHelp?.());
   doneBtn.addEventListener('click', () => {
     if (!changed()) return;
     if (!hooks.canUpload?.()) return hooks.onDone?.({ ...state(), upload: false });
@@ -1012,6 +1018,21 @@ export function createOrbEditor(root, hooks) {
       return !!st;
     },
     state,
+    // the parts a tour points at, each looked up when its step shows (the pane is drawn again
+    // on some changes, and holds only the sections this orb's kind has)
+    parts: {
+      intro: () => [head, pane.querySelector('.oe-hint')],
+      orb: () => [ball, colorIn, who],
+      graph: () => pane.querySelector('.oe-graph'),
+      knobs: () => pane.querySelector('.oe-row'),
+      section: () => pane.querySelector('.oe-sh .oe-st'),
+      slots: () => pane.querySelector('.oe-sh .oe-slots'),
+      all: () => allBox,
+      ab: () => abBtn,
+      solo: () => soloBtn,
+      reset: () => [resetBtn, cancelBtn],
+      done: () => doneBtn,
+    },
     // the language changed: words again
     relabel() {
       if (!st) return;
