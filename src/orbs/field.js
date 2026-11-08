@@ -176,6 +176,16 @@ function pickCandidate() {
 // those orbs down lowers that share for a while (taste.scaleKeep).
 const SCALE_SHARE = 0.3;
 const MOOD_SHARE = 0.08;
+// Combos fall less once the song is full: from about 15% of drops at COMBO_FULL orbs (×COMBO_HI)
+// easing down towards about 3% (×COMBO_LO) over COMBO_TAU orbs (≈5% at 10, ≈3.4% at 14), with
+// every sound part in the song. A combo whose parts are mostly in the song already adds little,
+// so it falls less again (up to COMBO_OVERLAP off when all but one are in).
+const COMBO_FULL = 4, COMBO_HI = 0.76, COMBO_LO = 0.13, COMBO_TAU = 3, COMBO_OVERLAP = 0.7;
+function comboDamp(l) {
+  const crowd = COMBO_LO + (COMBO_HI - COMBO_LO) * Math.exp(-Math.max(0, active.size - COMBO_FULL) / COMBO_TAU);
+  const have = l.combo.filter((c) => active.has(c)).length / l.combo.length;
+  return crowd * (1 - COMBO_OVERLAP * have);
+}
 function spawnWeights(pool, activeCats) {
   const fams = new Map(); // cat -> Map(family -> count)
   for (const l of pool) {
@@ -196,7 +206,7 @@ function spawnWeights(pool, activeCats) {
   const w = pool.map((l) => {
     const n = fams.get(l.cat).get(l.family);
     const cat = (CAT_SHARE[l.cat] ?? 20) * (activeCats.has(l.cat) ? 1 : 4) * (l.combo || l.fx || l.duck || l.bpm || l.mode ? 0.25 : 1);
-    return (cat * famWeights.get(l.cat).get(l.family)) / catTotal.get(l.cat) / n;
+    return ((cat * famWeights.get(l.cat).get(l.family)) / catTotal.get(l.cat) / n) * (l.combo ? comboDamp(l) : 1);
   });
   // moods, once the song has one: a fixed MOOD_SHARE of all drops instead of the ¼× (several are
   // worth trying); their split over the mood families stays as above. Without one, the 4× above.

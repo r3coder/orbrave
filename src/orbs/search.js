@@ -117,11 +117,14 @@ const searchTest = (q) => {
   const ok = (l, t) => (t.field ? matchesField(l, t.field, t.value) : matchesTerm(l, t.value)) !== t.neg;
   return (l) => terms.every((t) => ok(l, t));
 };
+// how many effects a mood stacks, read from its kind line ("공간 · 메아리+빙글" → 2): search lists
+// single-effect moods first, then the ones with two, then three. Every other orb counts as one.
+const fxCount = (l) => (l.cat === 'mood' ? (l.kindKo ?? l.kind).split(' · ').pop().split('+').length : 1);
 function renderSearch() {
   const q = ui.searchInput.value;
   hideHitMeta();
   if (searchMode === 'custom') return renderCustomSearch(q);
-  const found = q.trim() ? LAYERS.filter(searchTest(q)).slice(0, 96) : [];
+  const found = q.trim() ? LAYERS.filter(searchTest(q)).sort((a, b) => fxCount(a) - fxCount(b)).slice(0, 96) : [];
   ui.searchResults.innerHTML = found.length ? '' : `<p class="empty">${ot(q.trim() ? 'noMatch' : 'searchEx')}</p>`;
   for (const l of found) ui.searchResults.append(hitEl(l));
 }

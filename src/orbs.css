@@ -1143,6 +1143,13 @@ body.server-down .ptile .share.cloud { display: none; } /* no ☁ on tiles while
   transition: flex-basis 0.3s;
 }
 body.stem-open .stems { flex-basis: 64vh; border-top-color: var(--line); }
+/* wide screens: the stems take nearly the whole column, the orb field keeps a thin strip on top to
+   grab orbs from (the roll, when open, keeps its own height below) */
+@media (min-width: 761px) {
+  .field { transition: flex 0.3s; }
+  body.stem-open .field { flex: 0 0 clamp(64px, 13vh, 120px); }
+  body.stem-open .stems { flex: 1 1 0; }
+}
 body.stem-open.roll-full .stems { flex-basis: 50vh; }
 body.stem-open.roll-full .roll { flex-basis: 30vh; }
 body.stem-open.roll-full.roll-min .stems { flex-basis: 64vh; }
@@ -1160,7 +1167,11 @@ body.stem-open.roll-full.roll-min .roll { flex-basis: 76px; }
 .stem-body { position: relative; flex: 1; min-height: 0; overflow: auto; }
 /* row 2: the bar numbers between the section heads and the instruments */
 .stem-grid { display: grid; grid-template-rows: 34px 22px; grid-auto-rows: 34px; gap: 2px; padding: 0 8px 8px; min-width: max-content; }
+/* the sticky head rows (corner, section heads, bar numbers) also paint the grid's 2px gaps to their
+   right and above, so the blocks scrolling under them don't show through the cracks */
+.stem-grid { --gapfill: 2px 0 0 var(--deep), 0 -2px 0 var(--deep), 2px -2px 0 var(--deep); }
 .stem-grid .corner {
+  box-shadow: var(--gapfill);
   position: sticky; left: 0; top: 0; z-index: 3;
   display: flex; align-items: center; padding-left: 4px;
   font-size: 10px; color: var(--dim); background: var(--deep);
@@ -1170,6 +1181,7 @@ body.stem-open.roll-full.roll-min .roll { flex-basis: 76px; }
   position: sticky; top: 0; z-index: 2;
   display: flex; align-items: center; justify-content: space-between; gap: 2px; padding: 0 4px;
   background: var(--deep); border-bottom: 1px solid var(--line); overflow: hidden;
+  box-shadow: var(--gapfill);
   /* its buttons never widen the column: otherwise a one-block (4-bar) section stretches every
      1fr column of the grid to fit its head */
   contain: inline-size;
@@ -1219,16 +1231,17 @@ button.arm::after {
   background: var(--deep); border-bottom: 1px solid color-mix(in srgb, var(--hi) 8%, transparent);
   font-size: 9px; color: color-mix(in srgb, var(--dim) 70%, transparent); font-variant-numeric: tabular-nums; cursor: pointer;
   contain: inline-size; overflow: hidden;
+  box-shadow: var(--gapfill);
 }
 .barnum.blk { color: var(--dim); }
-.barnum.first { color: color-mix(in srgb, var(--fg) 80%, transparent); box-shadow: inset 1px 0 color-mix(in srgb, var(--hi) 28%, transparent); }
+.barnum.first { color: color-mix(in srgb, var(--fg) 80%, transparent); box-shadow: inset 1px 0 color-mix(in srgb, var(--hi) 28%, transparent), var(--gapfill); }
 .barnum:hover { color: var(--acc); background: color-mix(in srgb, var(--acc) 12%, var(--deep)); }
 /* click a section head: play from the 4-bar block under the mouse · double-click: loop the section */
 .stem-grid .sh { cursor: pointer; user-select: none; }
 .sh .sname { font-size: 11px; padding: 2px 4px; color: var(--fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sh:hover .sname { color: var(--acc); }
 .sh.mod .sname { color: var(--gold); }
-.sh.now { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--acc) 55%, transparent); }
+.sh.now { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--acc) 55%, transparent), var(--gapfill); }
 /* the section's progress: a bar along its bottom edge, full once it is past */
 .sh .prog {
   position: absolute; left: 0; right: 0; bottom: 0; height: 3px; pointer-events: none;
@@ -1284,7 +1297,9 @@ button.arm::after {
 .cnum { font: 600 10px/1 ui-monospace, Consolas, monospace; color: var(--fg); text-shadow: 0 1px 2px var(--halo); padding: 0 1px; }
 /* an orb without variations: | start ⌁ shape …… ✕ end | — the edges are drag handles for the
    strength at the block's start and end, and a line across it draws the strength (darker above) */
-.cell.on.ramp { position: relative; justify-content: flex-start; gap: 2px; padding: 0; }
+/* isolation: its handles' z-index stays inside the block, so they slide under the sticky row head
+   (also z-index 1) instead of over it when the grid scrolls sideways */
+.cell.on.ramp { position: relative; isolation: isolate; justify-content: flex-start; gap: 2px; padding: 0; }
 .cramp { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .cramp .shade { fill: color-mix(in srgb, var(--shadow) 55%, transparent); }
 .cramp polyline { fill: none; stroke: var(--fg); stroke-width: 1.5; opacity: 0.9; }
@@ -1326,7 +1341,7 @@ button.arm::after {
 .stem-body.waiting .stem-cursor { background: var(--dim); box-shadow: none; opacity: 0.7; }
 .stem-body.waiting .sh.now .prog,
 .stem-body.waiting .sh.mod.now .prog { background: color-mix(in srgb, var(--dim) 60%, transparent); box-shadow: none; }
-.stem-body.waiting .sh.now { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--dim) 45%, transparent); }
+.stem-body.waiting .sh.now { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--dim) 45%, transparent), var(--gapfill); }
 .stem-count {
   position: absolute; top: 6px; z-index: 5; pointer-events: none;
   width: 24px; height: 24px; margin-left: -11px; border-radius: 50%;
@@ -1361,8 +1376,6 @@ button.arm::after {
   .strip b { font-size: 10px; }
   .strip span { font-size: 8px; }
   .actions button { padding: 4px 10px; }
-  /* leave the orb field room to grab from while the stems are open */
-  body.stem-open .stems { flex-basis: 54vh; }
   .stash { padding-top: 14px; }
   .stash-slots .cell { width: 36px; height: 36px; }
 }

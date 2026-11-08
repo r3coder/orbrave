@@ -7,6 +7,32 @@ import './licenses.css';
 
 // [version, date, { ko: [...], en: [...], ja: [...] }]
 const NOTES = [
+  ['0.5.5', '2026-11-08', {
+    ko: [
+      '분위기 오브에 효과 하나만 담은 4개가 생겼어요: 멜로디는 잠시 쉬어 · 베이스 없는 오후 · 드럼만 남은 무대 · 어깨가 들썩이는 스윙',
+      '분위기 오브 구성을 고르게 다듬었어요: 효과마다 혼자 쓰는 오브가 하나씩, 나머지는 두세 효과 조합 (일부 분위기는 소리가 바뀌었어요)',
+      '검색하면 효과 하나짜리 분위기가 먼저, 그다음 두 개 · 세 개짜리 순으로 나와요',
+      '곡에 오브가 많아질수록 콤보 오브가 덜 떨어지고, 이미 곡에 있는 파트로 된 콤보는 더 드물게 나와요',
+      '넓은 화면: 스템을 열면 스템이 거의 전체를 쓰고, 오브 필드는 위에 얇게 남아 오브를 집을 수 있어요',
+      '스템: 옆으로 스크롤할 때 머리 줄 틈새로 칸이 비치거나 세기 손잡이가 악기 이름 위로 올라오던 문제를 고쳤어요',
+    ],
+    en: [
+      'Four mood orbs with a single effect each: Melody Takes Five · An Afternoon Without Bass · Drums Take the Stage · Shoulder-Shaking Swing',
+      'Moods are evened out: each effect has one mood of its own, the rest stack two or three (some moods sound different now)',
+      'Search lists single-effect moods first, then two- and three-effect ones',
+      'Combo orbs fall less often as the song fills up, and even less when their parts are already in the song',
+      'Wide screens: opening the stems gives them nearly the whole column, with a thin strip of the orb field left on top to grab orbs from',
+      'Stems: cells no longer show through gaps in the header rows when scrolling sideways, and strength handles slide under the instrument names',
+    ],
+    ja: [
+      'ムードオーブにエフェクト一つだけのものが4つ:メロディはひと休み · ベースのない午後 · ドラムだけのステージ · 肩が揺れるスイング',
+      'ムードの構成を整えました:エフェクトごとに単独のムードが一つ、残りは2〜3個の組み合わせ (一部のムードは音が変わりました)',
+      '検索でエフェクト一つのムードが先に、続いて2つ・3つのものが並びます',
+      '曲のオーブが増えるほどコンボオーブが落ちにくくなり、パートがすでに曲にあるコンボはさらに出にくくなります',
+      '広い画面:ステムを開くとステムがほぼ全体を使い、オーブフィールドは上に細く残ってオーブをつかめます',
+      'ステム:横スクロール時に見出し行のすき間からマスが透けたり、強さハンドルが楽器名の上に出たりする問題を直しました',
+    ],
+  }],
   ['0.5.4', '2026-11-08', {
     ko: [
       '스템 모드의 ? 가 기능 둘러보기로 바뀌었어요: 섹션 · 칸 · 변주 · 필인 · 세기를 하나씩 짚어 가며 ◀ ▶ 로 넘겨 봐요',

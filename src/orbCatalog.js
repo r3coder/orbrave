@@ -2086,6 +2086,46 @@ const EQ_ORBS = [
   { id: 'eqLowCut', kind: 'EQ · 저음 줄이기', name: '깃털처럼 가볍게', colors: ['#e9ff70', '#ffd670', '#ff9770'], fx: `.hpf(260)` },
   { id: 'eqHighCut', kind: 'EQ · 고음 줄이기', name: '포근한 솜이불', colors: ['#6d597a', '#b56576', '#eaac8b'], fx: `.lpf(2400)` },
 ].map((o) => ({ ...o, cat: 'mood', sub: 'eq', eq: true }));
+// ---------- single-effect moods ----------
+// Effects that only came stacked with others in the generated moods ("멜로디 줄임+구멍+얇은",
+// "얇은+스윙" …) also get a mood of their own, so each can be tried alone.
+const SINGLE_MOODS = [
+  { id: 'meloRest', sub: 'mix', kind: '밸런스 · 멜로디 줄임', name: '멜로디는 잠시 쉬어', colors: ['#ffd6a5', '#caffbf', '#9bf6ff'], duck: MOOD_MUTES[3].duck },
+  { id: 'bassless', sub: 'mix', kind: '밸런스 · 베이스 줄임', name: '베이스 없는 오후', colors: ['#fdffb6', '#ffc6ff', '#bdb2ff'], duck: MOOD_MUTES[2].duck },
+  { id: 'drumStage', sub: 'mix', kind: '밸런스 · 드럼 강조', name: '드럼만 남은 무대', colors: ['#ef476f', '#ffd166', '#118ab2'], duck: MOOD_MUTES[1].duck },
+  { id: 'swingFeel', sub: 'motion', kind: '움직임 · 스윙', name: '어깨가 들썩이는 스윙', colors: ['#ff9f1c', '#2ec4b6', '#cbf3f0'], fx: `.swingBy(1/3, 4)` },
+].map((o) => ({ ...o, cat: 'mood' }));
+// Mood balance: every effect has exactly one single-effect mood (the 약하게 / 세게 slots set its
+// strength) and five to seven moods in all, the rest two- and three-effect stacks. The generated
+// moods had several singles of the same effect and few stacks of others, so those keep their id and
+// name but are redone here (a song saved with one sounds different now, but still loads); two
+// 먹먹 stacks swap it for something rarer. Applied after generation, so no other orb changes.
+const DUCK = Object.fromEntries(MOOD_MUTES.map((m) => [m.label, m.duck]));
+const reMood = (sub, words, fx = '') => {
+  const mute = words.find((w) => DUCK[w]);
+  return { sub: mute ? 'mix' : sub, kind: `${MOOD_SUBS[mute ? 'mix' : sub]} · ${words.join('+')}`, fx: fx || undefined, duck: mute ? DUCK[mute] : undefined };
+};
+const MOOD_REWORK = {
+  // the two effects that had no mood at all, alone
+  mood10: reMood('motion', ['거울'], `.jux(rev)`),
+  mood26: reMood('mix', ['리듬 강조']),
+  // stacks for the rare ones, mostly with a balance part
+  mood39: reMood('mix', ['베이스 줄임', '얇은'], `.hpf(500)`),
+  mood41: reMood('mix', ['베이스 줄임', '거울'], `.jux(rev)`),
+  mood43: reMood('mix', ['베이스 줄임', '숨쉬는'], `.lpf(sine.range(300,3000).slow(4))`),
+  mood11: reMood('mix', ['멜로디 줄임', '스윙'], `.swingBy(1/6, 4)`),
+  mood14: reMood('mix', ['멜로디 줄임', '찌그러진'], `.shape(0.5)`),
+  mood21: reMood('mix', ['리듬 강조', '거울'], `.jux(rev)`),
+  mood12: reMood('mix', ['리듬 강조', '깨진'], `.coarse(4)`),
+  mood30: reMood('mix', ['리듬 강조', '구멍'], `.degradeBy(0.3)`),
+  mood33: reMood('mix', ['리듬 강조', '8비트', '찌그러진'], `.crush(5).shape(0.4)`),
+  mood31: reMood('mix', ['드럼 줄임', '말하는'], `.vowel("a")`),
+  mood42: reMood('mix', ['드럼 강조', '거울'], `.jux(rev)`),
+  // 먹먹 was in nine moods: two of its stacks take a rarer effect instead
+  mood5: reMood('texture', ['말하는', '거울'], `.vowel("e").jux(rev)`),
+  mood40: reMood('texture', ['8비트', '구멍'], `.crush(5).degradeBy(0.3)`),
+};
+const reworkMood = (l) => (MOOD_REWORK[l.id] ? { ...l, ...MOOD_REWORK[l.id] } : l);
 
 const NINTH = [...EIGHTH, ...generateScales(EIGHTH, ALT_ORBS_2, 2619)];
 // the tenth (line variations) and eleventh (concert percussion) batches go before the EQ orbs, which have ids of their own
@@ -2210,7 +2250,7 @@ function generateEdits(existing) {
     };
   });
 }
-export const LAYERS = [...TWELFTH, ...generateEdits(TWELFTH), ...EQ_ORBS];
+export const LAYERS = [...TWELFTH, ...generateEdits(TWELFTH), ...EQ_ORBS, ...SINGLE_MOODS].map(reworkMood);
 
 // Level trims from tools/orb-levels.html: every sound orb rendered alone (4 bars at 124 BPM,
 // variation seeds 1-3) and its K-weighted loudness (LUFS) matched to the median of its category,

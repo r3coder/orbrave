@@ -128,6 +128,10 @@ const FIXED = {
   '전화기 너머 목소리': ['Voice on the Phone', '電話越しの声'],
   '깃털처럼 가볍게': ['Light as a Feather', '羽のように軽く'],
   '포근한 솜이불': ['Cozy Quilt', 'ふかふかの綿布団'],
+  '멜로디는 잠시 쉬어': ['Melody Takes Five', 'メロディはひと休み'],
+  '베이스 없는 오후': ['An Afternoon Without Bass', 'ベースのない午後'],
+  '드럼만 남은 무대': ['Drums Take the Stage', 'ドラムだけのステージ'],
+  '어깨가 들썩이는 스윙': ['Shoulder-Shaking Swing', '肩が揺れるスイング'],
 };
 
 // words that turn up in an orb's small "kind" line
