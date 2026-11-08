@@ -5,12 +5,14 @@ import { closeEditor, rollOrb, seedFor, slotSay } from './variations.js';
 import { getAudioContext, getAnalyserById } from '@strudel/web';
 import { byId } from '../orbCatalog.js';
 import { fetchOrbs, uploadOrb } from '../presetApi.js';
-import { editOf, kindOf, rootId, checkCustom, registerCustom, makeDef } from '../orbEdit.js';
+import { editOf, kindOf, rootId, checkCustom, registerCustom, makeDef, makeMoodDef, moodProps } from '../orbEdit.js';
+import { createMoodEditor } from '../moodEditor.js';
+import { duckLabel } from '../orbCatalog.js';
 import { createOrbEditor } from '../orbEditor.js';
 import { busy, tour } from '../tutorial.js';
 import { ot } from '../orbsI18n.js';
 import { $, S, active, drawnOf, heldSeed, orbVars, setStep, setVars, ui, volStep } from './state.js';
-import { chanOf, codeOf, play, returnOrb, seeded, stop, syncSoon } from './audio.js';
+import { chanOf, codeOf, masterSpectrum, nowCycle, play, returnOrb, seeded, stop, syncSoon } from './audio.js';
 import { ctint, paint } from './list.js';
 import { SERVER_BATCH, hoverOff, rain, stash } from './field.js';
 import { bump, slotEls, slotIds, slotOrbs } from './drag.js';
@@ -42,11 +44,7 @@ const orbEditor = createOrbEditor(ui.orbEdit, {
   onDone: (s) => finishOrbEdit(s),
   onCancel: () => closeOrbEdit(),
   onHelp: () => editTour(),
-  paintOrb(el, l, color) {
-    el.className = 'oe-ball mini';
-    paint(el, color ? Object.create(l, { color: { value: color }, glow: { value: color }, colors: { value: undefined } }) : l);
-    el.innerHTML = '<i class="swirl"></i>';
-  },
+  paintOrb: (el, l, color) => orbEditor_paint(el, l, color),
   spectrum() {
     if (!S.playing || !orbEditing) return null;
     try {
@@ -61,6 +59,45 @@ const orbEditor = createOrbEditor(ui.orbEdit, {
   canUpload: () => serverUp !== false,
 });
 const EDIT_PREVIEW_ID = 'orbedit';
+function orbEditor_paint(el, l, color) {
+  el.className = 'oe-ball mini';
+  paint(el, color ? Object.create(l, { color: { value: color }, glow: { value: color }, colors: { value: undefined } }) : l);
+  el.innerHTML = '<i class="swirl"></i>';
+}
+
+// 🎛 편집 on a mood orb: its own panel (src/moodEditor.js) in the same place; the mood being made
+// is heard on top of the song's moods (audio.js fxOrbs, through moodPreview)
+const moodRoot = document.createElement('div');
+moodRoot.className = 'me';
+ui.orbEdit.append(moodRoot);
+const moodBuf = new Uint8Array(1024);
+const moodEditor = createMoodEditor(moodRoot, {
+  onChange(s) {
+    if (!orbEditing) return;
+    Object.assign(orbEditing, { m: s.m, ab: s.ab, color: s.color });
+    syncSoon();
+  },
+  onDone: (s) => finishOrbEdit(s),
+  onCancel: () => closeOrbEdit(),
+  onHelp: () => editTour(),
+  paintOrb: (el, l, color) => orbEditor_paint(el, l, color),
+  spectrum: () => (S.playing ? masterSpectrum(moodBuf) : null),
+  sampleRate: () => getAudioContext().sampleRate,
+  // the mood's curves loop every 4 bars on the clock (.slow(4))
+  position: () => (S.playing ? ((nowCycle() % 4) + 4) % 4 : null),
+  canUpload: () => serverUp !== false,
+  duckWords: (l) => (l.duck?.length ? duckLabel(l.duck) : ''),
+});
+// the mood being edited as the panel has it (null when no mood is open): A/B plays the orb as it was
+function moodPreview() {
+  if (!orbEditing?.mood) return null;
+  const l = byId[orbEditing.id];
+  if (!l) return null;
+  if (orbEditing.ab) return l;
+  const pv = Object.create(l);
+  Object.defineProperties(pv, { id: { value: 'moodedit' }, base: { value: l.id }, ...moodProps(orbEditing.m ?? {}) });
+  return pv;
+}
 // the orb being edited as the panel has it, under an id of its own (its analyser channel)
 function editPreview() {
   if (!orbEditing) return null;
@@ -77,6 +114,7 @@ function editPreview() {
 
 function openOrbEdit(id) {
   const l = byId[id];
+  if (l?.cat === 'mood') return openMoodEdit(id);
   if (!l?.code) return;
   if (rollOrb) closeEditor(); // the piano roll and the knobs share the space
   hoverOff();
@@ -98,31 +136,73 @@ function openOrbEdit(id) {
     play();
   } else syncSoon();
 }
-// ? in the panel's top line: a tour of the knobs panel (tutorial.js tour), the parts it points at
-// from orbEditor.parts. Parts this orb's kind doesn't have (no graph, say) are passed over.
-const EDIT_TOUR = ['Intro', 'Orb', 'Graph', 'Knobs', 'Section', 'Slots', 'All', 'AB', 'Solo', 'Reset', 'Done'];
-function editTour() {
+function openMoodEdit(id) {
+  const l = byId[id];
+  if (rollOrb) closeEditor();
+  hoverOff();
+  orbEditing = { id, mood: true, m: l.mood ?? null, ab: false };
+  ui.orbEdit.style.setProperty('--g', ctint(l));
+  placeOrbEdit();
+  ui.orbEdit.classList.add('mood');
+  document.body.classList.add('orbedit-open');
+  moodEditor.open({ orb: l, name: l.def?.name || editName(l), color: l.def?.color ?? '' });
+  // (the panel starts from the mood as it is: what it plays until something changes)
+  orbEditing.m = moodEditor.state().m;
+  bump(ui.orbEdit, 'gulp');
+  renderSlots();
+  firstEditTour();
+  if (!S.playing) {
+    editStartedPlay = !active.size;
+    play();
+  } else syncSoon();
+}
+// ? in the panel's top line: a tour of the panel (tutorial.js tour), the parts it points at from
+// the editor's parts. Parts this orb doesn't have (no graph, no curve yet) are passed over. The
+// sound panel (orbEditor) and the mood panel (moodEditor) share the head's steps: [text prefix, part].
+const SOUND_TOUR = ['Intro', 'Orb', 'Graph', 'Knobs', 'Section', 'Slots', 'All', 'AB', 'Solo', 'Reset', 'Done'].map((k) => ['editTour', k]);
+const MOOD_TOUR = [
+  ['moodTour', 'Intro'], ['editTour', 'Orb'], ['moodTour', 'Lanes'], ['moodTour', 'Full'], ['moodTour', 'Curve'],
+  ['moodTour', 'Shapes'], ['moodTour', 'Eq'], ['editTour', 'AB'], ['editTour', 'Reset'], ['editTour', 'Done'],
+];
+const stepId = ([p, k]) => p + k;
+const tourOf = () => (orbEditing?.mood ? [moodEditor, MOOD_TOUR] : [orbEditor, SOUND_TOUR]);
+// only: the steps to show (the first-time tour: just the ones not seen yet), else all of them
+function editTour(only) {
   if (!orbEditing) return;
+  const [ed, steps] = tourOf();
   tour(
-    EDIT_TOUR.map((k) => ({ target: orbEditor.parts[k.toLowerCase()], title: ot('editTour' + k), text: ot('editTour' + k + 'Text') })),
+    (only ?? steps).map(([p, k]) => ({ target: ed.parts[k.toLowerCase()], title: ot(p + k), text: ot(p + k + 'Text') })),
     { prev: ot('tourPrev'), next: ot('tourNext'), done: ot('tourDone'), close: ot('tourClose') },
   );
 }
-// The first time the panel opens in this browser the tour starts by itself, once the panel has
-// slid in and any first-visit note (tutorial.js spotlight) is gone.
-const EDIT_TOUR_KEY = 'orbEditTourSeen';
+// The first time each panel opens in this browser its tour starts by itself, once the panel has
+// slid in and any first-visit note (tutorial.js spotlight) is gone, showing only the steps not
+// seen in the other panel's tour (or an earlier one that had less on screen). The steps seen are
+// kept by id (EDIT_TOUR_KEY); the older all-or-nothing mark (OLD_TOUR_KEY) counts as the whole sound tour.
+const EDIT_TOUR_KEY = 'orbEditTourSteps', OLD_TOUR_KEY = 'orbEditTourSeen';
+function seenSteps() {
+  const list = JSON.parse(localStorage.getItem(EDIT_TOUR_KEY));
+  if (Array.isArray(list)) return new Set(list);
+  return new Set(localStorage.getItem(OLD_TOUR_KEY) ? SOUND_TOUR.map(stepId) : []);
+}
+const onScreen = (part) => {
+  const t = part?.();
+  return (Array.isArray(t) ? t : [t]).some((e) => e?.isConnected && e.getBoundingClientRect().width);
+};
 function firstEditTour() {
-  try {
-    if (localStorage.getItem(EDIT_TOUR_KEY)) return;
-    localStorage.setItem(EDIT_TOUR_KEY, '1');
-  } catch {
-    return;
-  }
   const at = orbEditing;
   const tryStart = (left) => {
     if (orbEditing !== at) return; // closed (or another orb) before it could start
     if (busy() && left) return setTimeout(() => tryStart(left - 1), 500);
-    editTour();
+    try {
+      const seen = seenSteps();
+      const [ed, steps] = tourOf();
+      const fresh = steps.filter((s) => !seen.has(stepId(s)) && onScreen(ed.parts[s[1].toLowerCase()]));
+      if (!fresh.length) return;
+      for (const s of fresh) seen.add(stepId(s));
+      localStorage.setItem(EDIT_TOUR_KEY, JSON.stringify([...seen]));
+      editTour(fresh);
+    } catch {}
   };
   setTimeout(() => tryStart(20), 600);
 }
@@ -137,6 +217,8 @@ function closeOrbEdit() {
   if (!orbEditing) return;
   orbEditing = null;
   orbEditor.close();
+  moodEditor.close();
+  ui.orbEdit.classList.remove('mood');
   document.body.classList.remove('orbedit-open');
   renderSlots();
   if (editStartedPlay && !active.size && !S.song) stop();
@@ -157,10 +239,10 @@ ui.editOpen.addEventListener('click', () => {
 });
 
 // ✓ 편집 완료: the knobs become a custom orb, and it takes the place of the orb in the 편집 slot
-function finishOrbEdit({ name, color, edit, upload }) {
+function finishOrbEdit({ name, color, edit, m, upload }) {
   const l = orbEditing && byId[orbEditing.id];
-  if (!l || !Object.keys(edit).length) return;
-  const def = makeDef(rootId(l, byId), edit, name, color);
+  if (!l || (orbEditing.mood ? !m : !Object.keys(edit).length)) return;
+  const def = orbEditing.mood ? makeMoodDef(rootId(l, byId), m, name, color) : makeDef(rootId(l, byId), edit, name, color);
   const c = registerCustom(def, byId);
   keepCustom(def);
   const slot = slotOrbs.edit;
@@ -348,6 +430,6 @@ $('orbUpForm').addEventListener('submit', async (e) => {
 
 export {
   closeOrbEdit, customDefsFor, customMeta, editPreview, ensureCustoms, myCustoms, openOrbDelete,
-  openOrbEdit, openOrbUpload, orbEditing, orbEditor, refreshSharedOrbs, serverErr, serverFell,
+  moodEditor, moodPreview, openOrbEdit, openOrbUpload, orbEditing, orbEditor, refreshSharedOrbs, serverErr, serverFell,
   serverLoad,
 };

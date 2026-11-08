@@ -2,7 +2,9 @@
 // edit, plain data checked against server/orbEditSpec.mjs; this file turns it into the Strudel
 // calls appended to the orb's own line (a later call of the same control replaces the orb's own
 // one), and reads an orb's own values back so the editor can start from them.
-import { EDIT_PARAMS, cleanCustomDef, cleanEdit, customIdOf } from '../server/orbEditSpec.mjs';
+import {
+  EDIT_PARAMS, EQ_DB, EQ_FREQS, MOOD_FX, MOOD_STEPS, cleanCustomDef, cleanEdit, cleanMood, customIdOf,
+} from '../server/orbEditSpec.mjs';
 import { cleanText } from '../server/presetSchema.mjs';
 
 export { EDIT_PARAMS, customIdOf };
@@ -161,7 +163,8 @@ export function checkCustom(d, byId) {
   try {
     const c = cleanCustomDef(d, { fail: (m) => { throw new Error(m); }, cleanText });
     const b = byId[c.base];
-    return b && b.code && !b.combo && !b.base ? c : null;
+    if (!b || b.base) return null;
+    return c.m ? (b.cat === 'mood' ? c : null) : b.code && !b.combo ? c : null;
   } catch {
     return null;
   }
@@ -177,11 +180,21 @@ export function makeDef(base, e, name = '', color = '') {
   const def = { base, name: n, color: /^#[0-9a-f]{6}$/i.test(color) ? color.toLowerCase() : '', e: cleanEdit(e) };
   return { id: customIdOf(def), ...def };
 }
+// a definition for a new custom mood (see makeDef)
+export function makeMoodDef(base, m, name = '', color = '') {
+  let n = '';
+  try {
+    n = cleanText(name, '오브 이름', 24);
+  } catch {}
+  const def = { base, name: n, color: /^#[0-9a-f]{6}$/i.test(color) ? color.toLowerCase() : '', m: cleanMood(m) };
+  return { id: customIdOf(def), ...def };
+}
 // the orb object for a definition (registered in byId; the same one if it already is)
 export function registerCustom(def, byId) {
   if (byId[def.id]) return byId[def.id];
   const b = byId[def.base];
   const l = Object.create(b);
+  if (def.m) Object.defineProperties(l, moodProps(def.m));
   Object.defineProperties(l, {
     id: { value: def.id, enumerable: true },
     base: { value: def.base, enumerable: true },
@@ -203,3 +216,100 @@ export function rootId(l, byId) {
 }
 // the edit an orb plays with (its own, or the custom orb it is a copy / drawing of)
 export const editOf = (l, byId) => l?.edit ?? (l?.src && byId[l.src]?.edit) ?? null;
+
+// ---------- custom moods ----------
+// A custom mood (server/orbEditSpec.mjs cleanMood) plays as Strudel calls on every part, like a
+// catalogue mood's `fx`, but made here from its lanes: moodFx(step) at the strength the 약하게 /
+// 세게 slots gave it. Its graphic EQ is not a Strudel call (Strudel has no peaking EQ): the page
+// puts it on the master bus (src/graphicEq.js), graphicEq(step) gives its bands in dB.
+// the properties that make an orb (a custom mood, or the one being edited) play `m`
+export const moodProps = (m) => ({
+  fx: { value: undefined }, eq: { value: false }, mood: { value: m },
+  moodFx: { value: (step = 0) => moodChain(m, step) },
+  graphicEq: { value: (step = 0) => moodEq(m, step) },
+});
+const clamp = (x, lo, hi) => Math.min(hi, Math.max(lo, x));
+// a 약하게 / 세게 step as a strength (the same as src/orbPreset.js fxStrength)
+const fxStrength = (step) => (step < 0 ? 0.6 ** -step : 1.25 ** step);
+// one effect's value at strength s (0 = off, 1 = its full value `v`, up to 1.5)
+export function moodValue(f, v, s) {
+  const p = MOOD_FX[f];
+  if (s <= 0) return p.off;
+  if (f === 'lpf') return Math.round(clamp(20000 * (v / 20000) ** s, 80, 20000));
+  if (f === 'hpf') return Math.round(clamp(20 * (v / 20) ** s, 20, 9000));
+  if (f === 'crush') return +clamp(16 - (16 - v) * s, 2, 16).toFixed(1);
+  if (f === 'coarse') return Math.max(1, Math.round(1 + (v - 1) * s));
+  return +clamp(v * s, 0, f === 'pan' ? 1 : 0.95).toFixed(3);
+}
+// the Strudel calls for a mood's lanes, all at `step` (fxStrength)
+export function moodChain(m, step = 0) {
+  const k = fxStrength(step), out = [];
+  for (const { f, v, c } of m?.l ?? []) {
+    const p = MOOD_FX[f];
+    if (!p) continue;
+    if (f === 'jux') {
+      if (k > 0.3) out.push('.jux(rev)');
+      continue;
+    }
+    if (f === 'vowel') {
+      if (k > 0.3) out.push(`.vowel("${v ?? p.def}")`);
+      continue;
+    }
+    if (f === 'swing') {
+      out.push(`.swingBy(${+clamp((v ?? p.def) * k, 0, 0.45).toFixed(3)}, 4)`);
+      continue;
+    }
+    let vals = (c ?? Array(MOOD_STEPS).fill(100)).map((n) => moodValue(f, v ?? p.def, Math.min(1.5, (n / 100) * k)));
+    // (Strudel's degradeBy(0) still drops a note right on the bar: a hair under 0 keeps it)
+    if (f === 'deg') vals = vals.map((x) => x || -0.001);
+    // one value all along: a plain number; else one per beat over the 4 bars
+    const arg = vals.every((x) => x === vals[0]) ? String(vals[0]) : `"${vals.join(' ')}".slow(4)`;
+    if (f === 'room') out.push(`.room(${arg}).roomsize(6)`);
+    else if (f === 'delay') out.push(`.delay(${arg}).delaytime(__DT__).delayfeedback(.55)`);
+    else if (f === 'deg') out.push(`.degradeBy(${arg})`);
+    // once around per bar (a cosine: on the beats it is left, centre, right, centre, not always centre)
+    else if (f === 'pan') out.push(`.pan(cosine.sub(.5).mul(${arg}).add(.5))`);
+    else out.push(`.${f}(${arg})`);
+  }
+  return out.join('');
+}
+// the graphic EQ's bands in dB at `step` (null when it has none)
+export function moodEq(m, step = 0) {
+  if (!m?.q) return null;
+  const k = fxStrength(step);
+  return m.q.map((db) => clamp(db * k, -EQ_DB * 1.5, EQ_DB * 1.5));
+}
+
+// A catalogue mood's `fx` as lanes to start editing from: its effects, each at the value it has
+// (a filter that moves becomes a curve). Effects with no lane (a fixed reverb size …) go.
+export function lanesOfFx(fx) {
+  const l = [];
+  const add = (lane) => !l.some((x) => x.f === lane.f) && l.push(lane);
+  for (const m of (fx ?? '').matchAll(/\.(\w+)\(((?:[^()]|\([^()]*(?:\([^()]*\))?[^()]*\))*)\)/g)) {
+    const [, name, arg] = m, n = parseFloat(arg);
+    const num = /^\s*-?[\d.]+\s*$/.test(arg);
+    if ((name === 'lpf' || name === 'hpf') && num) add({ f: name, v: n });
+    else if (name === 'lpf' || name === 'hpf') {
+      // a sweep: sine.range(lo,hi).slow(n) as a curve between the open filter and `lo`
+      const r = /range\(\s*([\d.]+)\s*,\s*([\d.]+)\s*\)(?:\.slow\(([\d.]+)\))?/.exec(arg);
+      if (!r) continue;
+      const lo = +r[1], hi = +r[2], per = +(r[3] ?? 1);
+      const edge = name === 'lpf' ? lo : hi, open = MOOD_FX[name].off;
+      const c = Array.from({ length: MOOD_STEPS }, (_, i) => {
+        const fq = lo + (hi - lo) * (0.5 + 0.5 * Math.sin((2 * Math.PI * (i / 4)) / per));
+        return Math.round(100 * clamp(Math.log(fq / open) / Math.log(edge / open), 0, 1));
+      });
+      add({ f: name, v: edge, c });
+    } else if (['crush', 'coarse', 'room', 'delay', 'shape'].includes(name) && num) add({ f: name, v: n });
+    else if (name === 'degradeBy' && num) add({ f: 'deg', v: n });
+    else if (name === 'pan') add({ f: 'pan', v: 1 });
+    else if (name === 'vowel') add({ f: 'vowel', v: arg.replace(/[^a-z]/g, '') || 'a' });
+    else if (name === 'jux') add({ f: 'jux' });
+    else if (name === 'swingBy') {
+      const [a, b] = arg.split(',')[0].split('/').map(Number);
+      add({ f: 'swing', v: b ? a / b : a });
+    }
+  }
+  return l;
+}
+export { EQ_FREQS };

@@ -47,8 +47,8 @@ const slotEls = Object.fromEntries(SLOTS.map((m) => [m, ui.slots.querySelector(`
 function accepts(mode, l) {
   if (!l || !slotLive(mode)) return false;
   if (mode === 'vary') return seeded(l) || (!!l.voice && !l.raw);
-  // 🎛 편집: an orb that plays a sound of its own (not a drawing: its notes are its own)
-  if (mode === 'edit') return !!l.code && !l.combo && !l.raw;
+  // 🎛 편집: an orb that plays a sound of its own (not a drawing: its notes are its own), or a mood
+  if (mode === 'edit') return (!!l.code && !l.combo && !l.raw) || l.cat === 'mood';
   // a mood orb: 약하게 / 세게 turn its effects down / up instead of a volume
   if (!l.code && (mode === 'quieter' || mode === 'louder') && fxScalable(l)) {
     return mode === 'quieter' ? volStep(l.id) > -VOL_STEPS : volStep(l.id) < VOL_STEPS;

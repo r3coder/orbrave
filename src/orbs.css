@@ -1683,3 +1683,42 @@ body.orbedit-open .orbedit { display: flex; }
 @container right (max-width: 560px) {
   .oe-rows { grid-template-columns: minmax(90px, max-content) 1fr 64px 24px; }
 }
+
+/* ---------- 🎛 편집 on a mood orb (src/moodEditor.js) ----------
+   The same place and head as the knobs panel; lanes 1–5 (an effect and its 4-bar strength
+   curve each), then a 31-band graphic EQ. */
+.orbedit > .me { display: none; flex: 1; min-height: 0; flex-direction: column; }
+.orbedit.mood > .me { display: flex; }
+.orbedit.mood > .oe-head, .orbedit.mood > .oe-pane { display: none; }
+.me-pane { display: block; }
+.me-lane { padding: 8px 0 10px; border-top: 1px dashed var(--line); }
+.me-lane:first-of-type { border-top: 0; }
+.me-lane.empty { padding: 5px 0; opacity: 0.75; }
+.me-lh { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
+.me-lane.empty .me-lh { margin-bottom: 0; }
+.me-num {
+  width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; flex: none;
+  font-size: 12px; font-weight: 700; color: var(--bg); background: var(--g);
+}
+.me-lane.empty .me-num { color: var(--dim); background: none; border: 1px solid var(--line); }
+.me-fx {
+  font: inherit; font-size: 12px; padding: 4px 6px; color: var(--fg); background: var(--bg);
+  border: 1px solid var(--line); border-radius: 4px; max-width: 200px;
+}
+.me-full { display: flex; align-items: center; gap: 6px; flex: 1 1 180px; min-width: 150px; }
+.me-full .oe-range { flex: 1; }
+.me-full .oe-val { min-width: 56px; }
+.me-shapes { display: flex; gap: 2px; }
+.me-shapes .oe-opt { padding: 2px 7px; font-size: 12px; }
+.me-x { visibility: visible; margin-left: auto; }
+.me-curve {
+  display: block; width: 100%; height: 64px; cursor: crosshair; touch-action: none;
+  background: color-mix(in srgb, var(--field-in) 70%, transparent); border: 1px solid var(--line);
+}
+.me-still { margin: 0; font-size: 11px; color: var(--dim); }
+.me-eq {
+  display: block; width: 100%; height: 170px; cursor: ns-resize; touch-action: none;
+  background: color-mix(in srgb, var(--field-in) 70%, transparent); border: 1px solid var(--line);
+}
+.me-pane .oe-gv { min-height: 15px; }
+.me-note { margin-top: 12px; }

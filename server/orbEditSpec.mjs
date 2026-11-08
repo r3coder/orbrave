@@ -130,23 +130,89 @@ const fnv = (s, h = 2166136261) => {
   for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
   return h >>> 0;
 };
-export function customIdOf({ base, name = '', color = '', e }) {
-  const s = JSON.stringify([base, name ?? '', color ?? '', e]);
+export function customIdOf({ base, name = '', color = '', e, m }) {
+  // (a custom mood's string has its own shape, so a sound orb's id stays what it always was)
+  const s = JSON.stringify(m ? [base, name ?? '', color ?? '', 'm', m] : [base, name ?? '', color ?? '', e]);
   return 'cx' + fnv(s).toString(36).padStart(7, '0') + fnv(s, 0x811c9dc4 ^ 0x5bd1e995).toString(36).padStart(7, '0');
 }
 
-// A custom orb as data: { id, base, name, color, e }. `cleanText` checks the name the way the
+// A custom orb as data: { id, base, name, color, e } (a sound orb's knobs) or { id, base, name,
+// color, m } (a custom mood, see cleanMood). `cleanText` checks the name the way the
 // preset server checks song titles (passed in, so this file needs no imports). Throws (via
 // `fail`) on anything that isn't one; returns the clean definition (its id checked against it).
 export function cleanCustomDef(d, { fail, cleanText }) {
   if (!d || typeof d !== 'object' || Array.isArray(d)) fail('커스텀 오브 형식이 올바르지 않아요');
   if (typeof d.base !== 'string' || !ORB_ID.test(d.base) || CUSTOM_ID.test(d.base)) fail('커스텀 오브의 원본이 올바르지 않아요');
-  const e = cleanEdit(d.e);
-  if (!e) fail('커스텀 오브에 바꾼 소리가 없어요');
+  const m = d.m !== undefined ? cleanMood(d.m) : null;
+  const e = m ? null : cleanEdit(d.e);
+  if (!e && !m) fail('커스텀 오브에 바꾼 소리가 없어요');
   const color = typeof d.color === 'string' && COLOR.test(d.color.toLowerCase()) ? d.color.toLowerCase() : '';
   const name = cleanText(d.name, '오브 이름', CUSTOM_LIMITS.name);
-  const def = { base: d.base, name, color, e };
+  const def = m ? { base: d.base, name, color, m } : { base: d.base, name, color, e };
   const id = customIdOf(def);
   if (d.id !== id) fail('커스텀 오브 이름표가 내용과 맞지 않아요');
   return { id, ...def };
+}
+
+// ---------- custom moods (a mood orb in the 🎛 편집 slot) ----------
+// A custom mood is up to MOOD_LANES effects, each with its full strength `v` (the value it has
+// at 100%) and a strength curve `c` over the 4-bar loop: MOOD_STEPS values in percent, one per
+// beat (0 = the effect off, 100 = at `v`; left out = 100 all along). Effects marked `still`
+// have no curve. `q`: a graphic EQ on the whole mix, EQ_FREQS bands in dB (left out = flat).
+//   m: { l: [{ f, v, c? }], q? }
+// `off`: the effect's value at 0%. The page turns a lane into Strudel calls (src/orbEdit.js
+// moodChain), so a shared one is data only, like the sound knobs.
+export const MOOD_FX = {
+  lpf: { min: 200, max: 18000, log: true, int: true, def: 800, off: 20000 }, // 먹먹
+  hpf: { min: 60, max: 4000, log: true, int: true, def: 400, off: 20 }, // 얇은
+  crush: { min: 2, max: 15, step: 0.5, def: 5, off: 16 }, // 8비트
+  coarse: { min: 2, max: 16, int: true, def: 4, off: 1 }, // 깨진
+  room: { min: 0.05, max: 1, step: 0.01, def: 0.6, off: 0 }, // 넓은
+  delay: { min: 0.05, max: 0.9, step: 0.01, def: 0.45, off: 0 }, // 메아리
+  shape: { min: 0.05, max: 0.9, step: 0.01, def: 0.5, off: 0 }, // 찌그러진
+  deg: { min: 0.05, max: 0.9, step: 0.01, def: 0.3, off: 0 }, // 구멍
+  pan: { min: 0.1, max: 1, step: 0.01, def: 1, off: 0 }, // 빙글 (auto-pan width)
+  vowel: { opts: ['a', 'e', 'i', 'o', 'u'], def: 'a', still: true }, // 말하는
+  jux: { still: true }, // 거울 (no value)
+  swing: { min: 0.05, max: 0.33, step: 0.01, def: 0.33, still: true }, // 스윙
+};
+export const MOOD_LANES = 5, MOOD_STEPS = 16, EQ_DB = 12;
+// ISO 1/3-octave centres
+export const EQ_FREQS = [20, 25, 31.5, 40, 50, 63, 80, 100, 125, 160, 200, 250, 315, 400, 500, 630, 800, 1000, 1250, 1600, 2000, 2500, 3150, 4000, 5000, 6300, 8000, 10000, 12500, 16000, 20000];
+
+export function cleanMoodValue(f, v) {
+  const p = MOOD_FX[f];
+  if (!p || (p.still && !p.opts && !('min' in p))) return undefined;
+  if (p.opts) return typeof v === 'string' && p.opts.includes(v) ? v : p.def;
+  if (typeof v !== 'number' || !Number.isFinite(v)) return p.def;
+  const x = Math.min(p.max, Math.max(p.min, v));
+  if (p.int) return Math.round(x);
+  const step = p.step ?? 0.01;
+  return +(Math.round(x / step) * step).toFixed(4);
+}
+// a mood as the page and server keep it: known effects only (each once), values in range, curves
+// of whole percents, a flat curve or EQ left out. null when nothing is left.
+export function cleanMood(m) {
+  if (!m || typeof m !== 'object' || Array.isArray(m)) return null;
+  const l = [], seen = new Set();
+  for (const x of Array.isArray(m.l) ? m.l.slice(0, MOOD_LANES) : []) {
+    const f = x?.f, p = MOOD_FX[f];
+    if (!p || seen.has(f)) continue;
+    seen.add(f);
+    const lane = { f };
+    const v = cleanMoodValue(f, x.v);
+    if (v !== undefined) lane.v = v;
+    if (!p.still && Array.isArray(x.c) && x.c.length === MOOD_STEPS) {
+      const c = x.c.map((n) => (typeof n === 'number' && Number.isFinite(n) ? Math.round(Math.min(100, Math.max(0, n))) : 100));
+      if (c.some((n) => n !== 100)) lane.c = c;
+    }
+    l.push(lane);
+  }
+  const out = {};
+  if (l.length) out.l = l;
+  if (Array.isArray(m.q) && m.q.length === EQ_FREQS.length) {
+    const q = m.q.map((n) => (typeof n === 'number' && Number.isFinite(n) ? Math.round(Math.min(EQ_DB, Math.max(-EQ_DB, n))) : 0));
+    if (q.some(Boolean)) out.q = q;
+  }
+  return Object.keys(out).length ? out : null;
 }

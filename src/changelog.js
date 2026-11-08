@@ -7,6 +7,29 @@ import './licenses.css';
 
 // [version, date, { ko: [...], en: [...], ja: [...] }]
 const NOTES = [
+  ['0.5.6', '2026-11-08', {
+    ko: [
+      '🎛 편집 슬롯에 분위기 오브도 넣을 수 있어요: 효과를 5개까지 골라 줄마다 4마디에 걸친 세기 곡선을 그려요',
+      '곡선 모양 버튼(일정 · 점점 세게 · 점점 약하게 · 물결 · 마디마다 · 마지막 마디만)과 효과별 100% 세기 조절',
+      '분위기 편집 아래에 막대 31개짜리 그래픽 EQ가 생겼어요. 노래 전체에 걸리고 WAV 저장에도 들어가요',
+      '만든 분위기는 커스텀 오브로 남고, 서버에 올려 나눌 수도 있어요',
+      '분위기 편집도 처음 열면 둘러보기가 나와요. 소리 편집에서 이미 본 부분은 건너뛰고, 반대 순서도 마찬가지예요',
+    ],
+    en: [
+      'Mood orbs go in the 🎛 Edit slot too: pick up to 5 effects and draw the strength of each across 4 bars',
+      'Curve shape buttons (steady · build up · fade out · wave · every bar · last bar only) and a 100% strength per effect',
+      'A 31-bar graphic EQ under the mood editor, on the whole song and in WAV exports',
+      'Moods you make stay as custom orbs and can be shared on the server',
+      'The mood editor has a first-time tour too; steps already seen in the sound editor are skipped, and the other way round',
+    ],
+    ja: [
+      '🎛 編集スロットにムードオーブも入れられます:エフェクトを5つまで選び、4小節にわたる強さカーブを描きます',
+      'カーブの形ボタン(一定 · だんだん強く · だんだん弱く · 波 · 小節ごと · 最後の小節だけ)とエフェクトごとの100%の強さ',
+      'ムード編集の下に31本のグラフィック EQ。曲全体にかかり、WAV 保存にも入ります',
+      '作ったムードはカスタムオーブとして残り、サーバーで共有もできます',
+      'ムード編集も初めて開くとツアーが出ます。音の編集ですでに見た部分は飛ばし、逆の順番も同じです',
+    ],
+  }],
   ['0.5.5', '2026-11-08', {
     ko: [
       '분위기 오브에 효과 하나만 담은 4개가 생겼어요: 멜로디는 잠시 쉬어 · 베이스 없는 오후 · 드럼만 남은 무대 · 어깨가 들썩이는 스윙',

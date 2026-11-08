@@ -32,12 +32,12 @@ const DOWNLOAD_RATE = 32000;
 
 addEventListener('message', async (e) => {
   if (e.origin !== location.origin || e.data?.type !== 'render') return;
-  const { id, code, start, end, cps } = e.data;
+  const { id, code, eq, start, end, cps } = e.data;
   try {
     const repl = await ready;
     const pattern = await repl.evaluate(code, false);
     const buffer = await renderOffline(pattern, {
-      start, end, cps,
+      start, end, cps, eq: Array.isArray(eq) ? eq : null,
       sampleRate: DOWNLOAD_RATE,
       onProgress: (value) => post({ type: 'progress', id, value }),
     });

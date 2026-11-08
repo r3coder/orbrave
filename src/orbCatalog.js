@@ -455,6 +455,8 @@ const MOOD_MUTES = [
   { duck: ['lead', 'arp'], label: '멜로디 줄임' },
   { duck: ['pad', 'arp', 'lead', 'texture'], label: '리듬 강조' },
 ];
+// what a balance mood's `duck` turns down, in words ('' if it is none of these)
+export const duckLabel = (duck) => MOOD_MUTES.find((m) => m.duck.length === duck.length && m.duck.every((r) => duck.includes(r)))?.label ?? '';
 // A mood's sub-type, by its first effect (a generated mood with a balance part is a balance mood).
 // The kind line starts with it ("공간 · 넓은+메아리"); search finds it with t:공간 and so on.
 export const MOOD_SUBS = {

@@ -12,7 +12,7 @@ import { copyText } from '../copyBox.js';
 import { saveFile } from '../saveFile.js';
 import { LIMITS, validatePreset } from '../../server/presetSchema.mjs';
 import { $, S, active, seedOf, ui } from './state.js';
-import { bpm, buildCode, codeOf, layers } from './audio.js';
+import { bpm, buildCode, codeOf, layers, masterEqNow } from './audio.js';
 import { tutEvent } from './guide.js';
 import { bump } from './drag.js';
 
@@ -256,8 +256,9 @@ function renderCode(full) {
   if (S.song) S.song.s0 = 0;
   try {
     const code = buildCode();
+    const eq = masterEqNow();
     const cycles = S.song ? S.songPlanCache.reduce((s, x) => s + x.len, 0) : LOOP_BARS;
-    return { code, cycles, tempo: bpm() };
+    return { code, cycles, tempo: bpm(), eq };
   } finally {
     S.offline = false;
     S.song = live;
@@ -282,7 +283,7 @@ async function saveWav(btn, full) {
     ui.soloHint.textContent = ot('noSound');
     return;
   }
-  const { code, cycles, tempo } = renderCode(full);
+  const { code, cycles, tempo, eq } = renderCode(full);
 
   renderingWav = true;
   wavBtn.disabled = wavStemBtn.disabled = true;
@@ -292,7 +293,7 @@ async function saveWav(btn, full) {
     const id = ++renderJob;
     const wav = await new Promise((resolve, reject) => {
       renderJobs.set(id, { resolve, reject, progress: (p) => (btn.textContent = ot('rendering', { p: Math.round(p * 100) })) });
-      renderFrame.contentWindow.postMessage({ type: 'render', id, code, start: 0, end: cycles, cps: tempo / 4 / 60 }, location.origin);
+      renderFrame.contentWindow.postMessage({ type: 'render', id, code, eq, start: 0, end: cycles, cps: tempo / 4 / 60 }, location.origin);
     });
     const name = (ui.presetName.value.trim() || layers().find((l) => l.code)?.name || 'orb').replace(/[\\/:*?"<>|]/g, '');
     // an in-app browser may open the page elsewhere: the set goes along in the URL (see handoffPreset)

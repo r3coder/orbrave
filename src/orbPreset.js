@@ -183,7 +183,7 @@ export const fxStrength = (step) => (step < 0 ? 0.6 ** -step : 1.25 ** step);
 // whether the strength slots change anything (a mood that only speaks a vowel does not; one that
 // turns parts down does: its strength is how far)
 const fxScalableCode = (fx) => !!fx && (scaleFx(fx, -1) !== fx || scaleFx(fx, 1) !== fx);
-export const fxScalable = (l) => !!l && (!!l.duck?.length || fxScalableCode(l.fx));
+export const fxScalable = (l) => !!l && (!!l.moodFx || !!l.duck?.length || fxScalableCode(l.fx));
 // `fx` (a mood's effect chain, e.g. `.lpf(650).room(.5)`) at `step`
 export function scaleFx(fx, step) {
   if (!fx || !step) return fx ?? '';
@@ -252,8 +252,21 @@ export function songFx(orbs, code, stepOf) {
   const owner = new Map(); // filter group -> index of the last EQ that sets it
   eqs.forEach((fx, i) => [...fx.matchAll(CALL)].forEach((m) => owner.set(groupOf(m[1]), i)));
   const eq = eqs.map((fx, i) => fx.replace(CALL, (call, name) => (owner.get(groupOf(name)) === i ? call : ''))).join('');
-  const mood = orbs.filter((o) => !o.eq).map((o) => scaleFx(o.fx, stepOf(o))).join('');
+  // a custom mood (🎛 편집) makes its own calls at its strength
+  const mood = orbs.filter((o) => !o.eq).map((o) => (o.moodFx ? o.moodFx(stepOf(o)) : scaleFx(o.fx, stepOf(o)))).join('');
   return eq + mood;
+}
+// The custom moods' graphic EQs, added up (dB per band): what the master bus plays the song
+// through (src/graphicEq.js). null when none has one.
+export function masterEq(orbs, stepOf) {
+  let out = null;
+  for (const o of orbs) {
+    const q = o.graphicEq?.(stepOf(o));
+    if (!q) continue;
+    out ??= q.map(() => 0);
+    q.forEach((db, i) => (out[i] += db));
+  }
+  return out && out.map((db) => Math.max(-24, Math.min(24, db)));
 }
 // A balance mood (`duck`: the roles it names) turns those parts down instead of muting them:
 // to DUCK of their volume, less far when weaker and further when stronger. Several multiply,

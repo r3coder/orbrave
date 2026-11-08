@@ -21,7 +21,7 @@ import { decorate, renderStatus } from './orbs/list.js';
 import { rain, renderStash, seedRain, spawnWeights, stash } from './orbs/field.js';
 import { slotOrbs } from './orbs/drag.js';
 import { draft, pickForSlot, rollOrb } from './orbs/variations.js';
-import { orbEditing, orbEditor, refreshSharedOrbs } from './orbs/customOrbs.js';
+import { moodEditor, orbEditing, orbEditor, refreshSharedOrbs } from './orbs/customOrbs.js';
 import { leaveSlots, patternToRaw, renderRollHead } from './orbs/slots.js';
 import {
   SESSION_KEY, handoffPreset, refreshShared, renderPresets, renderShared, restoreSession, serverUp,
@@ -123,6 +123,7 @@ mountLangButtons($('langs'), () => {
   if (serverUp === false) sharedList.innerHTML = `<p class="empty">${ot('serverDownList')}</p>`;
   renderRollHead();
   orbEditor.relabel();
+  moodEditor.relabel();
   if (S.song?.sections) {
     S.stemSig = '';
     renderSong();

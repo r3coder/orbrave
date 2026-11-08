@@ -2,12 +2,13 @@
 // Used by the download renderer (render.js) and the dev mix-balancing tool (tools/mix.js).
 // Both run in their own page/iframe, because rendering swaps superdough's global
 // audio context to an OfflineAudioContext.
+import { makeGraphicEq } from './graphicEq.js';
 import { superdough, initAudio, setAudioContext, setSuperdoughAudioController, getSuperdoughAudioController } from '@strudel/web';
 
 const SAMPLE_RATE = 44100;
 const tick = () => new Promise((r) => setTimeout(r, 0));
 
-export async function renderOffline(pattern, { start, end, cps, tail = 3, limiter = true, sampleRate = SAMPLE_RATE, onProgress } = {}) {
+export async function renderOffline(pattern, { start, end, cps, eq = null, tail = 3, limiter = true, sampleRate = SAMPLE_RATE, onProgress } = {}) {
   const seconds = (end - start) / cps + tail;
   const ctx = new OfflineAudioContext(2, Math.ceil(seconds * sampleRate), sampleRate);
   try {
@@ -15,12 +16,18 @@ export async function renderOffline(pattern, { start, end, cps, tail = 3, limite
     setSuperdoughAudioController(null);
     await initAudio();
 
-    if (limiter) {
-      // same master chain as the live player: limiter before the output
+    if (limiter || eq) {
+      // same master chain as the live player: a custom mood's graphic EQ, then the limiter
       const master = getSuperdoughAudioController().output.destinationGain;
-      const lim = new DynamicsCompressorNode(ctx, { threshold: -8, knee: 6, ratio: 12, attack: 0.003, release: 0.25 });
+      let out = master;
       master.disconnect();
-      master.connect(lim).connect(ctx.destination);
+      if (eq) {
+        const g = makeGraphicEq(ctx, eq);
+        out.connect(g.input);
+        out = g.output;
+      }
+      if (limiter) out = out.connect(new DynamicsCompressorNode(ctx, { threshold: -8, knee: 6, ratio: 12, attack: 0.003, release: 0.25 }));
+      out.connect(ctx.destination);
     }
 
     // Schedule just ahead of the render position instead of all at once: every scheduled

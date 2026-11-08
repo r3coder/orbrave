@@ -5,22 +5,25 @@ import { S, active, applyVar, drawnOf, drumsReady, gainOf, heldSeed, orbVars, ow
 import { evaluate, hush, getAudioContext, getSuperdoughAudioController } from '@strudel/web';
 import { preloadSamples } from '../samples.js';
 import { BASE_BPM, rng, hash, byId, role, setMode, keyLabel } from '../orbCatalog.js';
-import { BARS, sheetCode, songFx, duckOf, eqClash } from '../orbPreset.js';
+import { BARS, sheetCode, songFx, duckOf, eqClash, masterEq } from '../orbPreset.js';
+import { makeGraphicEq } from '../graphicEq.js';
+import { EQ_FREQS } from '../../server/orbEditSpec.mjs';
 import { editChain, editGain, editOf, kindOf, rootId } from '../orbEdit.js';
 import * as taste from '../orbTaste.js';
 import { countMove, tut } from './guide.js';
 import { makeSat, renderStatus, setSolo } from './list.js';
 import { STASH_MAX, fieldSize, makeOrbEl, rain, rainAdd, renderStash, stash, vanish } from './field.js';
 import { coreCenter, goHome } from './drag.js';
-import { editPreview, orbEditing } from './customOrbs.js';
+import { editPreview, moodPreview, orbEditing } from './customOrbs.js';
 import { previewLayer } from './slots.js';
 import { checkVoteSet, saveSessionSoon } from './presets.js';
 import { songLines } from './stems.js';
 
 // ---------- audio ----------
 
-// master -> limiter -> volume -> speakers; the visuals read the limiter so they don't fade with the volume
-let analyser, volume;
+// master -> graphic EQ (custom moods) -> limiter -> volume -> speakers; the visuals read the
+// limiter so they don't fade with the volume
+let analyser, volume, graphicEq;
 const VOL_DEFAULT = 0.6;
 let volValue = VOL_DEFAULT;
 try {
@@ -34,9 +37,17 @@ function setupMaster() {
   const limiter = new DynamicsCompressorNode(ac, { threshold: -8, knee: 6, ratio: 12, attack: 0.003, release: 0.25 });
   analyser = new AnalyserNode(ac, { fftSize: 2048, smoothingTimeConstant: 0.8 });
   volume = new GainNode(ac, { gain: volGain() });
+  graphicEq = makeGraphicEq(ac);
   master.disconnect();
-  master.connect(limiter).connect(volume).connect(ac.destination);
+  master.connect(graphicEq.input);
+  graphicEq.output.connect(limiter).connect(volume).connect(ac.destination);
   limiter.connect(analyser);
+}
+// the mix's spectrum (the mood editor draws its EQ over it), into `buf` (1024 bytes)
+function masterSpectrum(buf) {
+  if (!analyser) return null;
+  analyser.getByteFrequencyData(buf);
+  return buf;
 }
 // Volume dial around the play button, the same control as the player page: a 270° arc from
 // bottom-left to bottom-right. Drag along it, scroll over the player, or use the arrow keys.
@@ -201,7 +212,10 @@ const bpm = () => {
 // other moods share one count (capOf / CAPS: five in all; EQ orbs on the same range also bounce each other). An auditioned one is heard
 // on top, as if it were thrown in (bouncing the oldest of its kind when full).
 function fxOrbs() {
-  const on = layers().filter((l) => l.cat === 'mood');
+  let on = layers().filter((l) => l.cat === 'mood');
+  // 🎛 편집 on a mood: the mood being edited is heard on top (the oldest going when five are in)
+  const mp = moodPreview();
+  if (mp) on = [...on.filter((l) => l.id !== mp.base).slice(-(CAPS.mood - 1)), mp];
   const h = hoverOrb();
   if (h?.cat !== 'mood' || on.includes(h)) return on;
   const same = on.filter((l) => capOf(l) === capOf(h));
@@ -278,6 +292,10 @@ function lineFor(l, v, extra = '', { preview = false, gain = null, analyse = fal
 function buildCode() {
   const dt = (((60 / bpm()) * 3) / 4).toFixed(3); // dotted-eighth delay in seconds
   const lines = [`setcpm(${bpm()}/4)`];
+  // a custom mood's graphic EQ plays on the master bus, outside the code: noted as a comment
+  const eq = masterEqNow();
+  if (eq) lines[0] += `
+// 그래픽 EQ (마스터): ${EQ_FREQS.map((f, i) => (Math.abs(eq[i]) >= 0.5 ? `${f < 1000 ? f : `${f / 1000}k`} ${eq[i] > 0 ? '+' : ''}${Math.round(eq[i])}` : '')).filter(Boolean).join(' · ')} dB`;
   // auditioning a sounding orb: it plays alone, unless it is held over the player
   // 🎛 편집 open: the orb being edited plays (alone, with 🎧 솔로) with the knobs as they are
   const ep = !S.offline && editPreview();
@@ -302,6 +320,7 @@ async function sync() {
   clearTimeout(syncTimer);
   const code = buildCode();
   ui.code.textContent = code;
+  graphicEq?.set(masterEqNow());
   renderStatus();
   saveSessionSoon();
   checkVoteSet();
@@ -312,6 +331,8 @@ async function sync() {
     console.error(e);
   }
 }
+// the custom moods' EQ the mix plays through (dB per band, null = flat)
+const masterEqNow = () => masterEq(fxOrbs(), (o) => volStep(o.id));
 const syncSoon = () => {
   clearTimeout(syncTimer);
   syncTimer = setTimeout(sync, 90);
@@ -438,7 +459,7 @@ function returnOrb(id, home) {
 
 export {
   VA0, VOL_DEFAULT, VR, VSWEEP, addLayer, analyser, audioUnlocked, bpm, buildCode, chanOf, codeOf,
-  drawVolume, ducked, ensureStarted, fxOrbs, hoverOrb, keyMode, keyShift, keyText, layers, lineFor, nextBar,
+  drawVolume, ducked, ensureStarted, fxOrbs, masterEqNow, masterSpectrum, hoverOrb, keyMode, keyShift, keyText, layers, lineFor, nextBar,
   nextPhrase, nowCycle, pitchedCode, play, put, removeLayer, returnOrb, seeded, setVolume, stop, sync,
   syncSoon, volFocus, volRing, volValue, volume, vpt, warm,
 };
