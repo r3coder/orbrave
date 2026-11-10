@@ -8,8 +8,9 @@ import { ot, secName } from '../orbsI18n.js';
 import { isPhone } from '../phoneLayout.js';
 import { LIMITS } from '../../server/presetSchema.mjs';
 import { $, S, active, ensureVars, orbVars, ui, varCount, varNum, varPlay, varSeed } from './state.js';
+import { saveSessionSoon } from './presets.js';
 import {
-  codeOf, keyText, layers, lineFor, nextPhrase, nowCycle, pitchedCode, play, seeded, sync, syncSoon,
+  keyText, layers, lineFor, nextPhrase, nowCycle, play, seeded, sync, syncSoon,
 } from './audio.js';
 import { tutEvent } from './guide.js';
 import { tour } from '../tutorial.js';
@@ -225,7 +226,6 @@ function songLines() {
         if (!blocks[j].on) continue;
         // same test as the key orbs use, so fx / texture orbs that play notes move with the section too
         const v = varPlay(l, blocks[j].k);
-        const shift = sec.shift && pitchedCode(l, codeOf(l, v)) ? `.transpose(${sec.shift})` : '';
         // the patterns loop every 4 bars on the clock: shifted so each run starts on its first bar
         // (a section of odd length, or a song started off the bar grid after a jump)
         const ph = ((((S.song.s0 + base + j * BLOCK) % BLOCK) + BLOCK) % BLOCK);
@@ -233,10 +233,11 @@ function songLines() {
         const part = (a, b) => `${late}\n  .songPart(${S.song.s0}, ${aud === null ? total : sec.len}, ${base + a}, ${base + b}${from})`;
         const end = Math.min(k * BLOCK, sec.len), fx = blocks[k - 1].fill && fillFx(l);
         const gain = blockGain(blocks[j], blockBars(sec, j));
-        const line = lineFor(l, v, shift, { gain });
+        // the section's own key shift goes on top of the key orb's (lineFor moves the line by both)
+        const line = lineFor(l, v, '', { gain, shift: sec.shift });
         if (line) out.push(line + part(j * BLOCK, fx ? end - 1 : end));
         // ★: the run's last bar plays as a fill
-        const fill = fx && lineFor(l, v, shift + fx, { gain });
+        const fill = fx && lineFor(l, v, fx, { gain, shift: sec.shift });
         if (fill) out.push(fill + part(end - 1, end));
       }
     });
@@ -279,6 +280,7 @@ function renderSong() {
   if (sig === S.stemSig) return;
   S.stemSig = sig;
   renderStem();
+  saveSessionSoon(); // a stem edit is kept even if the page closes with the stems open
 }
 
 // Section i becomes `len` bars long (1-64), growing or shrinking at its end. Its blocks follow:
@@ -840,6 +842,7 @@ function closeSong() {
   updateShareButtons();
   for (const a of active.values()) a.at = 0;
   sync();
+  saveSessionSoon();
 }
 
 // a new song around the current set (📂 스템 열기 the first time, 🎲 곡 구성 랜덤화 after), or with

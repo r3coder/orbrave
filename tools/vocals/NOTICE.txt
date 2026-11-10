@@ -1,0 +1,40 @@
+Teto vocal audio: NOT under the AGPL, NOT under CC0
+==============================================================
+
+The vocal audio files (the teto_* words, made by build_vocals.py into server/vocals/) are excluded from this project's licence
+(AGPL-3.0-or-later, which covers the source code) and from the CC0 dedication of the other samples.
+
+- Voice: made with the Kasane Teto UTAU voicebank (重音テト OU用日本語統合ライブラリー),
+  重音テト音声ライブラリー (C) 小山乃舞世 / TWINDRILL. Use of this voice is governed by the
+  voicebank's terms of use (重音テト音声ライブラリー使用許諾条件):
+  https://kasaneteto.jp/guideline/voice.html (non-commercial use only).
+- Melodies and lyrics: written for ORBRAVE and dedicated to the public domain under CC0 1.0
+  (https://creativecommons.org/publicdomain/zero/1.0/). They are the notes and lyrics in
+  tools/vocals/make_ustx.py: anyone may sing, play or reuse them, with any voice, for any purpose.
+
+The CC0 dedication covers the melodies and lyrics only, not these recordings of Teto's voice.
+The audio files are not part of this repository or the built site: they are served only by
+ORBRAVE's share server (server/vocals.mjs) to its orb page. They may be played only as part of
+ORBRAVE (its orb page and its exports of songs made there); no permission is given to copy,
+extract, reuse or redistribute them outside this project. A fork gets no vocal audio; rendering its
+own with the voicebank (tools/vocals/) is under the voicebank's terms, not this project's (it may
+also sing the CC0 melodies with another voice).
+
+They are whole 4-bar lines sung with the voicebank (works made with it), not the voicebank itself:
+no recording of the voicebank is included. How they are made: tools/vocals/ (see
+public/samples/SOURCES.md).
+
+---
+
+テトの音声ファイル（teto_*、リポジトリ・サイトには含まれず共有サーバーのみで配信）は本プロジェクトのライセンス（AGPL-3.0-or-later、
+ソースコードに適用）および他のサンプルの CC0 の対象外です。重音テト UTAU 音源（重音テト音声ライブラリー
+(C) 小山乃舞世 / TWINDRILL）で制作しており、同音源の使用許諾条件に従います（非商用）。
+メロディー・歌詞は ORBRAVE のために作られたもので、CC0 1.0（パブリックドメイン）です。
+CC0 はメロディーと歌詞のみに適用され、テトの声による音声ファイルには適用されません。
+音声ファイルの本プロジェクト外での複製・抽出・再利用・再配布は許可していません。
+
+테토 음성 파일(teto_*, 저장소와 사이트에는 없고 공유 서버에서만 제공)은 이 프로젝트의 라이선스(소스 코드에 적용되는 AGPL-3.0-or-later)와
+다른 샘플의 CC0 대상이 아닙니다. 重音テト UTAU 음원(重音テト音声ライブラリー (C) 小山乃舞世 / TWINDRILL)으로
+제작했으며, 해당 음원의 이용 규약을 따릅니다(비상업). 멜로디와 가사는 ORBRAVE를 위해 만든 것으로
+CC0 1.0(퍼블릭 도메인)입니다. CC0는 멜로디와 가사에만 적용되며, 테토 목소리로 된 음성 파일에는
+적용되지 않습니다. 음성 파일을 이 프로젝트 밖에서 복제·추출·재사용·재배포하는 것은 허락하지 않습니다.

@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "openutau": {
+      "type": "stdio",
+      "command": "tools\\vocals\\.ou-render\\ou-render.exe",
+      "args": ["mcp"]
+    }
+  }
+}

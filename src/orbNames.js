@@ -87,6 +87,10 @@ const NOUN = {
 
 // the hand-made orbs
 const FIXED = {
+  // vocal orbs (VOCAL_ORBS in orbCatalog.js)
+  '빛 속에서 노래하는 테토': ['Teto Singing in the Light', '光の中で歌うテト'],
+  '라라라 흥얼거리는 테토': ['Teto Humming La La La', 'ラララと口ずさむテト'],
+  '화음 쌓는 테토': ['Teto Stacking Chords', 'ハモりを重ねるテト'],
   '심장 뛰는 쿵쿵': ['Heart-Pounding Thump', 'ドキドキ鼓動'],
   '비틀거리는 발걸음': ['Stumbling Footsteps', 'よろめく足音'],
   '찰싹! 손뼉 파티': ['Smack! Clap Party', 'パチン！手拍子パーティー'],

@@ -5,6 +5,7 @@ import './visuals.js';
 import { LAYERS, KEYS, byId, role, ROLE_TEXT, MOOD_SUBS } from '../orbCatalog.js';
 import { ot, allLangs } from '../orbsI18n.js';
 import { getLang } from '../i18n.js';
+import { vocalsOn } from '../vocals.js';
 import { $, S, active, ui } from './state.js';
 import { hoverCombo } from './guide.js';
 import { ctint } from './list.js';
@@ -120,6 +121,8 @@ const searchTest = (q) => {
 // how many effects a mood stacks, read from its kind line ("공간 · 메아리+빙글" → 2): search lists
 // single-effect moods first, then the ones with two, then three. Every other orb counts as one.
 const fxCount = (l) => (l.cat === 'mood' ? (l.kindKo ?? l.kind).split(' · ').pop().split('+').length : 1);
+// the vocal orbs light up in the search once the share server answers (vocals.js)
+addEventListener('vocalschange', () => renderSearch());
 function renderSearch() {
   const q = ui.searchInput.value;
   hideHitMeta();
@@ -175,15 +178,21 @@ function renderCustomSearch(q) {
 // also has 🗑 (and ☁ while it hasn't been uploaded from here).
 function hitEl(l, { mine = false, server = null, fell = false } = {}) {
   const item = document.createElement('div');
-  item.className = 'hit' + (active.has(l.id) ? ' on' : '') + (fell ? ' fell' : '');
+  // a vocal orb without the share server (vocals.js) is listed, greyed out with [X], and can't be used
+  const off = !!l.vocal && !vocalsOn();
+  item.className = 'hit' + (active.has(l.id) ? ' on' : '') + (fell ? ' fell' : '') + (off ? ' off' : '');
   item.style.setProperty('--g', ctint(l));
   const name = document.createElement('span');
-  name.textContent = l.name;
+  name.textContent = (off ? '[X] ' : '') + l.name;
   const kind = document.createElement('small');
   kind.textContent = l.kind;
   item.append(miniOrb(l), name, kind);
   const custom = mine || !!server;
   if (!custom) item.title = active.has(l.id) ? `${ot('inSong')} · ${ot('hitTip')}` : ot('hitTip');
+  if (off) {
+    item.title = ot('vocalsOff');
+    return item;
+  }
   item.addEventListener('mouseenter', () => {
     hoverOn(l.id);
     hoverCombo(l.id, item);

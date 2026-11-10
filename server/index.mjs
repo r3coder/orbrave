@@ -8,6 +8,7 @@
 //   TRUST_PROXY=1                behind Nginx etc.: take the client address from X-Forwarded-For
 //   PRESET_ALLOWED_ORIGINS=https://user.github.io   other sites allowed to use the API (CORS), comma-separated
 //   ADMIN_TOKEN=...              password of the admin page (/admin/, server/admin/); unset: no admin API
+//   VOCAL_DIR=server/vocals      the Teto vocal words, served at /api/vocals (server/vocals.mjs); never in dist/
 import { createServer } from 'node:http';
 import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
@@ -15,6 +16,7 @@ import { extname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createPresetApi } from './presetApi.mjs';
 import { serveAdminPage } from './adminPage.mjs';
+import { createVocals } from './vocals.mjs';
 
 // fileURLToPath instead of import.meta.dirname so the server also runs on Node 18
 const ROOT = resolve(fileURLToPath(new URL('.', import.meta.url)), '..');
@@ -28,6 +30,11 @@ const api = createPresetApi({
   trustProxy: process.env.TRUST_PROXY === '1',
   allowedOrigins: (process.env.PRESET_ALLOWED_ORIGINS || '').split(','),
   adminToken: process.env.ADMIN_TOKEN || '',
+});
+
+const vocals = createVocals({
+  dir: resolve(ROOT, process.env.VOCAL_DIR || 'server/vocals'),
+  allowedOrigins: (process.env.PRESET_ALLOWED_ORIGINS || '').split(','),
 });
 
 const TYPES = {
@@ -72,7 +79,13 @@ async function serveStatic(req, res) {
 createServer((req, res) => {
   if (req.url === '/api' || req.url.startsWith('/api/')) {
     req.url = req.url.slice(4) || '/';
-    return api(req, res);
+    return vocals(req, res)
+      .then((done) => done || api(req, res))
+      .catch((e) => {
+        console.error(e);
+        if (!res.headersSent) res.writeHead(500);
+        res.end();
+      });
   }
   // the admin page (server/admin/), served from here only, never part of dist/
   if (req.url === '/admin' || req.url.startsWith('/admin/') || req.url.startsWith('/admin?')) {

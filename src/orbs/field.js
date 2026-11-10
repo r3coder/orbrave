@@ -3,6 +3,7 @@
 // same order as the one file did. See orbs/state.js.
 import { SOUND_FIRST, describe, noSound, orbInner, paint, renderRoles } from './list.js';
 import { isBooted } from '../samples.js';
+import { vocalsOn } from '../vocals.js';
 import { LAYERS, CAT_SHARE, byId } from '../orbCatalog.js';
 import { ot } from '../orbsI18n.js';
 import { isPhone } from '../phoneLayout.js';
@@ -150,7 +151,7 @@ function pickCandidate() {
   // before the very first orb goes in, only the plain band parts fall (no fx, moods, combos …)
   const first = !firstOrbDone;
   if (S.opening && !S.bootDone && !onlyIds) return null;
-  const allowed = (l) => onlyIds || (!(early && noSound(l)) && !(l.combo && comboHeld()) && (!first || FIRST_CATS.has(l.cat)) && (!S.opening || instant(l)));
+  const allowed = (l) => (!l.vocal || vocalsOn()) && (onlyIds || (!(early && noSound(l)) && !(l.combo && comboHeld()) && (!first || FIRST_CATS.has(l.cat)) && (!S.opening || instant(l))));
   // now and then the next uploaded custom orb of the batch instead of a catalogue one
   if (!onlyIds && !first && S.serverOrbs.length >= SERVER_BATCH && Math.random() < SERVER_RAIN) {
     const l = byId[S.serverOrbs[S.serverNext]?.id];

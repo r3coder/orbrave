@@ -203,6 +203,7 @@ button.on { background: var(--acc); color: var(--bg); }
 }
 .logo .ver-btn:hover { color: var(--acc); background: none; }
 .changelog .cl-date { margin-left: 6px; font-size: 11px; color: var(--dim); letter-spacing: 0; }
+.changelog .cl-teto { color: #e0405e; font-weight: inherit; } /* Teto's name in the vocal orbs' colour (changelog.js) */
 .changelog ul.cl-list { border-top: 0; padding-left: 18px; list-style: disc; }
 .changelog ul.cl-list li { padding: 2px 0; border: 0; font-size: 12px; }
 .changelog ul.cl-list li::marker { color: var(--dim); }
@@ -814,6 +815,36 @@ body:not(.roll-ready) .roll { flex-basis: 0 !important; border-top-width: 0; }
 .roll-scroll { flex: 1; min-height: 0; overflow: hidden; }
 .roll.semi .roll-scroll { overflow-y: scroll; scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--acc) 55%, transparent) transparent; }
 #rollCanvas { height: 100%; width: 100%; display: block; cursor: crosshair; touch-action: none; }
+/* a vocal orb's tab (.words): instead of the roll, a column of words for each bar, one picked */
+.roll-words { display: none; }
+.roll.words .roll-scroll { display: none; }
+.roll.words .roll-words {
+  flex: 1; min-height: 0; overflow-y: auto; padding: 2px 12px 12px;
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; align-content: start;
+  scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--acc) 55%, transparent) transparent;
+}
+.words-bar { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.words-bar > b { font-weight: 400; font-size: 12px; color: var(--dim); padding: 0 2px 2px; }
+.words-bar > b small { color: var(--g, var(--acc)); margin-left: 4px; }
+/* one line per word: the whole list shrinks its text to fit (fitWords in src/orbs/slots.js sets
+   the font size on .roll-words, 13px down to 8px); only past that does a word end in … */
+.roll-words .word {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 0.5em; min-width: 0;
+  padding: 5px 8px; border-radius: 8px; text-align: left; font-size: inherit; white-space: nowrap;
+}
+.roll-words .word span, .roll-words .word small { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.roll-words .word span { flex: 0 1 auto; }
+.roll-words .word small { flex: 0 1 auto; font-size: 0.78em; color: var(--dim); text-align: right; }
+.roll-words .word:hover { border-color: var(--g, var(--acc)); }
+.roll-words .word.on {
+  border-color: var(--g, var(--acc)); color: var(--g, var(--acc));
+  background: color-mix(in srgb, var(--g, var(--acc)) 16%, transparent);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--g, var(--acc)) 35%, transparent);
+}
+.words-tools { grid-column: 1 / -1; display: flex; justify-content: flex-end; }
+.words-tools button { font-size: 12px; padding: 4px 8px; }
+.words-tools button.on { border-color: var(--acc); color: var(--acc); background: color-mix(in srgb, var(--acc) 14%, transparent); }
+.roll.words .roll-words.two { grid-template-columns: repeat(2, minmax(0, 1fr)); } /* a narrow tab (fitWords) */
 
 /* ---------- preset sidebar (left): saved sets as draggable tiles ---------- */
 .presetbar {
@@ -1109,6 +1140,11 @@ body.server-down .ptile .share.cloud { display: none; } /* no ☁ on tiles while
 .hit.on { box-shadow: inset 0 -2px 0 color-mix(in srgb, var(--g) 70%, transparent); }
 .hit span { font-size: 11px; color: color-mix(in srgb, var(--g), var(--fg) var(--ink-mix)); }
 .hit small { font-size: 9px; color: var(--dim); letter-spacing: 0.1em; text-transform: uppercase; }
+/* a vocal orb without the share server (orbs/search.js): dark grey, can't be grabbed */
+.hit.off { --g: var(--dim); cursor: not-allowed; }
+.hit.off:hover { border-color: transparent; background: none; }
+.hit.off > :first-child { filter: grayscale(1); opacity: 0.4; }
+.hit.off span, .hit.off small { color: var(--dim); opacity: 0.7; }
 /* ✦ 커스텀 오브: 내 오브 / 서버 오브 as two parts of the grid */
 .hit-head { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; padding: 6px 2px 2px; border-bottom: 1px solid var(--line); font-size: 12px; }
 .hit-head ~ .hit-head { margin-top: 10px; }

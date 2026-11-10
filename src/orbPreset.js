@@ -4,7 +4,7 @@
 // knob values, src/orbEdit.js) and a variation number; the code is always rebuilt here from the
 // catalogue, so nothing a server sends is ever run as code.
 import {
-  BASE_BPM, DRUM_CATS, byId, hash, keyLabel, rng, role, setMode,
+  BASE_BPM, DRUM_CATS, byId, hash, keyLabel, keyTail, rng, role, setMode, vocalFiles,
 } from './orbCatalog.js';
 import { checkCustom, editChain, editGain, editOf, kindOf, registerCustom, rootId } from './orbEdit.js';
 
@@ -446,8 +446,7 @@ export function presetLines(p) {
       const v = p.seeds?.[l.id] ?? p.variation; // an orb may carry its own seed
       let code = typeof l.code === 'function' ? l.code(rng(hash(rootId(l, byId)) + v * 7919)) : l.code;
       if (mode !== 'minor') code = code.replaceAll(':minor"', `:${mode}"`);
-      const pitched = l.pitched || /\b(scale|chord|note)\(/.test(code);
-      const key = shift && pitched ? `.transpose(${shift})` : '';
+      const key = keyTail(l, code, shift, mode);
       const g = p.gains?.[l.id]; // the orb's own volume (orb page volume slots), times a balance mood's dip
       // a custom orb (🎛 편집): its knobs on top of the orb's own line, its own volume times the rest
       const ed = editOf(l, byId), own = ed ? editChain(ed, kindOf(l, code, ed)) : '';
@@ -500,6 +499,10 @@ export function presetSong(p, start) {
     seed: hash(p.id), id: p.id, preset: p, title: p.name, style: 'preset', bpm, cps, root: key, scale: mode,
     start, end: t, sections, header, blocks,
     code: header + '\n\n' + blocks.map((b) => b.code).join('\n\n'),
-    samples: [...new Set(presetLayers(p).flatMap((l) => l.samples ?? []))],
+    // a vocal orb lists all its lines: only the ones this song's code plays (at its key) load
+    samples: [...new Set([
+      ...presetLayers(p).filter((l) => !l.vocal).flatMap((l) => l.samples ?? []),
+      ...vocalFiles(blocks.map((b) => b.code).join('\n')),
+    ])],
   };
 }

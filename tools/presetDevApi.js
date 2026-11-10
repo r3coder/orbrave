@@ -5,6 +5,7 @@
 import { resolve } from 'node:path';
 import { createPresetApi } from '../server/presetApi.mjs';
 import { serveAdminPage } from '../server/adminPage.mjs';
+import { createVocals } from '../server/vocals.mjs';
 
 export function presetDevApi() {
   return {
@@ -13,7 +14,9 @@ export function presetDevApi() {
     configureServer(server) {
       // admin page (admin.html) password in dev: ADMIN_TOKEN, or "dev"
       const api = createPresetApi({ dataDir: resolve(import.meta.dirname, '..', '.preset-data'), adminToken: process.env.ADMIN_TOKEN || 'dev' });
-      server.middlewares.use('/api', (req, res, next) => api(req, res, next));
+      // the Teto vocal words, from server/vocals as on the production server (server/vocals.mjs)
+      const vocals = createVocals({ dir: resolve(import.meta.dirname, '..', 'server', 'vocals') });
+      server.middlewares.use('/api', (req, res, next) => vocals(req, res).then((done) => done || api(req, res, next), next));
       // the admin page at /admin/, as the production server serves it
       server.middlewares.use('/admin', (req, res, next) => {
         const path = new URL(req.originalUrl ?? req.url, 'http://local').pathname.slice(6);

@@ -404,8 +404,17 @@ function saveSession() {
     localStorage.setItem(SESSION_KEY, JSON.stringify(data));
   } catch {}
 }
+// the stem grid (open, or the one 📂 스템 열기 brings back), with each row's mute
+function songSession() {
+  const open = !!S.song?.sections;
+  const song = open ? S.song : S.lastSong;
+  if (!song?.sections) return null;
+  if (open) syncRows();
+  return { ...songToWire(song, () => null), seed: song.seed ?? 0, open, mutes: song.rows.filter((r) => r.mute).map((r) => r.id) };
+}
 function sessionData() {
-  const ids = new Set([...active.keys(), ...stash, ...slotIds()]);
+  const song = songSession();
+  const ids = new Set([...active.keys(), ...stash, ...slotIds(), ...(song?.rows ?? []).map((r) => r.id)]);
   const drawn = [...ids].map((id) => byId[id]).filter((l) => l?.raw).map((l) => ({ id: l.id, src: l.src, raw: l.raw, ...(l.pats?.length > 1 ? { pats: l.pats, pi: l.pi } : {}) }));
   const copies = [...ids].filter((id) => byId[id]?.base && !Object.hasOwn(byId[id], 'edit')).map((id) => ({ id, base: byId[id].base }));
   const customs = customDefsFor(ids);
@@ -423,6 +432,7 @@ function sessionData() {
     name: ui.presetName.value,
     slots: Object.fromEntries(FX_SLOTS.filter((m) => slotOrbs[m]).map((m) => [m, { id: slotOrbs[m].id, home: slotOrbs[m].home ?? null }])),
     vars: of(orbVars),
+    ...(song ? { song } : {}),
   };
 }
 
@@ -559,6 +569,21 @@ function restoreSession() {
     const old = s.slots?.copy;
     if (old && byId[old.id] && !onScreen(old.id) && stash.length < STASH_MAX) stash.push(old.id);
     renderSlots();
+    // the stems as they were left: open again if they were open, else for 📂 스템 열기
+    const grid = s.song && songFromWire(s.song);
+    if (grid) {
+      // every block names its variation here (vi is left out when all are 0)
+      for (const r of grid.rows) for (const sec of grid.cells[r.id]) for (const c of sec) c.k ??= 0;
+      fillSeeds(grid);
+      const mutes = new Set(Array.isArray(s.song.mutes) ? s.song.mutes : []);
+      for (const r of grid.rows) if (mutes.has(r.id)) r.mute = true;
+      const song = { seed: Number.isSafeInteger(s.song.seed) ? s.song.seed : 0, s0: 0, ...grid, audition: null, from: null };
+      if (s.song.open) {
+        S.song = song;
+        S.stemSig = '';
+        openSong();
+      } else S.lastSong = song;
+    }
   } catch (e) {
     console.error('could not restore the last session', e);
   } finally {

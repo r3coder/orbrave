@@ -5,6 +5,7 @@ import { getLang } from './i18n.js';
 import { orbNameIn, orbKindIn } from './orbNames.js';
 import { editChain, kindOf } from './orbEdit.js';
 import { cleanEdit } from '../server/orbEditSpec.mjs';
+import VOCAL_SLICES from './vocalLines.json';
 
 // ---------- music frame ----------
 // Every orb plugs into one frame: 124 BPM, A minor, Am9 – Fmaj7 – Cmaj7 – G6 (one chord per cycle).
@@ -2252,7 +2253,88 @@ function generateEdits(existing) {
     };
   });
 }
-export const LAYERS = [...TWELFTH, ...generateEdits(TWELFTH), ...EQ_ORBS, ...SINGLE_MOODS].map(reworkMood);
+// ---------- vocal phrases ----------
+// 4-bar lines sung by Kasane Teto (UTAU voicebank) in OpenUtau, from tools/vocals/phrases.ustx, cut
+// into one file per bar ("words") and pitch by tools/vocals/build_vocals.py. Bar n of every line is
+// written over the same chord, so an orb builds its part from the bars of different lines: a line
+// per bar, a line per two bars, or one whole line (🎲 picks). Each bar plays note by note with
+// begin/end (src/vocalLines.json: the eighth each note starts on and where it sits in the bar's
+// file), so a tempo orb keeps the words on the beat without restarting held vowels, and nothing can
+// drift for longer than a bar. A note starts with its consonant, played `pre` seconds early so the
+// vowel lands on the beat: .early() by pre seconds in cycles, from the tempo's dotted eighth
+// (__DT__ = 45/bpm s, so pre·cps = pre·0.1875/__DT__). Not .nudge(): the sampler starts a nudged
+// sound early but its volume envelope on the beat, dropping it to silence there (a click per note).
+// Each word is also sung 4 semitones down and 3 up: a key orb picks the nearest and moves it at most
+// 2 semitones with .speed() (see keyTail). The files load only when the orb is hovered, grabbed or
+// added, and only the four words it would play (warm in orbs/audio.js).
+// Not CC0: free for non-commercial use under the voicebank's terms (tools/vocals/NOTICE.txt). The files are
+// not in the site or the repository: they come from the share server, and these orbs fall only when it
+// has them; without it the search lists them greyed out (src/vocals.js).
+const VOCAL_ORBS = [
+  // gains: a few dB over the median lead (pad) orb, measured with tools/orb-levels.html: a voice
+  // sits on top of the mix. Each line also has its own trim (vocalLines.json), played as velocity.
+  // (leads about -25 LUFS, 6-7 dB over the median lead; the chords about -26, 3 dB over the pads)
+  [['hikari', 'kaze', 'sora', 'nee', 'mada', 'ashita'], 'lead', '빛 속에서 노래하는 테토', '.hpf(160).room(.3)', 0.4],
+  [['rara', 'pa', 'wawa', 'shubi'], 'lead', '라라라 흥얼거리는 테토', '.hpf(160).room(.25)', 0.4],
+  [['ch_aah', 'ch_mm', 'ch_pulse', 'ch_sync'], 'pad', '화음 쌓는 테토', '.hpf(150).room(.5)', 0.35],
+].map(([lines, cat, nameKo, tone, gain], i) => {
+  const cut = choke();
+  const num = (x) => String(x).replace(/^0\./, '.');
+  // which line each bar comes from: one per bar, one per two bars, or one for all four; and
+  // whether held notes are sung again on their next eighth here and there (not on chords). The
+  // first few draws of the seed decide it, so the word picker can look for the seed of a choice.
+  const choose = (r) => {
+    const style = r.pick(['mix', 'mix', 'pairs', 'whole']);
+    const a = r.pick(lines), b = r.pick(lines);
+    const per = style === 'whole' ? [a, a, a, a] : style === 'pairs' ? [a, a, b, b] : [0, 1, 2, 3].map(() => r.pick(lines));
+    return { per, stutter: cat !== 'pad' && r.chance(0.25) };
+  };
+  return {
+    id: `vocal${i + 1}`, cat, kind: `vocal · teto`, name: nameKo, color: '#e0405e', glow: '#ff8fa3', tag: 'vocals', vocal: true,
+    samples: lines.flatMap((l) => [1, 2, 3, 4].map((b) => `teto_${l}_${b}`)),
+    // for the word picker (✎ 단어 in the 변주 slot, src/orbs/slots.js): the lines, and what a seed picks
+    vocalLines: lines, vocalChoose: choose,
+    code: (r) => {
+      const { per, stutter } = choose(r);
+      const bars = per.map((line, k) => {
+        const B = VOCAL_SLICES.lines[line].bars[k];
+        const steps = Array(8).fill(null);
+        B.at.forEach((e, j) => (steps[e] = j));
+        if (stutter) for (let e = 0; e < 7; e++) if (steps[e] !== null && steps[e + 1] === null && r.chance(0.3)) steps[++e] = steps[e - 1];
+        return { B, steps };
+      });
+      const seq = (f) => `"<${bars.map(({ B, steps }) => `[${steps.map((j) => (j === null ? '~' : f(B, j))).join(' ')}]`).join(' ')}>"`;
+      return `n(${seq((B, j) => j)})
+  .s("<${per.map((line, k) => `teto_${line}_${k + 1}`).join(' ')}>")
+  .begin(${seq((B, j) => num(B.b[j]))})
+  .end(${seq((B, j) => num(B.e[j]))})
+  .velocity("<${per.map((line) => +VOCAL_SLICES.lines[line].gain.toFixed(3)).join(' ')}>")`
+        + `
+  .early(${+(VOCAL_SLICES.pre * 0.1875).toFixed(4)}/__DT__).attack(.004)${cut}${tone}.gain(${gain})`;
+    },
+  };
+});
+// The vocal word files a piece of code plays: in each $: line, the words of its last .s("…") (a key
+// orb's .s() with another pitch's files comes after the line's own).
+export const vocalFiles = (code) => [...new Set(code.split(/^\$:/m).flatMap((part) =>
+  ([...part.matchAll(/\.s\("([^"]*teto_[^"]*)"\)/g)].at(-1)?.[1].match(/teto_\w+/g) ?? [])))];
+// How a line moves to another key. A pitched line transposes its notes. A vocal word is a
+// recording in A minor, sung also 4 semitones down and 3 up: the nearest of the three plays, moved
+// the rest of the way (at most 2 semitones) with .speed(). Under a major key it goes to the
+// relative minor (F# minor for A major), whose notes are the major scale's.
+export function keyTail(l, code, shift, mode = 'minor') {
+  if (l.vocal) {
+    const s = ((((shift + (mode === 'major' ? -3 : 0)) % 12) + 18) % 12) - 6;
+    const near = s < -2 ? -4 : s > 1 ? 3 : 0;
+    const words = /\.s\("([^"]*teto_[^"]*)"\)/.exec(code)?.[1];
+    const suffix = near < 0 ? '_dn4' : '_up3';
+    return (near && words ? `.s("${words.replace(/teto_\w+/g, (w) => w + suffix)}")` : '')
+      + (s !== near ? `.speed(${+(2 ** ((s - near) / 12)).toFixed(4)})` : '');
+  }
+  return shift && (l.pitched || /\b(scale|chord|note)\(/.test(code)) ? `.transpose(${shift})` : '';
+}
+
+export const LAYERS = [...TWELFTH, ...generateEdits(TWELFTH), ...EQ_ORBS, ...SINGLE_MOODS, ...VOCAL_ORBS].map(reworkMood);
 
 // Level trims from tools/orb-levels.html: every sound orb rendered alone (4 bars at 124 BPM,
 // variation seeds 1-3) and its K-weighted loudness (LUFS) matched to the median of its category,
@@ -2361,6 +2443,7 @@ function familyOf(l) {
   if (l.eq) return 'eq';
   if (!DRUM_CATS.includes(l.cat) && !PITCHED_CATS.includes(l.cat) && !['fx', 'texture'].includes(l.cat)) return l.cat;
   if (l.spot) return 'block fx';
+  if (l.vocal) return 'vocal';
   // the other-scale orbs fall as one family per category, whatever they are played on; spawnWeights
   // (src/orbs.js) holds that family at 30% of its category however many are added (less after
   // turn-downs, see scaleKeep in orbTaste.js)
@@ -2382,7 +2465,8 @@ export const byId = Object.fromEntries(LAYERS.map((l) => [l.id, l]));
 for (const l of LAYERS) {
   if (l.combo) l.colors = l.combo.map((id) => byId[id].color ?? byId[id].colors[0]);
   l.drum = DRUM_CATS.includes(l.cat);
-  l.pitched = PITCHED_CATS.includes(l.cat);
+  // a vocal phrase plays slices by number: key orbs move it with .speed(), never .transpose()
+  l.pitched = PITCHED_CATS.includes(l.cat) && !l.vocal;
   l.family = familyOf(l);
 }
 // Names are made in Korean and stay the orb's real name (nameKo, kindKo); `name` and `kind`

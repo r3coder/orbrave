@@ -4,7 +4,7 @@
 import { S, active, applyVar, drawnOf, drumsReady, gainOf, heldSeed, orbVars, ownSeed, replReady, seedOf, ui, volStep } from './state.js';
 import { evaluate, hush, getAudioContext, getSuperdoughAudioController } from '@strudel/web';
 import { preloadSamples } from '../samples.js';
-import { BASE_BPM, rng, hash, byId, role, setMode, keyLabel } from '../orbCatalog.js';
+import { BASE_BPM, rng, hash, byId, role, setMode, keyLabel, keyTail, vocalFiles } from '../orbCatalog.js';
 import { BARS, sheetCode, songFx, duckOf, eqClash, masterEq } from '../orbPreset.js';
 import { makeGraphicEq } from '../graphicEq.js';
 import { EQ_FREQS } from '../../server/orbEditSpec.mjs';
@@ -176,9 +176,21 @@ addEventListener('keydown', unlockAudio, true);
 const warmed = new Set();
 const warmQueue = [];
 let warmTimer = null;
+// A vocal orb lists all its words (4-6 lines × 4 bars, in 3 pitches): only the four files it would play now
+// loads, for each seed it may play with (in the song, held, or the shared one) at the current key.
+// A key orb re-warms the vocal orbs in the song, which then switch to another pitch's file.
+function vocalNames(l) {
+  const seeds = new Set([active.has(l.id) ? seedOf(l) : null, heldSeed.get(l.id), S.variation].filter((v) => typeof v === 'number'));
+  return [...seeds].map((v) => {
+    const code = codeOf(l, v);
+    return vocalFiles(code + keyTail(l, code, keyShift(), keyMode()));
+  }).flat();
+}
 function warm(list) {
   if (!S.started) return;
-  const names = list.flatMap((l) => (l?.combo ? l.combo.map((c) => byId[c]) : [l])).flatMap((l) => l?.samples ?? []).filter((n) => !warmed.has(n));
+  if (list.some((l) => l?.cat === 'mode')) list = [...list, ...layers().filter((l) => l.vocal)];
+  const names = list.flatMap((l) => (l?.combo ? l.combo.map((c) => byId[c]) : [l]))
+    .flatMap((l) => (l?.vocal ? vocalNames(l) : l?.samples ?? [])).filter((n) => !warmed.has(n));
   names.forEach((n) => warmed.add(n));
   warmQueue.push(...names);
   warmTimer ??= setInterval(() => {
@@ -267,7 +279,8 @@ function chanOf(id) {
 
 // gain: a block's own strength in the stems (a factor, or a fade as Strudel code)
 // analyse: a preview that still gets an analyser channel (the 🎛 편집 panel draws its spectrum)
-function lineFor(l, v, extra = '', { preview = false, gain = null, analyse = false } = {}) {
+// shift: semitones on top of the key orb's (a stem section's own key)
+function lineFor(l, v, extra = '', { preview = false, gain = null, analyse = false, shift = 0 } = {}) {
   if (!l.code) return null;
   // hovering an orb in the song's list solos it
   const quiet = !(preview || S.offline) && S.solo && S.solo !== l.id && byId[S.solo]?.code;
@@ -283,7 +296,7 @@ function lineFor(l, v, extra = '', { preview = false, gain = null, analyse = fal
     : Math.abs(g - 1) < 0.005 ? '' : `.postgain(${+g.toFixed(3)})`;
   // fft(5): superdough sizes the analyser 2^(5+5) = 1024, the size the equaliser reads it at
   const chan = (preview && !analyse) || S.offline ? '' : `.analyze(${chanOf(l.id)}).fft(5)`;
-  const key = keyShift() && pitchedCode(l, code) ? `.transpose(${keyShift()})` : '';
+  const key = keyTail(l, code, keyShift() + (shift || 0), keyMode());
   // the EQ and mood orbs' effects, each at the strength the 약하게 / 세게 slots gave it
   const fx = songFx(fxOrbs(), code + own + extra, (o) => volStep(o.id));
   return `// ${preview ? '미리듣기: ' : ''}${l.name}\n$: ${code}${key}${own}${extra}${fx}${post}${chan}`;

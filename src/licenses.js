@@ -13,7 +13,7 @@ const TXT = {
     code: '소스 코드 · 글꼴',
     codeNote: 'ORBRAVE는 AGPL-3.0 라이선스의 Strudel을 사용하므로 이 사이트의 소스 코드도 AGPL-3.0-or-later로 공개되어 있습니다.',
     by: '저작자',
-    use: { drums: '드럼 머신 (909/808/707/606/727, RD-6)', kit: '어쿠스틱 드럼 키트', kitbreak: '브레이크비트 (이 프로젝트에서 위 키트로 연주)', fx: '효과음 (임팩트, 리버스 크래시, 스윕: 이 프로젝트에서 합성)', vcsl: '마림바, 칼림바, 콩가, 셰이커 등', bass: '베이스 기타 (Swagbass, Growlybass)', upright: '콘트라베이스 피치카토', wurli: '일렉트릭 피아노 (Wurlitzer EP200)', piano: '피아노', maps: '샘플 목록(JSON)', site: '이 사이트', engine: '음악 엔진', font: '글꼴 (달무리)' },
+    use: { drums: '드럼 머신 (909/808/707/606/727, RD-6)', kit: '어쿠스틱 드럼 키트', kitbreak: '브레이크비트 (이 프로젝트에서 위 키트로 연주)', fx: '효과음 (임팩트, 리버스 크래시, 스윕: 이 프로젝트에서 합성)', vcsl: '마림바, 칼림바, 콩가, 셰이커 등', bass: '베이스 기타 (Swagbass, Growlybass)', upright: '콘트라베이스 피치카토', wurli: '일렉트릭 피아노 (Wurlitzer EP200)', piano: '피아노', teto: '보컬 (이 프로젝트에서 작곡·작사, OpenUtau로 노래. 비상업 이용만 가능, AGPL 대상 아님, 이 사이트 밖 재사용 불가)', maps: '샘플 목록(JSON)', site: '이 사이트', engine: '음악 엔진', font: '글꼴 (달무리)' },
     close: '닫기',
   },
   en: {
@@ -24,7 +24,7 @@ const TXT = {
     code: 'Source code · Font',
     codeNote: 'ORBRAVE uses Strudel, which is AGPL-3.0, so this site\'s source code is published under AGPL-3.0-or-later as well.',
     by: 'by',
-    use: { drums: 'Drum machines (909/808/707/606/727, RD-6)', kit: 'Acoustic drum kit', kitbreak: 'Breakbeat (played on the kit above by this project)', fx: 'Effects (impacts, reverse crashes, sweeps: made by this project)', vcsl: 'Marimba, kalimba, conga, shakers and more', bass: 'Bass guitars (Swagbass, Growlybass)', upright: 'Upright bass, pizzicato', wurli: 'Electric piano (Wurlitzer EP200)', piano: 'Piano', maps: 'Sample maps (JSON)', site: 'This site', engine: 'Music engine', font: 'Font (Dalmoori)' },
+    use: { drums: 'Drum machines (909/808/707/606/727, RD-6)', kit: 'Acoustic drum kit', kitbreak: 'Breakbeat (played on the kit above by this project)', fx: 'Effects (impacts, reverse crashes, sweeps: made by this project)', vcsl: 'Marimba, kalimba, conga, shakers and more', bass: 'Bass guitars (Swagbass, Growlybass)', upright: 'Upright bass, pizzicato', wurli: 'Electric piano (Wurlitzer EP200)', piano: 'Piano', teto: 'Vocals (written for this project, sung in OpenUtau; non-commercial use only, not under the AGPL, no reuse outside this site)', maps: 'Sample maps (JSON)', site: 'This site', engine: 'Music engine', font: 'Font (Dalmoori)' },
     close: 'Close',
   },
   ja: {
@@ -35,7 +35,7 @@ const TXT = {
     code: 'ソースコード · フォント',
     codeNote: 'ORBRAVE は AGPL-3.0 の Strudel を使っているため、このサイトのソースコードも AGPL-3.0-or-later で公開しています。',
     by: '作者',
-    use: { drums: 'ドラムマシン (909/808/707/606/727, RD-6)', kit: 'アコースティックドラムキット', kitbreak: 'ブレイクビーツ (上のキットでこのプロジェクトが演奏)', fx: '効果音 (インパクト、リバースクラッシュ、スイープ: このプロジェクトで合成)', vcsl: 'マリンバ、カリンバ、コンガ、シェイカーなど', bass: 'ベースギター (Swagbass, Growlybass)', upright: 'コントラバス ピチカート', wurli: 'エレクトリックピアノ (Wurlitzer EP200)', piano: 'ピアノ', maps: 'サンプルマップ (JSON)', site: 'このサイト', engine: '音楽エンジン', font: 'フォント (Dalmoori)' },
+    use: { drums: 'ドラムマシン (909/808/707/606/727, RD-6)', kit: 'アコースティックドラムキット', kitbreak: 'ブレイクビーツ (上のキットでこのプロジェクトが演奏)', fx: '効果音 (インパクト、リバースクラッシュ、スイープ: このプロジェクトで合成)', vcsl: 'マリンバ、カリンバ、コンガ、シェイカーなど', bass: 'ベースギター (Swagbass, Growlybass)', upright: 'コントラバス ピチカート', wurli: 'エレクトリックピアノ (Wurlitzer EP200)', piano: 'ピアノ', teto: 'ボーカル (このプロジェクトで作詞作曲、OpenUtau で歌唱。非商用のみ、AGPL 対象外、本サイト外での再利用不可)', maps: 'サンプルマップ (JSON)', site: 'このサイト', engine: '音楽エンジン', font: 'フォント (Dalmoori)' },
     close: '閉じる',
   },
 };
@@ -45,6 +45,7 @@ const L = {
   ccby3: ['CC BY 3.0', 'https://creativecommons.org/licenses/by/3.0/'],
   agpl: ['AGPL-3.0-or-later', 'https://www.gnu.org/licenses/agpl-3.0.html'],
   apache: ['Apache-2.0', 'https://www.apache.org/licenses/LICENSE-2.0'],
+  teto: ['重音テト音声ライブラリー使用許諾条件 (non-commercial)', 'https://kasaneteto.jp/guideline/voice.html'],
 };
 
 // [use key, name, url, author, license key (or null), needs attribution]
@@ -58,6 +59,7 @@ const SOUNDS = [
   ['upright', 'Double Bass', 'https://github.com/sfzinstruments/dsmolken.double-bass', 'D. Smolken', 'cc0'],
   ['wurli', "Greg Sullivan's E-Pianos (Wurlitzer EP200)", 'https://github.com/sfzinstruments/GregSullivan.E-Pianos', 'Greg Sullivan', 'ccby3', true],
   ['piano', 'Salamander Grand Piano V3', 'https://archive.org/details/SalamanderGrandPianoV3', 'Alexander Holm', 'ccby3', true],
+  ['teto', '重音テト (Kasane Teto) UTAU voicebank', 'https://kasaneteto.jp/utau/', '小山乃舞世 / TWINDRILL', 'teto'],
   ['maps', 'dough-samples', 'https://github.com/felixroos/dough-samples', 'Felix Roos', null],
 ];
 const CODE = [

@@ -3,7 +3,10 @@
 // same order as the one file did. See orbs/state.js.
 import { closeOrbEdit, openOrbEdit, orbEditing } from './customOrbs.js';
 import { transpiler, noteToMidi } from '@strudel/web';
-import { byId } from '../orbCatalog.js';
+import { byId, hash, rng } from '../orbCatalog.js';
+import { rootId } from '../orbEdit.js';
+import VOCAL from '../vocalLines.json';
+import { wordLabel } from '../vocalWords.js';
 import { BARS, STEPS, ROWS, SEMIS, sheetCode, quantize, notesAt, stepOf, VAR_MAX } from '../orbPreset.js';
 import { lite } from '../liteMode.js';
 import { toneHex, ink } from '../theme.js';
@@ -17,7 +20,7 @@ import { hoverOff, hoverOn, makeOrbEl, rain, stash } from './field.js';
 import { FX_SLOTS, bump, slotEls, slotIds, slotOrbs, slotsOn, startDrag } from './drag.js';
 import {
   GUTTER, addVar, closeEditor, degreeOf, draft, fullScale, hasNotes, openEditor, removeVar, rollOrb,
-  rollRows, rowOf, rowVal, scaleSteps, semiOf, semiRoll, setFullScale, slotSay, startVars, stepVar,
+  rollRows, rowOf, rowVal, scaleSteps, seedFor, semiOf, semiRoll, setFullScale, slotSay, startVars, stepVar,
   varyOrb,
 } from './variations.js';
 import { saveSessionSoon } from './presets.js';
@@ -84,7 +87,11 @@ function renderSlots() {
   const last = !st || st.vi >= st.list.length - 1;
   ui.varyNext.disabled = !id || (last && (st?.list.length ?? 1) >= VAR_MAX) || (last && !seeded(byId[id]) && !byId[id]?.voice);
   ui.varyNext.title = ot(last ? 'varyNew' : 'varyNextTip');
-  ui.varyEdit.disabled = !id || !byId[id]?.voice;
+  ui.varyEdit.disabled = !id || !(byId[id]?.voice || byId[id]?.vocal);
+  // a vocal orb has words to pick instead of notes to draw
+  const words = !!byId[id]?.vocal;
+  ui.varyEdit.textContent = ot(words ? 'varyEditWords' : 'varyEdit');
+  ui.varyEdit.title = ot(words ? 'varyEditWordsTip' : 'varyEditTip');
   ui.varyEdit.classList.toggle('on', !!rollOrb);
   slotEls.edit.classList.toggle('open', !!orbEditing);
   ui.editOpen.disabled = !slotOrbs.edit;
@@ -133,7 +140,7 @@ function renderRollHead() {
   }
   const l = held;
   ui.rollName.innerHTML = l
-    ? `<b style="color:${ctint(l)}">${l.name} <small>${ot('slotVary')} ${varNum(orbVars.get(l.id)?.vi ?? 0)}</small></b><span>${ot(l.voice.root ? 'rollPitched' : 'rollDrum')} · ${ot('rollThrow')}</span>`
+    ? `<b style="color:${ctint(l)}">${l.name} <small>${ot('slotVary')} ${varNum(orbVars.get(l.id)?.vi ?? 0)}</small></b><span>${l.vocal ? ot('rollWords') : `${ot(l.voice.root ? 'rollPitched' : 'rollDrum')} · ${ot('rollThrow')}`}</span>`
     : ot('rollEmpty');
   ui.rollHint.textContent = '';
   ui.rollDone.disabled = !rollOrb;
@@ -142,6 +149,95 @@ function renderRollHead() {
   ui.rollFull.classList.toggle('on', semiRoll());
   ui.rollFull.setAttribute('aria-pressed', String(fullScale));
   ui.roll.classList.toggle('semi', semiRoll());
+  renderWords();
+}
+
+// ---------- a vocal orb's words (✎ 단어) ----------
+// A vocal orb sings bar n of one of its lines in each bar (src/orbCatalog.js); which ones, and
+// whether held notes are sung again, come from the variation's seed. Picking a word looks for a
+// seed that makes that choice (the first few draws of the seed decide it, so it is quick), and the
+// variation keeps that seed: saving, sharing and the stems read it like any other.
+const BAR_CHORDS = ['Am9', 'Fmaj7', 'Cmaj7', 'G6'];
+const wordsOf = (l, v) => l.vocalChoose(rng(hash(rootId(l, byId)) + v * 7919));
+function seedForWords(l, per, stutter) {
+  const base = hash(rootId(l, byId));
+  const start = 1 + Math.floor(Math.random() * 9_000_000);
+  for (let i = 0; i < 1_000_000; i++) {
+    const v = start + i;
+    const c = l.vocalChoose(rng(base + v * 7919));
+    if (c.stutter === stutter && c.per.every((x, k) => x === per[k])) return v;
+  }
+  return null;
+}
+// every word on one line: the largest text size (13px down to 10px) at which no word in the list is
+// cut, set on the whole list so the columns stay even. A tab too narrow for that shows the bars in
+// two columns (two rows of two) and fits again, down to 8px; only past that does a word end in …
+function fitWords() {
+  const box = ui.rollWords;
+  if (!box.offsetWidth) return;
+  const cut = () => [...box.querySelectorAll('.word span, .word small')].some((e) => e.scrollWidth > e.clientWidth + 0.5);
+  const fit = (min) => {
+    let px = 13;
+    box.style.fontSize = `${px}px`;
+    while (px > min && cut()) box.style.fontSize = `${(px -= 0.5)}px`;
+    return !cut();
+  };
+  box.classList.remove('two');
+  if (fit(10)) return;
+  box.classList.add('two');
+  fit(8);
+}
+new ResizeObserver(() => document.body.classList.contains('roll-full') && fitWords()).observe(ui.rollWords);
+async function setWords(per, stutter) {
+  const l = rollOrb && byId[draft.src];
+  if (!l?.vocal) return;
+  const v = seedForWords(l, per, stutter);
+  if (v == null) {
+    ui.rollHint.textContent = ot('wordsNone');
+    return;
+  }
+  draft.edited = false;
+  draft.seed = v;
+  renderRollHead();
+  if (!S.playing) await play();
+  else sync();
+}
+function renderWords() {
+  const l = rollOrb && byId[rollOrb.id];
+  ui.roll.classList.toggle('words', !!l?.vocal);
+  ui.rollWords.innerHTML = '';
+  if (!l?.vocal) return;
+  const { per, stutter } = wordsOf(l, draft.seed ?? seedFor(l));
+  per.forEach((cur, k) => {
+    const col = document.createElement('div');
+    col.className = 'words-bar';
+    col.innerHTML = `<b>${ot('wordsBar', { n: k + 1 })}<small>${BAR_CHORDS[k]}</small></b>`;
+    for (const line of l.vocalLines) {
+      const b = document.createElement('button');
+      b.className = 'word' + (line === cur ? ' on' : '');
+      // what it says, in the page's language, and beside it how it sounds (scat and chords: only
+      // how they sound; Japanese: the kana)
+      const text = VOCAL.lines[line].bars[k].text;
+      const { main, sub } = wordLabel(line, k, text);
+      b.innerHTML = `<span>${main}</span>${sub ? `<small>${sub}</small>` : ''}`;
+      b.title = main === text ? text : `${main}${sub ? ` · ${sub}` : ''} (${text})`;
+      b.addEventListener('click', () => line !== cur && setWords(per.map((x, j) => (j === k ? line : x)), stutter));
+      col.append(b);
+    }
+    ui.rollWords.append(col);
+  });
+  fitWords();
+  if (l.cat === 'pad') return; // chords are never sung again
+  const tools = document.createElement('div');
+  tools.className = 'words-tools';
+  const t = document.createElement('button');
+  t.className = stutter ? 'on' : '';
+  t.textContent = ot('wordsStutter');
+  t.title = ot('wordsStutterTip');
+  t.setAttribute('aria-pressed', String(stutter));
+  t.addEventListener('click', () => setWords(per, !stutter));
+  tools.append(t);
+  ui.rollWords.prepend(tools);
 }
 
 // An orb's current notes as a drawing: its pattern (at the current variation, or `seed`) is built
@@ -183,8 +279,14 @@ function patternToRaw(l, seed = seedOf(l), full = false) {
 
 // the draft sounds while the roll is open so you hear what you draw
 function previewLayer() {
-  if (!rollOrb || !hasNotes(draft.raw)) return null;
+  if (!rollOrb) return null;
   const s = byId[draft.src];
+  // a vocal orb: its words as picked (the seed they come from)
+  if (s.vocal) {
+    const v = draft.seed ?? seedFor(s);
+    return { id: 'preview', name: ot('previewOrb'), cat: s.cat, vocal: true, code: () => codeOf(s, v) };
+  }
+  if (!hasNotes(draft.raw)) return null;
   return { id: 'preview', name: ot('previewOrb'), drum: s.drum, code: () => sheetCode(draft.raw, s.voice) };
 }
 
@@ -239,9 +341,11 @@ async function rollVariation() {
   const s = rollOrb && byId[draft.src];
   if (!s || !seeded(s)) return;
   const v = newSeed();
-  const raw = patternToRaw(s, v, semiRoll());
-  if (!raw) return;
-  draft.raw = raw;
+  if (!s.vocal) {
+    const raw = patternToRaw(s, v, semiRoll());
+    if (!raw) return;
+    draft.raw = raw;
+  }
   draft.edited = false;
   draft.seed = v;
   bump(ui.roll, 'gulp');
@@ -335,6 +439,11 @@ ui.rollCanvas.addEventListener('pointerup', endStroke);
 ui.rollCanvas.addEventListener('pointercancel', endStroke);
 
 ui.rollDice.addEventListener('click', rollVariation);
+// another page language: the 변주 slot's labels (✎ 단어 / ✎ 악보) and the words' readings follow
+window.addEventListener('langchange', () => {
+  renderSlots();
+  renderRollHead();
+});
 ui.rollFull.addEventListener('click', () => {
   if (!rollOrb) return;
   setFullScale(!fullScale);

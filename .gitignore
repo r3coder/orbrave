@@ -23,3 +23,12 @@ __pycache__/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# vocal renderer: openutau-mcp checkout, its build and renders (tools/vocals/setup.ps1)
+tools/vocals/.openutau-mcp/
+tools/vocals/.ou-render/
+tools/vocals/.render/
+# the OpenUtau project make_ustx.py writes from its notes on every render (render.ps1)
+tools/vocals/phrases.ustx
+# the Teto vocal words: on the share server only, never in the repository (server/vocals.mjs, tools/vocals/NOTICE.txt)
+server/vocals/

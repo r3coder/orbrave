@@ -10,6 +10,7 @@
 // This file also imports every outside module, in the old order, so the CSS lands as before.
 import { initStrudel, registerZZFXSounds, Pattern } from '@strudel/web';
 import { loadSampleBanks, preloadDrums } from '../samples.js';
+import { loadVocals } from '../vocals.js';
 import '../orbs.css';
 import { LAYERS } from '../orbCatalog.js';
 import { STEPS, VAR_MAX } from '../orbPreset.js';
@@ -52,7 +53,7 @@ const ui = {
   play: $('play'), core: $('core'), sats: $('sats'), field: $('field'), right: $('right'), status: $('status'),
   chips: $('chips'), roles: $('roles'), soloHint: $('soloHint'), drawer: $('drawer'), code: $('code'),
   roll: $('roll'), rollCanvas: $('rollCanvas'), rollSlot: $('rollSlot'), rollName: $('rollName'),
-  rollHint: $('rollHint'), rollDone: $('rollDone'), rollDice: $('rollDice'), rollFull: $('rollFull'), rollScroll: $('rollScroll'),
+  rollHint: $('rollHint'), rollDone: $('rollDone'), rollDice: $('rollDice'), rollFull: $('rollFull'), rollScroll: $('rollScroll'), rollWords: $('rollWords'),
   varyWrap: $('varyWrap'), varyDel: $('varyDel'), varyPrev: $('varyPrev'), varyNext: $('varyNext'), varyEdit: $('varyEdit'),
   slots: $('slots'), slotHint: $('slotHint'), orbEdit: $('orbEdit'), editWrap: $('editWrap'), editOpen: $('editOpen'),
   stash: $('stash'), stashSlots: $('stashSlots'),
@@ -69,6 +70,8 @@ const replReady = initStrudel({
     return loadSampleBanks();
   },
 });
+// the vocal orbs' words come from the share server, when it is there (vocals.js); the page doesn't wait
+replReady.then(loadVocals, () => {});
 // Boot screen: hold the page until the sample maps are registered and every drum one-shot is
 // decoded (see samples.js), so the first bars never drop hits while files are still downloading.
 // The boot set starts with the drum hits of the band-part orbs (FIRST_CATS), so the opening rain

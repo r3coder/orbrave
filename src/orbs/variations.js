@@ -197,10 +197,10 @@ function varChanged(id, editing) {
   syncSoon();
 }
 
-// 편집: the roll opens on the variation on show
+// 편집: the roll opens on the variation on show (a vocal orb's: its words, see renderWords in slots.js)
 function openEditor() {
   const id = varyOrb(), l = id && byId[id];
-  if (!l?.voice || rollOrb) return;
+  if (!(l?.voice || l?.vocal) || rollOrb) return;
   ensureVars(id);
   hoverOff(); // the roll's own preview takes over from hearing the slot's orb
   rollOrb = { id };
@@ -215,6 +215,12 @@ function openEditor() {
 // the variation on show as a drawing: its notes, or the notes its seed plays
 function loadDraft() {
   const l = byId[rollOrb.id], x = drawnOf(l);
+  // a vocal orb has no notes to draw: the draft is the seed its words come from (null: as it is)
+  if (l.vocal) {
+    draft = { src: l.id, raw: Array(STEPS).fill(null), edited: false, seed: null, words: true };
+    renderRollHead();
+    return;
+  }
   if (x && fullScaleRaw(x.raw)) fullScale = true; // a full-scale drawing opens as one
   const raw = x ? [...x.raw] : patternToRaw(l, seedFor(l), fullScale && !!l.voice?.root);
   draft = { src: l.id, raw: raw ?? Array(STEPS).fill(null), edited: false, seed: null };

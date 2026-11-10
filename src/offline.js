@@ -34,15 +34,22 @@ export async function renderOffline(pattern, { start, end, cps, eq = null, tail 
     // voice sits in the graph until it plays, so scheduling a whole song up front makes
     // each render quantum process thousands of idle nodes (quadratic slowdown).
     let next = start;
+    // a sound pulled ahead of its beat (.early(): the vocal orbs' consonants) that belongs to the
+    // first beat starts a little before the render does: the first query reaches back for it, and
+    // it plays from 0 (WebAudio refuses a negative start time)
+    // (only those: anything else before the start stays out)
+    const LOOKBACK = 0.1; // cycles; .early() moves a vocal note at most 0.08 s, under 0.08 cycles up to 240 BPM
+    const pulledAhead = (h) => h.whole.begin.valueOf() >= start || String(h.value?.s ?? '').startsWith('teto_');
     const scheduleUntil = async (until) => {
       for (; next < Math.min(until, end); next++) {
+        const from = next === start ? start - LOOKBACK : next;
         const haps = pattern
-          .queryArc(next, Math.min(next + 1, end), { _cps: cps }) // one big query is very slow in Strudel
-          .filter((h) => h.hasOnset())
+          .queryArc(from, Math.min(next + 1, end), { _cps: cps }) // one big query is very slow in Strudel
+          .filter((h) => h.hasOnset() && pulledAhead(h))
           .sort((a, b) => a.whole.begin - b.whole.begin);
         for (const hap of haps) {
           hap.ensureObjectValue();
-          const t = (hap.whole.begin.valueOf() - start) / cps;
+          const t = Math.max(0, (hap.whole.begin.valueOf() - start) / cps);
           await superdough(hap.value, t, hap.duration / cps, cps, t).catch(() => {});
         }
       }

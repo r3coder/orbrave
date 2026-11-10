@@ -7,6 +7,29 @@ import './licenses.css';
 
 // [version, date, { ko: [...], en: [...], ja: [...] }]
 const NOTES = [
+  ['0.6.0', '2026-11-10', {
+    ko: [
+      '보컬 오브 3개가 생겼어요: 빛 속에서 노래하는 테토 · 라라라 흥얼거리는 테토 · 화음 쌓는 테토 (UTAU 음원 重音テト, OpenUtau로 노래)',
+      '테토는 마디마다 단어를 바꿔 불러요. 🎲로 새로 섞고, ✎ 단어에서 마디별 단어를 직접 고를 수 있어요 (뜻과 발음은 페이지 언어로 표시)',
+      '조성 오브와 템포 오브를 넣어도 테토 노래가 박자와 음높이를 따라가요',
+      '테토 목소리는 공유 서버에서 받아요. 서버에 연결되지 않으면 보컬 오브가 떨어지지 않고, 검색에는 [X]와 회색으로 표시돼요',
+      '테토 음성은 비상업 이용만 가능하고 AGPL·CC0 대상이 아니에요. 멜로디와 가사는 CC0예요',
+    ],
+    en: [
+      'Three vocal orbs: Teto Singing in the Light · Teto Humming La La La · Teto Stacking Chords (the 重音テト UTAU voicebank, sung in OpenUtau)',
+      'Teto changes words every bar: 🎲 mixes new ones, and ✎ Words lets you pick each bar’s word (meaning and pronunciation in the page language)',
+      'Teto’s singing follows key and tempo orbs, on the beat and in tune',
+      'Teto’s voice comes from the share server: without it the vocal orbs don’t fall, and the search shows them greyed out with [X]',
+      'Teto’s audio is for non-commercial use only and not under the AGPL or CC0; the melodies and lyrics are CC0',
+    ],
+    ja: [
+      'ボーカルオーブが3つ:光の中で歌うテト · ラララと口ずさむテト · ハモりを重ねるテト (UTAU 音源 重音テト、OpenUtau で歌唱)',
+      'テトは小節ごとに言葉を変えて歌います。🎲 で混ぜ直し、✎ 言葉で小節ごとの言葉を選べます (意味と発音はページの言語で表示)',
+      '調オーブやテンポオーブを入れても、テトの歌がリズムと音程についていきます',
+      'テトの声は共有サーバーから読み込みます。つながらないときはボーカルオーブが落ちず、検索では [X] とグレーで表示されます',
+      'テトの音声は非商用のみで、AGPL・CC0 の対象外です。メロディーと歌詞は CC0 です',
+    ],
+  }],
   ['0.5.6', '2026-11-08', {
     ko: [
       '🎛 편집 슬롯에 분위기 오브도 넣을 수 있어요: 효과를 5개까지 골라 줄마다 4마디에 걸친 세기 곡선을 그려요',
@@ -270,6 +293,8 @@ const TXT = {
 };
 const s = () => TXT[getLang()] ?? TXT.en;
 const esc = (x) => String(x).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+// Teto's name in her colour (the vocal orbs' colour, VOCAL_ORBS in orbCatalog.js)
+const teto = (html) => html.replace(/重音テト|テト|테토|Teto/g, (w) => `<b class="cl-teto">${w}</b>`);
 
 function render(dlg) {
   const t = s();
@@ -278,7 +303,7 @@ function render(dlg) {
     <div class="lic-head"><b>${esc(t.title)}</b><button type="button" class="ghost lic-x" aria-label="${esc(t.close)}">✕</button></div>
     <div class="lic-body">${NOTES.map(([v, date, items]) => `
       <h3>v${esc(v)} <span class="cl-date">${esc(date)}</span></h3>
-      <ul class="cl-list">${(items[lang] ?? items.en).map((i) => `<li>${esc(i)}</li>`).join('')}</ul>`).join('')}
+      <ul class="cl-list">${(items[lang] ?? items.en).map((i) => `<li>${teto(esc(i))}</li>`).join('')}</ul>`).join('')}
     </div>`;
   dlg.setAttribute('aria-label', t.title);
   dlg.querySelector('.lic-x').onclick = () => dlg.close();
