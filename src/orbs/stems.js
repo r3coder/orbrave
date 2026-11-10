@@ -15,7 +15,7 @@ import {
 import { tutEvent } from './guide.js';
 import { tour } from '../tutorial.js';
 import { ctint, customTags, orbInner, paint, roleText } from './list.js';
-import { dropVarCells, newSeedVar } from './variations.js';
+import { dropVarCells, newSeedVar, varyOrb } from './variations.js';
 
 // ---------- full song ----------
 // The current set becomes the centre of a whole track: an intro and build-up lead into it,
@@ -188,14 +188,68 @@ function buildGrid() {
   S.song.audition = null;
 }
 
-// keep the grid in step with the song's orbs: a new orb gets a row playing everywhere, a removed one loses its row
-function syncRows() {
-  for (const l of layers()) {
-    if (!l.code || S.song.cells[l.id]) continue;
-    S.song.rows.push({ id: l.id, alt: false });
-    S.song.cells[l.id] = cellsFor(l, () => true);
+// A row taken out of the stems is remembered (in localStorage, per song seed): its blocks, mute
+// and place. The orb going back into the same song gets that row back as it was left.
+const ROW_MEM_KEY = 'orbStemRows';
+function rowMem() {
+  try {
+    const m = JSON.parse(localStorage.getItem(ROW_MEM_KEY));
+    return m && typeof m === 'object' ? m : {};
+  } catch {
+    return {};
   }
-  S.song.rows = S.song.rows.filter((r) => r.alt || active.has(r.id));
+}
+function rowMemSave(m) {
+  try {
+    localStorage.setItem(ROW_MEM_KEY, JSON.stringify(m));
+  } catch {}
+}
+// the remembered blocks fitted to the song's sections now (a section added since plays as a new row would)
+function rowFromMem(l, saved) {
+  const n = varCount(l.id), fresh = cellsFor(l, () => true);
+  return S.song.sections.map((sec, i) => {
+    const old = saved[i];
+    if (!Array.isArray(old) || !old.length) return fresh[i];
+    const blocks = old.slice(0, blocksIn(sec)).map((c) => ({ ...c, k: Math.max(0, Math.min(n - 1, c.k ?? 0)) }));
+    while (blocks.length < blocksIn(sec)) {
+      const last = blocks.at(-1);
+      blocks.push({ on: last.on, k: last.k, fill: false, ...(last.g0 != null || last.g1 != null ? { g0: gEnd(last) } : {}) });
+    }
+    return blocks;
+  });
+}
+
+// keep the grid in step with the song's orbs: a new orb gets a row playing everywhere (or the one
+// it had before in this song), a removed one loses its row. An orb taken from the song into 변주
+// (or still in the hand on its way there) keeps its row, and keeps playing in the stems.
+function syncRows() {
+  const seed = S.song.seed ?? 0;
+  let mem = null;
+  const keep = new Set([...active.keys(), varyOrb(), S.songHeld].filter(Boolean));
+  for (const id of keep) {
+    const l = byId[id];
+    if (!l?.code || S.song.cells[id]) continue;
+    // the vary slot / the hand only keep a row that is there, they never add one
+    const saved = (mem ??= rowMem())[id];
+    const back = saved?.seed === seed && Array.isArray(saved.cells);
+    if (!active.has(id) && !back) continue;
+    const row = { id, alt: false, ...(back && saved.mute ? { mute: true } : {}) };
+    if (back) S.song.rows.splice(Math.max(0, Math.min(S.song.rows.length, saved.at ?? S.song.rows.length)), 0, row);
+    else S.song.rows.push(row);
+    S.song.cells[id] = back ? rowFromMem(l, saved.cells) : cellsFor(l, () => true);
+    if (back) delete mem[id];
+  }
+  const gone = S.song.rows.filter((r) => !r.alt && !keep.has(r.id));
+  if (gone.length) {
+    mem ??= rowMem();
+    // only this song's rows are worth keeping
+    for (const id of Object.keys(mem)) if (mem[id]?.seed !== seed) delete mem[id];
+    for (const r of gone) {
+      if (S.song.cells[r.id]) mem[r.id] = { seed, at: S.song.rows.indexOf(r), cells: S.song.cells[r.id], ...(r.mute ? { mute: true } : {}) };
+    }
+    S.song.rows = S.song.rows.filter((r) => !gone.includes(r));
+  }
+  if (mem) rowMemSave(mem);
   for (const id of Object.keys(S.song.cells)) if (!S.song.rows.some((r) => r.id === id)) delete S.song.cells[id];
 }
 

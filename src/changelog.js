@@ -7,6 +7,20 @@ import './licenses.css';
 
 // [version, date, { ko: [...], en: [...], ja: [...] }]
 const NOTES = [
+  ['0.6.1', '2026-11-10', {
+    ko: [
+      '스템 모드에서 악기를 노래에서 꺼내 변주 슬롯에 넣어도 스템 줄이 그대로 남고 계속 연주돼요',
+      '악기를 노래에서 뺐다가 다시 넣으면 그 스템 줄의 편집(블록 · 변주 · 세기 · 뮤트 · 자리)이 그대로 돌아와요',
+    ],
+    en: [
+      'In stem mode, an instrument taken from the song into the variation slot keeps its stem row and keeps playing',
+      'An instrument taken out of the song and put back gets its stem row back as it was edited (blocks, variations, strength, mute, place)',
+    ],
+    ja: [
+      'ステムモードで楽器を曲からバリエーションスロットに入れても、ステムの行がそのまま残って鳴り続けます',
+      '楽器を曲から外してまた入れると、そのステム行の編集 (ブロック · バリエーション · 強さ · ミュート · 位置) がそのまま戻ります',
+    ],
+  }],
   ['0.6.0', '2026-11-10', {
     ko: [
       '보컬 오브 3개가 생겼어요: 빛 속에서 노래하는 테토 · 라라라 흥얼거리는 테토 · 화음 쌓는 테토 (UTAU 음원 重音テト, OpenUtau로 노래)',

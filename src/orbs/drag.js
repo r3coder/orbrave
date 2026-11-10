@@ -88,6 +88,8 @@ function grabFromSong(e, id) {
   if (!a) return;
   const r = e.currentTarget.getBoundingClientRect();
   countMove();
+  // its stem row stays while it is in the hand (it may be on its way to 변주)
+  S.songHeld = id;
   removeLayer(id, { silent: true, respawn: false });
   startDrag(e, makeOrbEl(id), { kind: 'active', home: a.home }, { x: r.left + r.width / 2, y: r.top + r.height / 2 });
 }
@@ -190,6 +192,7 @@ function startDrag(e, el, home, anchor) {
       syncSoon();
     }
     const x = ev.clientX - off.x, y = ev.clientY - off.y;
+    if (S.songHeld === held) S.songHeld = null;
     if (ev.type !== 'pointerup') return goHome(el, home);
     if (land(el, home, x, y)) return;
     // released while moving fast: throw it
