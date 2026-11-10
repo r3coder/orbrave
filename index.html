@@ -45,7 +45,7 @@
         <div class="pb-list" id="presetList"></div>
       </div>
       <div class="pb-half pb-shared">
-        <div class="side-head" data-i18n="shared">🌐 모두의 곡</div>
+        <div class="side-head" data-ic="globe" data-i18n="shared">모두의 곡</div>
         <button id="sharedRefresh" class="pb-refresh" data-i18n="sharedRefresh" data-i18n-title="sharedRefreshTip">새로고침</button>
         <div class="pb-list" id="sharedList"></div>
       </div>
@@ -60,7 +60,7 @@
         <button id="wavStemBtn" class="stem-only" data-i18n="wavStem" data-i18n-title="wavStemTip">스템 WAV 저장</button>
         <button id="shareBtn" class="loop-only" data-i18n="shareOrbs" data-i18n-title="shareOrbsTip">루프 공유</button>
         <button id="stemShareBtn" class="stem-only" data-i18n="shareStems" data-i18n-title="shareStemsTip" disabled>스템 공유</button>
-        <button id="serverShareBtn">🌐 서버 공유</button>
+        <button id="serverShareBtn" data-ic="globe">서버 공유</button>
       </div>
       <div class="roles" id="roles"></div>
       <div class="core" id="core">
@@ -114,13 +114,13 @@
       <div class="field" id="field">
         <div class="field-tools">
           <button id="searchBtn" data-i18n="search" data-i18n-title="searchTip">오브 검색</button>
-          <button id="customBtn" data-i18n="customOrbs" data-i18n-title="customOrbsTip">🌐 커스텀 오브</button>
+          <button id="customBtn" data-ic="globe" data-i18n="customOrbs" data-i18n-title="customOrbsTip">커스텀 오브</button>
         </div>
       </div>
       <section class="stems" id="stems">
         <div class="stem-head">
           <b data-i18n="stems">스템</b>
-          <button id="songBtn" data-i18n="otherSong" data-i18n-title="otherSongTip">🎲 곡 구성 랜덤화</button>
+          <button id="songBtn" data-ic="dices" data-i18n="otherSong" data-i18n-title="otherSongTip">곡 구성 랜덤화</button>
           <button id="stemHelp" class="stem-help" data-i18n-title="stemHelpTip" aria-label="?">?</button>
           <button id="stemClose" class="loop-mode" data-i18n="toLoop">↩ 루프 모드로</button>
         </div>
@@ -137,8 +137,8 @@
           <div class="roll-slot" id="rollSlot"></div>
           <div class="roll-name" id="rollName"></div>
           <span class="roll-hint" id="rollHint"></span>
-          <button id="rollDice" data-i18n="rollDice" data-i18n-title="rollDiceTip">🎲 변주</button>
-          <button id="rollFull" aria-pressed="false" data-i18n="rollFull" data-i18n-title="rollFullTip">🎹 풀 스케일</button>
+          <button id="rollDice" data-ic="dices" data-i18n="rollDice" data-i18n-title="rollDiceTip">변주</button>
+          <button id="rollFull" aria-pressed="false" data-ic="keys" data-i18n="rollFull" data-i18n-title="rollFullTip">풀 스케일</button>
           <!-- 수정 완료: the tab goes down, the drawing kept as the variation; the orb stays in 변주 -->
           <div class="roll-tools">
             <button id="rollDone" class="go" data-i18n="rollDone" data-i18n-title="rollDoneTip">✓ 수정 완료</button>
@@ -162,7 +162,7 @@
         <div class="vary-wrap" id="varyWrap">
           <button id="varyDel" class="vbtn" data-i18n="varyDel" data-i18n-title="varyDelTip">변주 제거</button>
           <button id="varyPrev" class="vbtn varrow" data-i18n-title="varyPrevTip">◀</button>
-          <div class="orb-slot" id="slotVary" data-i18n-title="slotVaryTip" data-slot="vary"><span class="slot-label"><i>🎲</i><b data-i18n="slotVary">변주</b></span></div>
+          <div class="orb-slot" id="slotVary" data-i18n-title="slotVaryTip" data-slot="vary"><span class="slot-label"><i data-ic="dices"></i><b data-i18n="slotVary">변주</b></span></div>
           <button id="varyNext" class="vbtn varrow" data-i18n-title="varyNextTip">▶</button>
           <button id="varyEdit" class="vbtn" data-i18n="varyEdit" data-i18n-title="varyEditTip">✎ 악보</button>
         </div>

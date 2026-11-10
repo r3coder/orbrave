@@ -7,6 +7,23 @@ import './licenses.css';
 
 // [version, date, { ko: [...], en: [...], ja: [...] }]
 const NOTES = [
+  ['0.6.2', '2026-11-11', {
+    ko: [
+      '버튼과 라벨의 이모지 일부가 선 아이콘으로 바뀌고, 간격이 고르게 정리됐어요',
+      '잘못된 공유 코드나 링크를 열어도 페이지가 멈추지 않아요',
+      '공유 서버가 더 단단해졌어요: 공유 · 평가 횟수 제한을 피해 갈 수 없고, 한 곡의 평가는 한 네트워크에서 하루 3명까지만 반영돼요',
+    ],
+    en: [
+      'Some emoji on buttons and labels are now line icons, and the spacing is evened out',
+      'A broken share code or link no longer stops the page from loading',
+      'A sturdier share server: the share and vote limits can no longer be sidestepped, and one song takes votes from at most 3 people per network a day',
+    ],
+    ja: [
+      'ボタンやラベルの絵文字の一部が線アイコンになり、余白がそろいました',
+      '壊れた共有コードやリンクを開いても、ページが止まらなくなりました',
+      '共有サーバーが丈夫になりました: 共有 · 評価の回数制限をすり抜けられなくなり、1曲への評価は1つのネットワークから1日3人まで反映されます',
+    ],
+  }],
   ['0.6.1', '2026-11-10', {
     ko: [
       '스템 모드에서 악기를 노래에서 꺼내 변주 슬롯에 넣어도 스템 줄이 그대로 남고 계속 연주돼요',

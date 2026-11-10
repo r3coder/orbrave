@@ -34,6 +34,17 @@ export function createPresetStore(dataDir, { maxPerDay = 2000, folder = 'presets
     return m && join(root, `20${m[1]}-${m[2]}`, m[3]);
   };
   let cache = null; // newest first
+  // a read of the folders that was under way when a record was deleted or added is thrown away
+  // (cacheGen moves on), so a deleted record can't come back into the list
+  let cacheGen = 0;
+  async function cached() {
+    while (!cache) {
+      const gen = cacheGen;
+      const recs = await loadCache();
+      if (gen === cacheGen) cache ??= recs;
+    }
+    return cache;
+  }
   const perDay = new Map(); // 'YYMMDD' -> files in that folder
 
   // Votes: one file, <dataDir>/votes.json = { presetId: { voterId: 1 | -1 } }, kept in memory
@@ -132,10 +143,10 @@ export function createPresetStore(dataDir, { maxPerDay = 2000, folder = 'presets
     // well-liked (weight) and recent (first few days) ones more often, the same weighting the
     // pages use (weighted shuffle: each gets the key rand^(1/weight), highest first).
     async list(limit = 200, { mix = false } = {}) {
-      cache ??= await loadCache();
+      const recs = await cached();
       await loadVotes();
       const n = Math.max(1, Math.min(CACHE, limit));
-      const all = cache.map((r) => ({ ...r, w: weightOf(r.id) }));
+      const all = recs.map((r) => ({ ...r, w: weightOf(r.id) }));
       if (!mix) return all.slice(0, n);
       const now = Date.now();
       return all
@@ -178,7 +189,7 @@ export function createPresetStore(dataDir, { maxPerDay = 2000, folder = 'presets
     async page(offset = 0, limit = 50) {
       const o = Math.max(0, Math.floor(offset) || 0);
       const n = Math.max(1, Math.min(200, Math.floor(limit) || 50));
-      const recs = o + n + 1 <= CACHE ? (cache ??= await loadCache()) : await loadCache(o + n + 1);
+      const recs = o + n + 1 <= CACHE ? await cached() : await loadCache(o + n + 1);
       await loadVotes();
       const items = recs.slice(o, o + n).map((r) => ({ ...r, ...tally(r.id) }));
       return { items, more: recs.length > o + n };
@@ -194,6 +205,7 @@ export function createPresetStore(dataDir, { maxPerDay = 2000, folder = 'presets
         if (e.code === 'ENOENT') return false;
         throw e;
       }
+      cacheGen++;
       cache = null; // read again on the next list, so the one after the cut moves up
       await loadVotes();
       if (votes.delete(id)) saveVotesSoon();
@@ -224,6 +236,7 @@ export function createPresetStore(dataDir, { maxPerDay = 2000, folder = 'presets
       }
       perDay.set(key, (perDay.get(key) ?? 0) + 1);
       if (cache) cache = [rec, ...cache].slice(0, CACHE);
+      else cacheGen++; // a read under way may have missed it
       return rec;
     },
   };

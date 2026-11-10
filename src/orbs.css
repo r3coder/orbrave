@@ -115,13 +115,6 @@
   --ink-mix: 38%;
   --glow: 55%;
 }
-/* light: the two accents bloom faintly from opposite corners, like syrup in milk */
-:root[data-theme='light'] body {
-  background:
-    radial-gradient(90% 60% at 0% 0%, color-mix(in srgb, var(--acc) 8%, transparent), transparent 65%),
-    radial-gradient(90% 60% at 100% 100%, color-mix(in srgb, var(--acc2) 9%, transparent), transparent 65%),
-    var(--bg);
-}
 :root:has(body.lite) { transition: none; }
 /* the volume dial's gradient follows the accents */
 #volGrad stop:first-child { stop-color: var(--acc); }
@@ -152,6 +145,43 @@ button:hover { border-color: var(--acc); }
 button.ghost { background: transparent; border: 0; }
 button.on { background: var(--acc); color: var(--bg); }
 
+/* ---------- line icons (lucide shapes): data-ic="globe" on a label draws its icon before the text,
+   in the text's colour, so labels set with textContent keep it ---------- */
+:root {
+  --ic-globe: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='10'/><path d='M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20'/><path d='M2 12h20'/></svg>");
+  --ic-dices: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect width='12' height='12' x='2' y='10' rx='2'/><path d='m17.92 14 3.5-3.5a2.24 2.24 0 0 0 0-3l-5-4.92a2.24 2.24 0 0 0-3 0L10 6'/><path d='M6 18h.01'/><path d='M10 14h.01'/><path d='M15 6h.01'/><path d='M18 9h.01'/></svg>");
+  --ic-keys: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect width='20' height='16' x='2' y='4' rx='2'/><path d='M2 12h20'/><path d='M6 12v4'/><path d='M10 12v4'/><path d='M14 12v4'/><path d='M18 12v4'/></svg>");
+  --ic-headphones: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M3 14h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a9 9 0 0 1 18 0v7a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3'/></svg>");
+  --ic-folder: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z'/></svg>");
+  --ic-search: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='11' cy='11' r='8'/><path d='m21 21-4.3-4.3'/></svg>");
+  --ic-link: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71'/><path d='M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71'/></svg>");
+  --ic-repeat: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='m17 2 4 4-4 4'/><path d='M3 11v-1a4 4 0 0 1 4-4h14'/><path d='m7 22-4-4 4-4'/><path d='M21 13v1a4 4 0 0 1-4 4H3'/></svg>");
+}
+[data-ic='globe'] { --ic: var(--ic-globe); }
+[data-ic='dices'] { --ic: var(--ic-dices); }
+[data-ic='keys'] { --ic: var(--ic-keys); }
+[data-ic='headphones'] { --ic: var(--ic-headphones); }
+[data-ic='folder'] { --ic: var(--ic-folder); }
+[data-ic='search'] { --ic: var(--ic-search); }
+[data-ic='link'] { --ic: var(--ic-link); }
+[data-ic='repeat'] { --ic: var(--ic-repeat); }
+[data-ic]::before {
+  content: ''; display: inline-block; flex: none;
+  width: var(--ic-size, 14px); height: var(--ic-size, 14px); margin-right: 8px; vertical-align: -2px;
+  background-color: currentColor;
+  -webkit-mask: var(--ic) center / contain no-repeat; mask: var(--ic) center / contain no-repeat;
+}
+/* an icon on its own (no text beside it) */
+[data-ic]:empty::before { margin-right: 0; }
+.slot-label i[data-ic] { --ic-size: 16px; }
+.slot-label i[data-ic]::before { margin: 0; }
+/* a section-name span sits in a tight row: a smaller icon */
+.sname[data-ic] { --ic-size: 12px; }
+.sname[data-ic]::before { margin-right: 4px; vertical-align: -1px; }
+/* the preset tile's link button shows ✓ for a moment after copying: then the icon steps aside */
+.ptile .share[data-ic]:not(:empty)::before { display: none; }
+.ptile .share[data-ic] { --ic-size: 12px; }
+
 /* ---------- header ---------- */
 .top {
   position: fixed; top: 0; left: 0; right: 0; z-index: 4;
@@ -179,7 +209,7 @@ button.on { background: var(--acc); color: var(--bg); }
 .powered a { color: var(--fg); text-decoration: none; }
 .powered a:hover { color: var(--acc); }
 /* strudel 코드 · strudel.cc · 라이선스 · 버그/의견: plain text links on the line above "Made by" */
-.powered .foot-links { display: flex; flex-wrap: wrap; gap: 3px 14px; margin-bottom: 4px; }
+.powered .foot-links { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-bottom: 4px; }
 .powered .foot-links button {
   white-space: nowrap;
   border: 0; background: none; padding: 0; font: inherit; font-size: 12px; letter-spacing: 0.03em;
@@ -216,7 +246,7 @@ button.on { background: var(--acc); color: var(--bg); }
   .tools button { padding: 4px 10px; white-space: nowrap; }
 }
 .langs { display: flex; border: 1px solid var(--line); background: var(--surface); }
-.langs button { border: 0; background: transparent; color: var(--dim); padding: 5px 9px; font-size: 12px; }
+.langs button { border: 0; background: transparent; color: var(--dim); padding: 4px 8px; font-size: 12px; }
 .langs button:hover { color: var(--fg); }
 .langs button.on { color: var(--bg); background: var(--acc); }
 
@@ -241,7 +271,7 @@ button.on { background: var(--acc); color: var(--bg); }
 .core-foot .foot-btns { grid-column: 1; justify-self: start; display: inline-grid; }
 .foot-btns > button { grid-area: 1 / 1; white-space: nowrap; }
 .foot-btns .paste-code { transform: translateY(calc(-100% - 6px)); }
-.paste-code { font-size: 11px; padding: 3px 12px; color: var(--dim); }
+.paste-code { font-size: 11px; padding: 4px 12px; color: var(--dim); }
 .paste-code:hover { color: var(--fg); }
 .core-foot .status { grid-column: 2; }
 .core-foot .undo { grid-column: 3; justify-self: end; white-space: nowrap; }
@@ -249,7 +279,7 @@ button.on { background: var(--acc); color: var(--bg); }
 .status b { color: var(--fg); font-weight: 400; }
 
 /* active orb list: hover to solo, ✕ to take out */
-.chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 5px; max-width: 460px; }
+.chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; max-width: 460px; }
 .chip {
   display: inline-flex; align-items: center; gap: 6px;
   padding: 2px 4px 2px 6px; font-size: 12px;
@@ -300,7 +330,7 @@ body:not(.song-ready) .stem-row, body.stem-open .stem-row { display: none; }
 .song button { font-size: 11px; color: var(--dim); white-space: nowrap; }
 /* ↩ 루프 모드로 (under the player on a phone, in the stems' head): a clear way back */
 button.loop-mode {
-  font-size: 12px; color: var(--acc); white-space: nowrap; padding: 5px 12px;
+  font-size: 12px; color: var(--acc); white-space: nowrap; padding: 4px 12px;
   border: 1px solid var(--acc); background: color-mix(in srgb, var(--acc) 10%, var(--deep));
   box-shadow: 0 0 10px color-mix(in srgb, var(--acc) 25%, transparent);
 }
@@ -656,10 +686,10 @@ body:not(.roll-ready) .roll { flex-basis: 0 !important; border-top-width: 0; }
 .slot-sep { flex: none; align-self: center; width: 1px; height: 64px; background: var(--line); margin: 0 calc(-0.4 * clamp(16px, 3.5vw, 48px)); }
 /* the 변주 slot with its buttons (변주 제거 · ◀ · ▶ · 편집), shown only while it has an orb */
 .vary-wrap { display: flex; align-items: center; gap: 6px; flex: none; }
-.vbtn { font-size: 12px; padding: 5px 8px; white-space: nowrap; visibility: hidden; opacity: 0; transition: opacity 0.2s; }
+.vbtn { font-size: 12px; padding: 4px 8px; white-space: nowrap; visibility: hidden; opacity: 0; transition: opacity 0.2s; }
 .vary-wrap.on .vbtn { visibility: visible; opacity: 1; }
 .vbtn:disabled { opacity: 0.3 !important; cursor: default; }
-.varrow { padding: 5px 6px; font-size: 11px; line-height: 1; }
+.varrow { padding: 4px 6px; font-size: 11px; line-height: 1; }
 #varyEdit { border-color: color-mix(in srgb, #ff3bd4 55%, var(--line)); }
 #varyEdit.on { color: var(--acc); border-color: var(--acc); background: color-mix(in srgb, var(--acc) 14%, transparent); }
 #varyDel:not(:disabled):hover { color: var(--warn); border-color: var(--warn); }
@@ -737,11 +767,11 @@ body:not(.roll-ready) .roll { flex-basis: 0 !important; border-top-width: 0; }
 @container right (max-width: 820px) {
   .slots { gap: clamp(8px, 2.2cqi, 20px); height: 92px; padding: 0 8px; }
   .orb-slot { --d: clamp(54px, 8.5cqi, 70px); }
-  .slot-label { font-size: 10px; padding: 0 5px; }
+  .slot-label { font-size: 10px; padding: 0 4px; }
   .slot-label i { font-size: 14px; }
   .slot-sep { height: 52px; margin: 0 calc(-0.4 * clamp(8px, 2.2cqi, 20px)); }
   .vary-wrap {
-    display: grid; gap: 4px 5px; align-items: center;
+    display: grid; gap: 4px 4px; align-items: center;
     grid-template-areas: 'prev slot next' 'del slot edit';
   }
   #varyPrev { grid-area: prev; justify-self: end; align-self: end; }
@@ -749,7 +779,7 @@ body:not(.roll-ready) .roll { flex-basis: 0 !important; border-top-width: 0; }
   #varyDel { grid-area: del; align-self: start; }
   #varyEdit { grid-area: edit; align-self: start; }
   #slotVary { grid-area: slot; }
-  .vbtn { font-size: 11px; padding: 0 6px; height: 25px; line-height: 1; }
+  .vbtn { font-size: 11px; padding: 0 6px; height: 24px; line-height: 1; }
   .varrow { padding: 0 10px; }
   .edit-wrap { gap: 4px; }
 }
@@ -803,7 +833,7 @@ body:not(.roll-ready) .roll { flex-basis: 0 !important; border-top-width: 0; }
 .roll-tools button:disabled { opacity: 0.35; cursor: default; }
 /* 수정 완료: the one way out of the tab, bigger than the old row of buttons */
 .roll-tools #rollDone {
-  font-size: 15px; font-weight: 600; padding: 9px 22px; border-width: 1.5px;
+  font-size: 15px; font-weight: 600; padding: 8px 22px; border-width: 1.5px;
   background: color-mix(in srgb, var(--acc) 14%, transparent);
   box-shadow: 0 0 14px color-mix(in srgb, var(--acc) 35%, transparent);
 }
@@ -830,7 +860,7 @@ body:not(.roll-ready) .roll { flex-basis: 0 !important; border-top-width: 0; }
    the font size on .roll-words, 13px down to 8px); only past that does a word end in … */
 .roll-words .word {
   display: flex; align-items: baseline; justify-content: space-between; gap: 0.5em; min-width: 0;
-  padding: 5px 8px; border-radius: 8px; text-align: left; font-size: inherit; white-space: nowrap;
+  padding: 4px 8px; border-radius: 8px; text-align: left; font-size: inherit; white-space: nowrap;
 }
 .roll-words .word span, .roll-words .word small { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .roll-words .word span { flex: 0 1 auto; }
@@ -858,9 +888,9 @@ body:not(.roll-ready) .roll { flex-basis: 0 !important; border-top-width: 0; }
 .pb-save { display: flex; flex-direction: column; gap: 4px; }
 .pb-save input {
   width: 100%; font: inherit; font-size: 11px; color: var(--fg);
-  background: var(--field-in); border: 1px solid var(--line); padding: 3px 5px; user-select: text;
+  background: var(--field-in); border: 1px solid var(--line); padding: 4px; user-select: text;
 }
-.pb-save button { font-size: 11px; padding: 3px 4px; border-color: var(--acc); color: var(--acc); }
+.pb-save button { font-size: 11px; padding: 4px; border-color: var(--acc); color: var(--acc); }
 .pb-list {
   flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden;
   display: flex; flex-direction: column; gap: 10px; padding: 6px 0;
@@ -924,8 +954,8 @@ body.server-down .ptile .share.cloud { display: none; } /* no ☁ on tiles while
 /* the preset tiles' tooltip (orbs/presets.js showPtip), in the tutorial note's style */
 .ptip {
   position: fixed; z-index: 70; left: 0; top: 0; pointer-events: none;
-  display: flex; flex-direction: column; gap: 3px;
-  width: max-content; max-width: min(260px, calc(100vw - 16px)); padding: 9px 12px;
+  display: flex; flex-direction: column; gap: 4px;
+  width: max-content; max-width: min(260px, calc(100vw - 16px)); padding: 8px 12px;
   font-size: 12px; line-height: 1.5; color: var(--fg); word-break: keep-all; overflow-wrap: anywhere;
   background: var(--panel); border: 1px solid var(--acc); border-radius: 4px;
   box-shadow: 0 0 18px color-mix(in srgb, var(--acc) 30%, transparent);
@@ -938,7 +968,7 @@ body.server-down .ptile .share.cloud { display: none; } /* no ☁ on tiles while
 .ptip .pt-kind.stem { color: var(--acc2); }
 .ptip .pt-by { font-size: 11px; color: var(--dim); }
 .ptip .pt-desc { margin: 2px 0 0; white-space: pre-line; }
-.ptip .pt-how { margin-top: 3px; padding-top: 5px; border-top: 1px dashed var(--line); font-size: 10px; color: var(--dim); }
+.ptip .pt-how { margin-top: 4px; padding-top: 4px; border-top: 1px dashed var(--line); font-size: 10px; color: var(--dim); }
 /* desktop column only: skip painting tiles scrolled out of view (the phone row / sheet grid would collapse) */
 @media (min-width: 761px) {
   #sharedList .ptile { content-visibility: auto; contain-intrinsic-size: auto 80px; }
@@ -965,7 +995,7 @@ body.server-down .ptile .share.cloud { display: none; } /* no ☁ on tiles while
   .presetbar.wide .pb-list .empty { grid-column: 1 / -1; }
   .presetbar.wide .pb-save { flex-direction: row; }
   .presetbar.wide .pb-save input { flex: 1; min-width: 0; }
-  .presetbar.wide .pb-save button { white-space: nowrap; padding: 3px 8px; }
+  .presetbar.wide .pb-save button { white-space: nowrap; padding: 4px 8px; }
 }
 .ptile.gulp { animation: stashGulp 0.6s ease-out; }
 
@@ -1067,7 +1097,7 @@ body.server-down .ptile .share.cloud { display: none; } /* no ☁ on tiles while
 .upload input:not([type]):focus { outline: none; border-color: var(--acc); }
 .upload textarea { resize: none; font-family: inherit; }
 .upload .kinds { display: flex; gap: 14px; flex-wrap: wrap; }
-.upload .kinds label { display: flex; align-items: center; gap: 5px; cursor: pointer; }
+.upload .kinds label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
 .upload .kinds label:has(input:disabled) { opacity: 0.4; cursor: default; }
 .upload .agree { display: flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer; }
 .upload input[type='radio'], .upload input[type='checkbox'] { accent-color: var(--acc); }
@@ -1077,9 +1107,9 @@ body.server-down .ptile .share.cloud { display: none; } /* no ☁ on tiles while
 .upload .sh-credit small { display: block; color: var(--dim); font-size: 10px; overflow-wrap: anywhere; }
 
 /* ---------- 전부 비우기 · 되돌리기, under the player ---------- */
-.clear-all { font-size: 11px; padding: 3px 12px; color: var(--dim); border-color: color-mix(in srgb, var(--warn) 35%, transparent); }
+.clear-all { font-size: 11px; padding: 4px 12px; color: var(--dim); border-color: color-mix(in srgb, var(--warn) 35%, transparent); }
 .clear-all:hover { color: var(--warn); border-color: var(--warn); }
-.undo { font-size: 11px; padding: 3px 12px; color: var(--dim); }
+.undo { font-size: 11px; padding: 4px 12px; color: var(--dim); }
 .undo:hover:not(:disabled) { color: var(--fg); }
 .undo:disabled { opacity: 0.35; cursor: default; }
 
@@ -1087,7 +1117,7 @@ body.server-down .ptile .share.cloud { display: none; } /* no ☁ on tiles while
 .chips { gap: 6px; max-width: 540px; }
 .strip {
   display: flex; flex-direction: column; align-items: center; gap: 2px;
-  width: 84px; padding: 4px 4px 5px;
+  width: 84px; padding: 4px;
   border: 1px solid color-mix(in srgb, var(--g) 30%, transparent);
   background: var(--surface);
   transition: border-color 0.15s, background 0.15s;
@@ -1110,7 +1140,7 @@ body.server-down .ptile .share.cloud { display: none; } /* no ☁ on tiles while
 .strip span.snum.custom:hover { text-decoration: none; }
 /* 12 or more orbs in the song (orbs/list.js renderChips): smaller strips, 8 to a row */
 .chips.many { gap: 4px; max-width: 560px; }
-.chips.many .strip { width: 64px; padding: 2px 2px 3px; }
+.chips.many .strip { width: 64px; padding: 2px 2px 4px; }
 .chips.many .strip .mini { width: 26px; height: 26px; margin: 4px 0 2px; }
 .chips.many .strip b { font-size: 10px; }
 .chips.many .strip span { font-size: 8px; }
@@ -1127,14 +1157,14 @@ body.server-down .ptile .share.cloud { display: none; } /* no ☁ on tiles while
   background: var(--panel); border: 1px solid var(--line); box-shadow: 0 10px 40px color-mix(in srgb, var(--shadow) 60%, transparent);
 }
 .search.open { display: flex; }
-.search input { font: inherit; font-size: 15px; color: var(--fg); background: var(--field-in); border: 1px solid var(--line); padding: 9px 10px; user-select: text; }
+.search input { font: inherit; font-size: 15px; color: var(--fg); background: var(--field-in); border: 1px solid var(--line); padding: 8px 10px; user-select: text; }
 .search-help { margin: 0; font-size: 11px; color: var(--dim); line-height: 1.5; }
 .search.custom .search-help { display: none; }
 .search-help code { font: inherit; color: var(--fg); background: var(--field-in); padding: 0 4px; }
 .search input:focus { outline: none; border-color: var(--acc); }
 .search-results { overflow: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 6px; }
 .search-results .empty { grid-column: 1 / -1; color: var(--dim); font-size: 12px; margin: 4px; }
-.hit { position: relative; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 4px; border: 1px solid transparent; cursor: grab; text-align: center; touch-action: none; }
+.hit { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px 4px; border: 1px solid transparent; cursor: grab; text-align: center; touch-action: none; }
 .hit:hover { border-color: var(--g); background: color-mix(in srgb, var(--g) 10%, transparent); }
 /* already in the song: still takes out another one (a copy), just marked */
 .hit.on { box-shadow: inset 0 -2px 0 color-mix(in srgb, var(--g) 70%, transparent); }
@@ -1149,7 +1179,7 @@ body.server-down .ptile .share.cloud { display: none; } /* no ☁ on tiles while
 .hit-head { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; padding: 6px 2px 2px; border-bottom: 1px solid var(--line); font-size: 12px; }
 .hit-head ~ .hit-head { margin-top: 10px; }
 .hit-head small { color: var(--dim); font-size: 11px; }
-.hit-head .hit-reload { margin-left: auto; font: inherit; color: var(--fg); background: transparent; border: 1px solid var(--line); padding: 1px 9px; cursor: pointer; }
+.hit-head .hit-reload { margin-left: auto; font: inherit; color: var(--fg); background: transparent; border: 1px solid var(--line); padding: 1px 8px; cursor: pointer; }
 .hit-head .hit-reload:hover { border-color: var(--acc); color: var(--acc); }
 .hit-head .hit-reload:disabled { opacity: 0.4; cursor: default; }
 /* one of the server batch that has already fallen */
@@ -1157,17 +1187,17 @@ body.server-down .ptile .share.cloud { display: none; } /* no ☁ on tiles while
 .hit-tools { position: absolute; top: 2px; right: 2px; display: flex; gap: 2px; opacity: 0; transition: opacity 0.12s; }
 .hit:hover .hit-tools, .hit:focus-within .hit-tools { opacity: 1; }
 @media (hover: none) { .hit-tools { opacity: 0.8; } }
-.hit-tools button { font-size: 11px; line-height: 1; padding: 3px 4px; color: var(--fg); background: var(--panel); border: 1px solid var(--line); cursor: pointer; }
+.hit-tools button { font-size: 11px; line-height: 1; padding: 4px; color: var(--fg); background: var(--panel); border: 1px solid var(--line); cursor: pointer; }
 .hit-tools button:hover { border-color: var(--acc); }
 /* the hover card on a custom orb: who uploaded it and when */
 .hit-meta {
-  position: fixed; z-index: 30; display: none; max-width: 260px; padding: 7px 10px; pointer-events: none;
+  position: fixed; z-index: 30; display: none; max-width: 260px; padding: 8px 10px; pointer-events: none;
   background: var(--panel); border: 1px solid var(--line); box-shadow: 0 6px 24px color-mix(in srgb, var(--shadow) 50%, transparent);
   font-size: 12px; line-height: 1.5; color: var(--fg);
 }
 .hit-meta.show { display: block; }
 .hit-meta .t { font-weight: bold; margin-bottom: 2px; }
-.hit-meta .d { color: var(--dim); font-size: 11px; margin-top: 3px; }
+.hit-meta .d { color: var(--dim); font-size: 11px; margin-top: 4px; }
 .orbdel-warn { color: var(--warn) !important; }
 .import-btns button.danger { border-color: var(--warn); color: var(--warn); }
 
@@ -1197,7 +1227,7 @@ body.stem-open.roll-full.roll-min .roll { flex-basis: 76px; }
 .stem-head button:disabled { opacity: 0.35; cursor: default; }
 .stem-head #songBtn { color: var(--fg); }
 /* ? (stem mode help) just left of ↩ 루프 모드로 */
-.stem-head .stem-help { width: 24px; height: 24px; padding: 0; border-radius: 50%; font-weight: 700; color: var(--acc); }
+.stem-head .stem-help { width: 24px; height: 24px; padding: 0; border-radius: 50%; font-weight: 500; color: var(--acc); }
 .stem-head #songBtn:hover { color: var(--acc); }
 .stem-head button.loop-mode { color: var(--acc); }
 .stem-body { position: relative; flex: 1; min-height: 0; overflow: auto; }
@@ -1227,8 +1257,8 @@ body.stem-open.roll-full.roll-min .roll { flex-basis: 76px; }
 .sh.tiny .len { display: none; }
 .sh .len { font-size: 11px; line-height: 1; padding: 1px 4px; color: var(--dim); flex: none; }
 .sh .secadd:not(:disabled):hover { color: var(--acc); border-color: var(--acc); }
-.sh .secdel { font-size: 10px; padding: 1px 3px; }
-.sh .secsub { font-size: 10px; padding: 1px 3px; }
+.sh .secdel { font-size: 10px; padding: 1px 4px; }
+.sh .secsub { font-size: 10px; padding: 1px 4px; }
 .sh .secsub.on { color: var(--gold); border-color: color-mix(in srgb, var(--gold) 60%, transparent); }
 .sh .secsub:hover { color: var(--gold); border-color: var(--gold); }
 .sh .secdel:not(:disabled):hover { color: var(--warn); border-color: var(--warn); }
@@ -1244,7 +1274,7 @@ body.stem-open.roll-full.roll-min .roll { flex-basis: 76px; }
 .sh .grip:hover, body.sec-resizing .sh .grip { border-color: var(--acc); }
 body.sec-resizing, body.sec-resizing * { cursor: ew-resize !important; user-select: none; }
 .stem-grid .barcorner { top: 36px; }
-.delask { position: fixed; z-index: 20; display: none; padding: 3px; background: var(--panel); border: 1px solid var(--warn); }
+.delask { position: fixed; z-index: 20; display: none; padding: 4px; background: var(--panel); border: 1px solid var(--warn); }
 .delask.open { display: block; }
 .delask button { font-size: 11px; padding: 4px 10px; white-space: nowrap; color: var(--warn); }
 /* a question that waits ARM_MS before it takes a click: dimmed while a bar fills along its bottom */
@@ -1284,15 +1314,15 @@ button.arm::after {
   transform-origin: left; transform: scaleX(var(--p));
   background: color-mix(in srgb, var(--acc) 40%, transparent);
 }
-.sh.now .prog { background: linear-gradient(90deg, var(--acc), #fff); box-shadow: 0 0 8px var(--acc); }
+.sh.now .prog { background: var(--acc); }
 .sh.mod .prog { background: color-mix(in srgb, var(--gold) 45%, transparent); }
-.sh.mod.now .prog { background: linear-gradient(90deg, var(--gold), #fff); box-shadow: 0 0 8px var(--gold); }
+.sh.mod.now .prog { background: var(--gold); }
 .sh.aud { background: color-mix(in srgb, var(--acc) 25%, var(--deep)); }
 .stem-grid .batch { font-size: 10px; padding: 1px 4px; color: var(--dim); flex: none; }
 .stem-grid .batch:hover { color: var(--acc); }
 .rh {
   position: sticky; left: 0; z-index: 1;
-  display: flex; align-items: center; gap: 5px; padding: 0 4px;
+  display: flex; align-items: center; gap: 4px; padding: 0 4px;
   background: var(--deep); border-left: 2px solid var(--g); overflow: hidden;
 }
 .rh .mini { width: 16px; height: 16px; flex: none; }
@@ -1392,8 +1422,8 @@ button.arm::after {
 /* a small box to type a seed */
 .seedpop { position: fixed; z-index: 20; display: none; gap: 4px; padding: 6px; background: var(--panel); border: 1px solid var(--acc); }
 .seedpop.open { display: flex; }
-.seedpop input { width: 90px; font: inherit; font-size: 12px; color: var(--fg); background: var(--field-in); border: 1px solid var(--line); padding: 3px 6px; user-select: text; }
-.seedpop button { font-size: 12px; padding: 3px 8px; }
+.seedpop input { width: 90px; font: inherit; font-size: 12px; color: var(--fg); background: var(--field-in); border: 1px solid var(--line); padding: 4px 6px; user-select: text; }
+.seedpop button { font-size: 12px; padding: 4px 8px; }
 
 /* ---------- short desktop screens (1366x768, 1600x900, 125% scaling ...) ---------- */
 @media (min-width: 761px) {
@@ -1407,8 +1437,8 @@ button.arm::after {
   .role-row { gap: 4px; }
   .core-foot { margin-top: 28px; }
   .chips { gap: 4px; max-width: 100%; }
-  .strip { width: 66px; padding: 2px 2px 3px; }
-  .strip .mini { width: 28px; height: 28px; margin: 3px 0 2px; }
+  .strip { width: 66px; padding: 2px 2px 4px; }
+  .strip .mini { width: 28px; height: 28px; margin: 4px 0 2px; }
   .strip b { font-size: 10px; }
   .strip span { font-size: 8px; }
   .actions button { padding: 4px 10px; }
@@ -1487,7 +1517,7 @@ body.has-orbs .empty-hint, body.first-orb-done .empty-hint { opacity: 0; visibil
 /* after the first orb: "turn the knob" tip at the volume ring's bottom-right, fades out */
 .vol-tip {
   position: fixed; z-index: 60; pointer-events: none; white-space: nowrap; /* above the .vol-dim */
-  padding: 8px 16px; font-size: 14px; font-weight: 700; color: var(--acc);
+  padding: 8px 16px; font-size: 14px; font-weight: 500; color: var(--acc);
   background: var(--panel); border: 2px solid var(--acc); border-radius: 4px;
   text-shadow: 0 0 8px color-mix(in srgb, var(--acc) 70%, transparent);
   animation: volTip 6.2s ease-out forwards, volTipGlow 1.2s ease-in-out infinite alternate;
@@ -1596,7 +1626,7 @@ body.share-ready :is(#wavBtn, #shareBtn, #serverShareBtn, .m-export-btn), body.s
 body.booted .boot { opacity: 0; visibility: hidden; pointer-events: none; }
 .boot-title { color: var(--acc); letter-spacing: 0.2em; text-indent: 0.2em; animation: bootPulse 1.2s ease-in-out infinite; }
 .boot-bar { width: min(280px, 100%); height: 4px; background: var(--line); overflow: hidden; }
-.boot-bar i { display: block; width: 0; height: 100%; background: linear-gradient(90deg, var(--acc), var(--acc2)); transition: width 0.15s; }
+.boot-bar i { display: block; width: 0; height: 100%; background: var(--acc); transition: width 0.15s; }
 .boot-count { color: var(--dim); font-size: 12px; min-height: 18px; }
 @keyframes bootPulse { 50% { opacity: 0.45; } }
 @media (prefers-reduced-motion: reduce) { .boot-title { animation: none; } }
@@ -1626,14 +1656,14 @@ body.orbedit-open .orbedit { display: flex; }
 .oe-name:focus { outline: none; border-color: var(--g); }
 .oe-info { font-size: 11px; color: var(--dim); }
 .oe-tools { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
-.oe-tools button { font-size: 12px; padding: 5px 9px; }
+.oe-tools button { font-size: 12px; padding: 4px 8px; }
 .oe-tools button:disabled { opacity: 0.35; cursor: default; }
 .oe-tools button.on { color: var(--g); border-color: var(--g); background: color-mix(in srgb, var(--g) 14%, transparent); }
 .oe-done { border-color: var(--acc); color: var(--acc); }
 .oe-done:not(:disabled):hover { background: color-mix(in srgb, var(--acc) 26%, transparent); }
 .oe-cancel { color: var(--dim); }
 .oe-dot {
-  display: inline-block; margin-left: 6px; min-width: 15px; padding: 0 4px; border-radius: 8px;
+  display: inline-block; margin-left: 6px; min-width: 16px; padding: 0 4px; border-radius: 8px;
   font-style: normal; font-size: 10px; line-height: 15px; text-align: center; color: var(--bg); background: var(--g);
 }
 .oe-dot[hidden] { display: none; }
@@ -1652,11 +1682,11 @@ body.orbedit-open .orbedit { display: flex; }
 .oe-slot { position: relative; min-width: 24px; padding: 2px 6px; font-size: 11px; color: var(--dim); }
 .oe-slot.on { color: var(--g); border-color: var(--g); background: color-mix(in srgb, var(--g) 14%, transparent); }
 .oe-slot.used::after { content: ''; position: absolute; top: 2px; right: 2px; width: 4px; height: 4px; border-radius: 50%; background: var(--g); }
-.oe-slab { font-size: 11px; color: var(--dim); margin-right: 3px; }
+.oe-slab { font-size: 11px; color: var(--dim); margin-right: 4px; }
 .oe-tools .oe-slots.all { margin-right: 8px; }
-.oe-tools .oe-slot { padding: 4px 7px; }
+.oe-tools .oe-slot { padding: 4px 8px; }
 /* ? : a tour of the panel (like the stems' ?) */
-.oe-tools .oe-help { width: 26px; height: 26px; padding: 0; border-radius: 50%; font-weight: 700; color: var(--acc); }
+.oe-tools .oe-help { width: 28px; height: 28px; padding: 0; border-radius: 50%; font-weight: 500; color: var(--acc); }
 .oe-graph { position: relative; margin-bottom: 10px; min-width: 0; }
 .oe-wides { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 0 14px; }
 .oe-gh { display: flex; align-items: center; gap: 6px; min-height: 22px; margin-bottom: 4px; }
@@ -1685,7 +1715,7 @@ body.orbedit-open .orbedit { display: flex; }
 .oe-row.opt .oe-opts { grid-column: span 2; }
 /* 옥타브 · 반음 · 마이크로튠: one line across the section, the octave narrower */
 .oe-trio { grid-column: 1 / -1; display: flex; gap: 14px; }
-.oe-trio .oe-row { display: flex; align-items: center; gap: 5px; flex: 1 1 0; min-width: 0; }
+.oe-trio .oe-row { display: flex; align-items: center; gap: 4px; flex: 1 1 0; min-width: 0; }
 .oe-trio .oe-row[data-k="oct"] { flex-grow: 0.6; }
 .oe-trio .oe-range { flex: 1; min-width: 30px; }
 .oe-trio .oe-val { min-width: 34px; }
@@ -1699,7 +1729,7 @@ body.orbedit-open .orbedit { display: flex; }
 .oe-back[hidden] { display: none; }
 .oe-row.set .oe-back { visibility: visible; }
 .oe-opts { display: flex; flex-wrap: wrap; gap: 4px; }
-.oe-opt { font-size: 11px; padding: 3px 8px; color: var(--dim); }
+.oe-opt { font-size: 11px; padding: 4px 8px; color: var(--dim); }
 .oe-opt.on { color: var(--g); border-color: var(--g); background: color-mix(in srgb, var(--g) 14%, transparent); }
 /* the orb's own choice, while nothing else is picked */
 .oe-opt.own { color: var(--fg); border-style: dashed; border-color: color-mix(in srgb, var(--g) 55%, var(--line)); }
@@ -1729,12 +1759,12 @@ body.orbedit-open .orbedit { display: flex; }
 .me-pane { display: block; }
 .me-lane { padding: 8px 0 10px; border-top: 1px dashed var(--line); }
 .me-lane:first-of-type { border-top: 0; }
-.me-lane.empty { padding: 5px 0; opacity: 0.75; }
+.me-lane.empty { padding: 4px 0; opacity: 0.75; }
 .me-lh { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
 .me-lane.empty .me-lh { margin-bottom: 0; }
 .me-num {
   width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; flex: none;
-  font-size: 12px; font-weight: 700; color: var(--bg); background: var(--g);
+  font-size: 12px; font-weight: 500; color: var(--bg); background: var(--g);
 }
 .me-lane.empty .me-num { color: var(--dim); background: none; border: 1px solid var(--line); }
 .me-fx {
@@ -1745,7 +1775,7 @@ body.orbedit-open .orbedit { display: flex; }
 .me-full .oe-range { flex: 1; }
 .me-full .oe-val { min-width: 56px; }
 .me-shapes { display: flex; gap: 2px; }
-.me-shapes .oe-opt { padding: 2px 7px; font-size: 12px; }
+.me-shapes .oe-opt { padding: 2px 8px; font-size: 12px; }
 .me-x { visibility: visible; margin-left: auto; }
 .me-curve {
   display: block; width: 100%; height: 64px; cursor: crosshair; touch-action: none;
@@ -1756,5 +1786,5 @@ body.orbedit-open .orbedit { display: flex; }
   display: block; width: 100%; height: 170px; cursor: ns-resize; touch-action: none;
   background: color-mix(in srgb, var(--field-in) 70%, transparent); border: 1px solid var(--line);
 }
-.me-pane .oe-gv { min-height: 15px; }
+.me-pane .oe-gv { min-height: 16px; }
 .me-note { margin-top: 12px; }

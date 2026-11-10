@@ -13,21 +13,21 @@ const TXT = {
     hint: '이 앱 안의 브라우저에서는 파일 저장이 막혀 있을 수 있어요.',
     kakao: '외부 브라우저(크롬, 사파리)로 열면 지금 세트 그대로 저장할 수 있어요.',
     other: '저장이 안 되면 브라우저 메뉴(⋮ 또는 ⋯)에서 "다른 브라우저로 열기"를 눌러 주세요.',
-    share: '📤 공유 / 파일에 저장', external: '🌐 외부 브라우저로 열기', anyway: '그냥 다운로드',
+    share: '공유 / 파일에 저장', external: '외부 브라우저로 열기', anyway: '그냥 다운로드',
   },
   en: {
     title: 'Save file',
     hint: 'This in-app browser may block file downloads.',
     kakao: 'Open it in your own browser (Chrome, Safari) to save the same set.',
     other: 'If nothing downloads, use the browser menu (⋮ or ⋯) → "Open in browser".',
-    share: '📤 Share / Save to Files', external: '🌐 Open in browser', anyway: 'Download anyway',
+    share: 'Share / Save to Files', external: 'Open in browser', anyway: 'Download anyway',
   },
   ja: {
     title: 'ファイル保存',
     hint: 'このアプリ内ブラウザではファイルを保存できないことがあります。',
     kakao: '外部ブラウザ（Chrome、Safari）で開けば、今のセットのまま保存できます。',
     other: '保存できない場合は、ブラウザのメニュー（⋮ または ⋯）から「ブラウザで開く」を選んでください。',
-    share: '📤 共有 / ファイルに保存', external: '🌐 外部ブラウザで開く', anyway: 'そのままダウンロード',
+    share: '共有 / ファイルに保存', external: '外部ブラウザで開く', anyway: 'そのままダウンロード',
   },
 };
 const s = () => TXT[getLang()] ?? TXT.en;

@@ -112,9 +112,40 @@ export function createPresetApi({ dataDir, trustProxy = false, maxPerDay, rate, 
   const tokenHash = adminToken ? createHash('sha256').update(String(adminToken)).digest() : null;
   const voteLimit = rateLimiter({ max: 60, windowMs: 10 * 60_000, gapMs: 300, tooMany: '평가를 너무 많이 했어요. 잠시 뒤에 다시 해 주세요', tooSoon: '조금 천천히 눌러 주세요' });
 
+  // Behind the proxy the address is the LAST entry of X-Forwarded-For: the one the proxy itself
+  // appended (Nginx's $proxy_add_x_forwarded_for keeps whatever the client sent in front of it,
+  // so the first entries are the client's to make up and must never be used as the limit key).
   const clientKey = (req) => {
-    const fwd = trustProxy && String(req.headers['x-forwarded-for'] ?? '').split(',')[0].trim();
+    const fwd = trustProxy && String(req.headers['x-forwarded-for'] ?? '').split(',').at(-1).trim();
     return fwd || req.socket.remoteAddress || 'unknown';
+  };
+
+  // A voter id is made up by the browser, so one machine could vote as many "browsers" as it
+  // likes. Per preset, only the first VOTERS_PER_NET voter ids from one address count within a
+  // day (kept in memory only); those may still change or take back their vote.
+  const VOTERS_PER_NET = 3, VOTER_DAY = 86_400_000;
+  const netVoters = new Map(); // `${presetId}|${address}` -> Map(voter id -> when it last voted)
+  const liveVoters = (key) => {
+    const m = netVoters.get(key);
+    if (!m) return null;
+    const cut = Date.now() - VOTER_DAY;
+    for (const [k, t] of m) if (t < cut) m.delete(k);
+    if (!m.size) netVoters.delete(key);
+    return m.size ? m : null;
+  };
+  setInterval(() => {
+    for (const key of [...netVoters.keys()]) liveVoters(key);
+  }, 3_600_000).unref();
+  const voterKey = (req, id) => `${id}|${clientKey(req)}`;
+  const checkNetVoter = (req, id, voter) => {
+    const m = liveVoters(voterKey(req, id));
+    if (m && !m.has(voter) && m.size >= VOTERS_PER_NET) throw new HttpError(429, '이 네트워크에서는 이 노래를 이미 여러 번 평가했어요');
+  };
+  const recordNetVoter = (req, id, voter) => {
+    const key = voterKey(req, id);
+    const m = liveVoters(key) ?? new Map();
+    m.set(voter, Date.now());
+    netVoters.set(key, m);
   };
 
   const sameHost = (req, origin) => {
@@ -248,7 +279,11 @@ export function createPresetApi({ dataDir, trustProxy = false, maxPerDay, rate, 
           throw new HttpError(400, '데이터를 읽을 수 없어요');
         }
         limitBoth(voteLimit, voteNetLimit, req, body?.voter);
+        // (a vote taken back is always let through; a new one only from the first few voter ids)
+        const counts = typeof body?.voter === 'string' && body?.v !== 0;
+        if (counts) checkNetVoter(req, id, body.voter);
         const ok = await store.vote(id, body?.voter, body?.v);
+        if (ok && counts) recordNetVoter(req, id, body.voter);
         return ok ? send(res, 200, { ok: true, v: body.v }) : send(res, 404, { error: '찾을 수 없는 프리셋이에요' });
       }
       if (req.method === 'GET' && !id) {

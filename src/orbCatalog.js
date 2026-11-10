@@ -2461,7 +2461,9 @@ function familyOf(l) {
   return 'synth';
 }
 
-export const byId = Object.fromEntries(LAYERS.map((l) => [l.id, l]));
+// (no prototype: an id from a share code or storage such as "constructor" or "__proto__" is
+// just an unknown orb, never Object's own property)
+export const byId = Object.assign(Object.create(null), Object.fromEntries(LAYERS.map((l) => [l.id, l])));
 for (const l of LAYERS) {
   if (l.combo) l.colors = l.combo.map((id) => byId[id].color ?? byId[id].colors[0]);
   l.drum = DRUM_CATS.includes(l.cat);

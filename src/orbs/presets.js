@@ -27,7 +27,8 @@ import { openSong, syncRows } from './stems.js';
 const PRESET_KEY = 'orbPresets';
 function loadPresets() {
   try {
-    return JSON.parse(localStorage.getItem(PRESET_KEY)) ?? [];
+    const list = JSON.parse(localStorage.getItem(PRESET_KEY));
+    return (Array.isArray(list) ? list : []).filter((p) => p && typeof p === 'object' && Array.isArray(p.layers));
   } catch {
     return [];
   }
@@ -124,7 +125,8 @@ function presetTile(p, mine) {
   tile.addEventListener('pointerenter', (e) => e.pointerType === 'mouse' && showPtip(tile, p));
   tile.addEventListener('pointerleave', () => hidePtip(tile));
   tile.addEventListener('pointerdown', () => hidePtip(tile));
-  const share = tileButton('share', '🔗', ot(p.song ? 'copyCodeStem' : 'copyCode'), () => sharePreset(p, share));
+  const share = tileButton('share', '', ot(p.song ? 'copyCodeStem' : 'copyCode'), () => sharePreset(p, share));
+  share.dataset.ic = 'link';
   if (mine) {
     const up = tileButton('share up cloud', '☁', ot('shareServer'), () => openShareDialog(p));
     const del = tileButton('del', '✕', ot('del'), () => {
@@ -149,7 +151,14 @@ function presetTile(p, mine) {
 function renderPresets() {
   const list = loadPresets();
   ui.presetList.innerHTML = list.length ? '' : `<p class="empty">${ot('presetsEmpty')}</p>`;
-  for (const p of list) ui.presetList.append(presetTile(p, true));
+  for (const p of list) {
+    // one saved preset that can't be drawn must not take the page down with it
+    try {
+      ui.presetList.append(presetTile(p, true));
+    } catch (e) {
+      console.error('could not show a saved preset', p?.id, e);
+    }
+  }
 }
 
 // Whether the preset server answers. While it doesn't, sharing to it is switched off (the button
@@ -539,7 +548,7 @@ function restoreSession() {
     ensureCustoms({ custom: s.customs });
     // drawn orbs keep their ids, and new drawings are numbered past them
     for (const d of s.drawn ?? []) {
-      if (!byId[d.src]?.voice || !Array.isArray(d.raw)) continue;
+      if (!byId[d.src]?.voice || !Array.isArray(d.raw) || typeof d.id !== 'string' || d.id === '__proto__' || byId[d.id]) continue;
       const pats = Array.isArray(d.pats) && d.pats.every((x) => Array.isArray(x) && x.length === STEPS) ? d.pats : null;
       makeDrawn(d.src, d.raw, d.id, pats, pats ? d.pi : 0);
       const n = +String(d.id).match(/^drawn(\d+)$/)?.[1];

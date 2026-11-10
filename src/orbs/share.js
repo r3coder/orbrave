@@ -21,6 +21,7 @@ import { bump } from './drag.js';
 // variation). Pasting it into 불러오기 brings it back.
 
 const SHARE_TAG = 'orb1:';
+const ORB_ID = /^[A-Za-z0-9_-]{1,40}$/; // as the server takes them (server/presetSchema.mjs)
 const b64 = (str) => btoa(String.fromCharCode(...new TextEncoder().encode(str))).replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/, '');
 const unb64 = (str) => new TextDecoder().decode(Uint8Array.from(atob(str.replaceAll('-', '+').replaceAll('_', '/')), (c) => c.charCodeAt(0)));
 
@@ -41,9 +42,14 @@ function parsePresetText(text) {
     // custom orbs (🎛 편집) first, so the orbs below can name them
     const custom = (Array.isArray(d.c) ? d.c : []).slice(0, 12).map((x) => checkCustom(x, byId)).filter(Boolean);
     for (const c of custom) registerCustom(c, byId);
-    const drawn = (d.d ?? []).filter(([, src]) => byId[src]?.voice).map(([did, src, raw]) => ({ id: did, src, raw: unpackRaw(raw) }));
+    // ids are plain orb names; a drawing may not take the id of an orb that is not a drawing
+    const isId = (x) => typeof x === 'string' && ORB_ID.test(x) && x !== '__proto__';
+    const drawn = (Array.isArray(d.d) ? d.d : [])
+      .filter((x) => Array.isArray(x) && isId(x[0]) && (!byId[x[0]] || byId[x[0]].raw) && isId(x[1]) && byId[x[1]]?.voice && typeof x[2] === 'string')
+      .slice(0, 8)
+      .map(([did, src, raw]) => ({ id: did, src, raw: unpackRaw(raw) }));
     const ok = new Set(drawn.map((x) => x.id));
-    const layers = (d.l ?? []).filter((x) => ok.has(x) || (byId[x] && !byId[x].raw));
+    const layers = [...new Set((Array.isArray(d.l) ? d.l : []).filter((x) => isId(x) && (ok.has(x) || (byId[x] && !byId[x].raw))))].slice(0, 24);
     const song = d.s && typeof d.s === 'object' ? { song: d.s } : {}; // checked when it is applied
     const seeds = d.vs && typeof d.vs === 'object' ? { seeds: Object.fromEntries(Object.entries(d.vs).filter(([k, v]) => layers.includes(k) && Number.isSafeInteger(v) && v >= 0)) } : {};
     const gains = cleanGains(d.vg, layers);

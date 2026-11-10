@@ -530,7 +530,8 @@ function renderStem() {
     bars.textContent = ot('bars', { n: sec.len });
     const name = document.createElement('span');
     name.className = 'sname';
-    name.textContent = (S.song.audition === i ? '🔁 ' : '') + (sec.shift ? `${secName(sec.name)} · ${keyName(sec.shift)}` : secName(sec.name));
+    name.textContent = sec.shift ? `${secName(sec.name)} · ${keyName(sec.shift)}` : secName(sec.name);
+    if (S.song.audition === i) name.dataset.ic = 'repeat';
     const add = button('ghost len secadd', '+', ot(full ? 'secAddFull' : 'secAdd', { n: LIMITS.sections }), (e) => {
       if (secMenu.classList.contains('open')) secMenu.classList.remove('open');
       else openSecMenu(e.currentTarget, i);

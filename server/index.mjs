@@ -6,6 +6,7 @@
 //   PRESET_DATA_DIR=server/data  where shared presets are stored (plain JSON files)
 //   PRESET_MAX_PER_DAY=2000      shares accepted per day (also caps files per folder)
 //   TRUST_PROXY=1                behind Nginx etc.: take the client address from X-Forwarded-For
+//                                (its last entry, the one the proxy adds; set it only behind a proxy)
 //   PRESET_ALLOWED_ORIGINS=https://user.github.io   other sites allowed to use the API (CORS), comma-separated
 //   ADMIN_TOKEN=...              password of the admin page (/admin/, server/admin/); unset: no admin API
 //   VOCAL_DIR=server/vocals      the Teto vocal words, served at /api/vocals (server/vocals.mjs); never in dist/
@@ -73,7 +74,7 @@ async function serveStatic(req, res) {
     'Cache-Control': path.startsWith('/assets/') ? 'public, max-age=31536000, immutable' : 'no-cache',
   });
   if (req.method === 'HEAD') return res.end();
-  createReadStream(file).pipe(res);
+  createReadStream(file).on('error', () => res.destroy()).pipe(res);
 }
 
 createServer((req, res) => {

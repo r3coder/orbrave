@@ -56,8 +56,8 @@ const OPT = {
 const W = {
   orig: L('원래대로', 'original', '元のまま'), reset: L('되돌리기', 'reset', '戻す'), moving: L('∿ 움직임', '∿ moving', '∿ 動き'),
   name: L('오브 이름', 'Orb name', 'オーブ名'), color: L('색', 'Colour', '色'),
-  ab: L('A/B 원본 듣기', 'A/B hear original', 'A/B 元の音'), abOn: L('🅰 원본 듣는 중', '🅰 hearing original', '🅰 元の音'),
-  solo: L('🎧 솔로', '🎧 Solo', '🎧 ソロ'), resetAll: L('↺ 전부 되돌리기', '↺ Reset all', '↺ 全部戻す'),
+  ab: L('A/B 원본 듣기', 'A/B hear original', 'A/B 元の音'), abOn: L('원본 듣는 중', 'hearing original', '元の音'),
+  solo: L('솔로', 'Solo', 'ソロ'), resetAll: L('↺ 전부 되돌리기', '↺ Reset all', '↺ 全部戻す'),
   cancel: L('✕ 취소', '✕ Cancel', '✕ キャンセル'), done: L('✓ 편집 완료', '✓ Finish editing', '✓ 編集完了'),
   help: L('편집 화면 둘러보기', 'Tour of the editor', '編集画面ツアー'),
   ask: L('이 프리셋을 서버에 전송할까요?', 'Send this preset to the server?', 'このプリセットをサーバーに送信しますか？'),
@@ -195,6 +195,7 @@ export function createOrbEditor(root, hooks) {
   const info = el('span', 'oe-info');
   const abBtn = el('button', 'oe-ab');
   const soloBtn = el('button', 'oe-solo');
+  soloBtn.dataset.ic = 'headphones';
   const resetBtn = el('button', 'oe-reset');
   const cancelBtn = el('button', 'oe-cancel');
   const doneBtn = el('button', 'oe-done go');

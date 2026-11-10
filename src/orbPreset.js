@@ -279,7 +279,8 @@ export function duckOf(orbs, r, stepOf) {
 }
 
 const CURVE_RE = /^[qes]$/;
-const clip = (s, n) => (typeof s === 'string' ? s.trim().slice(0, n) : '');
+// (one line: a name goes into the song's code as a // comment, so it must never hold a line break)
+const clip = (s, n) => (typeof s === 'string' ? s.replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]+/g, ' ').trim().slice(0, n) : '');
 const BLOCK = 4; // bars per stem cell
 
 // The stem grid (the orb page's full song) as data: its sections, and per instrument row one

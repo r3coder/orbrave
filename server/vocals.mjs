@@ -6,6 +6,9 @@
 //   GET /vocals                  {"vocals": true} when there are files to play, else false
 //   GET /vocals/<word>.flac      one word ("hikari_2_dn4.flac"); no listing of the folder
 // Other sites get the files only when they are in allowedOrigins (CORS, like the preset API).
+// A request with no Origin (a same-origin GET sends none) must say it comes from this site's own
+// page (Sec-Fetch-Site: same-origin), so another site's <audio> tag or a link opened in a tab gets
+// nothing. This keeps browsers honest; it cannot stop a program that makes the headers up.
 import { createReadStream } from 'node:fs';
 import { readdir, stat } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -20,13 +23,13 @@ export function createVocals({ dir, allowedOrigins = [] }) {
   // a page from another site is refused unless it is allowed; an allowed one gets the CORS header
   const origin = (req, res) => {
     const o = req.headers.origin;
-    if (!o) return true;
+    res.setHeader('Vary', 'Origin, Sec-Fetch-Site');
+    if (!o) return req.headers['sec-fetch-site'] === 'same-origin';
     try {
       if (new URL(o).host === req.headers.host) return true;
     } catch {}
     if (!allowed.has(o)) return false;
     res.setHeader('Access-Control-Allow-Origin', o);
-    res.setHeader('Vary', 'Origin');
     return true;
   };
 
@@ -64,7 +67,7 @@ export function createVocals({ dir, allowedOrigins = [] }) {
       'Cache-Control': 'public, max-age=86400',
     });
     if (req.method === 'HEAD') res.end();
-    else createReadStream(join(dir, name)).pipe(res);
+    else createReadStream(join(dir, name)).on('error', () => res.destroy()).pipe(res);
     return true;
   };
 }

@@ -203,7 +203,7 @@ export function validatePreset(b) {
     customIds.add(c.id);
     return c;
   });
-  const usedIds = new Set([...layers, ...(b.song?.rows ?? []).map((r) => r?.id)]);
+  const usedIds = new Set([...layers, ...(Array.isArray(b.song?.rows) ? b.song.rows : []).map((r) => r?.id)]);
 
   const out = { name, author, description, kind, layers, drawn: drawn.filter((d) => layers.includes(d.id)), variation, ...(seeds ? { seeds } : {}), ...(gains ? { gains } : {}), ...(vars ? { vars } : {}) };
   const usedCustom = custom.filter((c) => usedIds.has(c.id));

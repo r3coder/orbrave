@@ -140,6 +140,7 @@ function renderCustomSearch(q) {
     h.className = 'hit-head';
     const b = document.createElement('b');
     b.textContent = ot(key);
+    if (key === 'customServer') b.dataset.ic = 'globe';
     h.append(b, ...extra);
     box.append(h);
   };
