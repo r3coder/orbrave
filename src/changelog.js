@@ -14,6 +14,7 @@ const NOTES = [
       '조성 오브와 템포 오브를 넣어도 테토 노래가 박자와 음높이를 따라가요',
       '테토 목소리는 공유 서버에서 받아요. 서버에 연결되지 않으면 보컬 오브가 떨어지지 않고, 검색에는 [X]와 회색으로 표시돼요',
       '테토 음성은 비상업 이용만 가능하고 AGPL·CC0 대상이 아니에요. 멜로디와 가사는 CC0예요',
+      '스템 편집 내용이 저장돼요: 스템을 닫거나 페이지를 닫아도, 다시 열면 편집하던 그대로(뮤트 포함) 돌아와요. 열어 둔 채 닫았다면 스템이 열린 채로 시작해요',
     ],
     en: [
       'Three vocal orbs: Teto Singing in the Light · Teto Humming La La La · Teto Stacking Chords (the 重音テト UTAU voicebank, sung in OpenUtau)',
@@ -21,6 +22,7 @@ const NOTES = [
       'Teto’s singing follows key and tempo orbs, on the beat and in tune',
       'Teto’s voice comes from the share server: without it the vocal orbs don’t fall, and the search shows them greyed out with [X]',
       'Teto’s audio is for non-commercial use only and not under the AGPL or CC0; the melodies and lyrics are CC0',
+      'Stem edits are saved: close the stems or the page and they come back as you left them (mutes too); stems left open reopen open',
     ],
     ja: [
       'ボーカルオーブが3つ:光の中で歌うテト · ラララと口ずさむテト · ハモりを重ねるテト (UTAU 音源 重音テト、OpenUtau で歌唱)',
@@ -28,6 +30,7 @@ const NOTES = [
       '調オーブやテンポオーブを入れても、テトの歌がリズムと音程についていきます',
       'テトの声は共有サーバーから読み込みます。つながらないときはボーカルオーブが落ちず、検索では [X] とグレーで表示されます',
       'テトの音声は非商用のみで、AGPL・CC0 の対象外です。メロディーと歌詞は CC0 です',
+      'ステムの編集内容が保存されます:ステムやページを閉じても、次に開くと編集していたまま (ミュートも) 戻ります。開いたまま閉じた場合はステムが開いた状態で始まります',
     ],
   }],
   ['0.5.6', '2026-11-08', {
